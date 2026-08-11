@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% load payroll_extras %}
+{% block title %}{{ period.title }}{% endblock %}
+{% block heading %}دوره {{ period.title }}{% endblock %}
+{% block subheading %}{{ period.start_date|jalali }} تا {{ period.end_date|jalali }} · سال مالی {{ period.fiscal_year.year|fadigits }}{% endblock %}
+
+{% block content %}
+<div class="status-card">
+  <div class="status-left">
+    <div class="status-badge"><span class="dot"></span>{{ period.get_status_display }}</div>
+    <h2>{{ period.title }}</h2>
+    <p>
+      {{ payslip_count|fanum }} فیش صادر شده ·
+      کارکرد تأییدشده: {{ progress.done|fanum }} از {{ progress.total|fanum }} نفر
+    </p>
+  </div>
+  <div class="status-right">
+    <a class="btn btn-ghost" href="{% url 'timesheet_grid' period.pk %}">کارکرد ماهانه</a>
+    {% if payslip_count %}<a class="btn btn-ghost" href="{% url 'payslip_list' period.pk %}">فیش‌ها</a>{% endif %}
+
+    {% if user.can_edit_payroll %}
+      {% if period.can_calculate %}
+      <form method="post" action="{% url 'period_calculate' period.pk %}">
+        {% csrf_token %}
+        <button class="btn btn-light" type="submit">اجرای محاسبه</button>
+      </form>
+      {% endif %}
+      {% if period.next_status %}
+      <form method="post" action="{% url 'period_transition' period.pk 'advance' %}"
+            onsubmit="return confirm('{% if period.status == "APPROVED" %}قفل دوره برگشت‌ناپذیر است. مطمئنید؟{% else %}وضعیت دوره تغییر کند؟{% endif %}');">
+        {% csrf_token %}
+        <button class="btn btn-light" type="submit">
+          {% if period.status == 'APPROVED' %}قفل نهایی دوره{% else %}تأیید و مرحله بعد{% endif %}
+        </button>
+      </form>
+      {% endif %}
+      {% if period.previous_status %}
+      <form method="post" action="{% url 'period_transition' period.pk 'revert' %}">
+        {% csrf_token %}
+        <button class="btn btn-ghost" type="submit">برگشت یک مرحله</button>
+      </form>
+      {% endif %}
+    {% endif %}
+  </div>
+</div>
+
+{% if period.is_locked %}
+<div class="note-box">
+  <b>این دوره قفل شده است.</b> فیش‌ها تغییرناپذیرند و پارامترهای قانونی داخل هر فیش
+  snapshot شده‌اند. اصلاح فقط با صدور فیش اصلاحی ممکن است.
+</div>
+{% endif %}
+
+<div class="stat-row">
+  <div class="stat"><b>ناخالص کل</b><span>{{ period.total_gross|rial }}</span></div>
+  <div class="stat"><b>جمع کسور</b><span>{{ period.total_deductions|rial }}</span></div>
+  <div class="stat"><b>خالص پرداختی</b><span>{{ period.total_net|rial }}</span></div>
+  <div class="stat"><b>هزینه کارفرما</b><span>{{ period.total_employer_cost|rial }}</span></div>
+</div>
+
+<div class="grid-2">
+  <div class="panel">
+    <div class="panel-head">
+      <h3>تفکیک بر اساس واحد سازمانی</h3>
+      {% if payslip_count %}<a class="link-btn" href="{% url 'report_export' period.pk 'payslips' %}">خروجی اکسل</a>{% endif %}
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>واحد</th><th>نفر</th><th>ناخالص</th><th>بیمه</th><th>مالیات</th><th>خالص</th></tr></thead>
+        <tbody>
+          {% for row in by_department %}
+          <tr>
+            <td><b>{{ row.department__name }}</b></td>
+            <td class="num">{{ row.count|fanum }}</td>
+            <td class="num">{{ row.gross|rial }}</td>
+            <td class="num">{{ row.insurance|rial }}</td>
+            <td class="num">{{ row.tax|rial }}</td>
+            <td class="num" style="font-weight:800;">{{ row.net|rial }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6"><div class="empty">هنوز محاسبه‌ای انجام نشده است.</div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>تاریخچه اجرای محاسبه</h3></div>
+    <div class="comp-list">
+      {% for run in runs %}
+      <div class="comp-item">
+        <div class="comp-item-l">
+          <span class="comp-dot" style="background:{% if run.status == 'SUCCESS' %}var(--green){% else %}var(--red){% endif %}"></span>
+          <div>
+            <b>{{ run.success_count|fanum }} فیش · {{ run.get_status_display }}</b>
+            <small>موتور نسخه {{ run.engine_version|fadigits }} · {{ run.run_by.display_name|default:"—" }}</small>
+          </div>
+        </div>
+        <small style="color:var(--muted);">{{ run.started_at|jalali }}</small>
+      </div>
+      {% empty %}
+      <div class="empty">هنوز محاسبه‌ای اجرا نشده است.</div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

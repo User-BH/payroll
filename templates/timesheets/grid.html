@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% load payroll_extras %}
+{% block title %}کارکرد {{ period.title }}{% endblock %}
+{% block heading %}کارکرد ماهانه — {{ period.title }}{% endblock %}
+{% block subheading %}{{ approved_count|fanum }} از {{ total|fanum }} ردیف تأیید شده · تغییرات با خروج از هر خانه ذخیره می‌شوند{% endblock %}
+
+{% block content %}
+{% if not period.is_editable %}
+<div class="note-box">
+  <b>وضعیت دوره «{{ period.get_status_display }}» است.</b>
+  کارکرد فقط در وضعیت «پیش‌نویس» قابل ویرایش است. برای تغییر، ابتدا دوره را یک مرحله برگردانید.
+</div>
+{% endif %}
+
+<div class="search-bar">
+  <input class="input" type="search" name="q" value="{{ q }}" placeholder="جستجوی پرسنل…"
+         hx-get="{% url 'timesheet_rows' period.pk %}"
+         hx-trigger="input changed delay:300ms, search"
+         hx-target="#ts-rows"
+         hx-indicator="#ts-spin">
+  <span class="spinner" id="ts-spin"></span>
+  <a class="btn btn-outline btn-sm" href="{% url 'period_detail' period.pk %}">بازگشت به دوره</a>
+</div>
+
+<div class="panel">
+  <div class="panel-head">
+    <h3>ریز کارکرد</h3>
+    <span class="hint">روز کارکرد · مرخصی · غیبت · اضافه‌کاری · شب‌کاری · جمعه‌کاری</span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>پرسنل</th><th>واحد</th>
+          <th>روز کارکرد</th><th>مرخصی</th><th>غیبت</th>
+          <th>اضافه‌کاری</th><th>شب‌کاری</th><th>جمعه‌کاری</th>
+          <th>وضعیت</th>
+        </tr>
+      </thead>
+      <tbody id="ts-rows">
+        {% include "timesheets/_rows.html" %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

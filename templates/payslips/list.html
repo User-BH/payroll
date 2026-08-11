@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% load payroll_extras %}
+{% block title %}فیش‌های {{ period.title }}{% endblock %}
+{% block heading %}فیش‌های حقوقی — {{ period.title }}{% endblock %}
+{% block subheading %}{{ total|fanum }} فیش صادر شده{% endblock %}
+
+{% block content %}
+<div class="search-bar">
+  <input class="input" type="search" name="q" value="{{ q }}" placeholder="جستجوی پرسنل…"
+         hx-get="{% url 'payslip_list' period.pk %}"
+         hx-trigger="input changed delay:300ms, search"
+         hx-target="#slip-rows"
+         hx-indicator="#slip-spin">
+  <span class="spinner" id="slip-spin"></span>
+  <a class="btn btn-outline btn-sm" href="{% url 'report_export' period.pk 'payslips' %}">خروجی اکسل</a>
+  <a class="btn btn-outline btn-sm" href="{% url 'period_detail' period.pk %}">بازگشت به دوره</a>
+</div>
+
+<div class="panel">
+  <div id="slip-rows">
+    {% include "payslips/_rows.html" %}
+  </div>
+</div>
+{% endblock %}

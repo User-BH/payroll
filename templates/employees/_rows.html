@@ -1,0 +1,53 @@
+{% load payroll_extras %}
+{% if rows %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>پرسنل</th><th>واحد</th><th>پست سازمانی</th><th>نوع قرارداد</th>
+        <th>حقوق پایه</th><th>تاریخ استخدام</th><th>وضعیت</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr onclick="location.href='{% url 'employee_detail' row.employee.pk %}'" style="cursor:pointer;">
+        <td>
+          <div class="cell-name">
+            <div class="av">{{ row.employee.initials }}</div>
+            <div><b>{{ row.employee.full_name }}</b><small>کد {{ row.employee.personnel_code|fadigits }}</small></div>
+          </div>
+        </td>
+        <td>{{ row.contract.department.name|default:"—" }}</td>
+        <td>{{ row.contract.job_title.name|default:"—" }}</td>
+        <td>{{ row.contract.get_contract_type_display|default:"—" }}</td>
+        <td class="num">{% if row.contract %}{{ row.contract.base_salary|rial }}{% else %}—{% endif %}</td>
+        <td class="num">{{ row.employee.hire_date|jalali }}</td>
+        <td>
+          {% if row.employee.status == 'ACTIVE' %}
+          <span class="badge ok"><span class="dot"></span>فعال</span>
+          {% elif row.employee.status == 'SUSPENDED' %}
+          <span class="badge lock"><span class="dot"></span>معلق</span>
+          {% else %}
+          <span class="badge muted"><span class="dot"></span>خاتمه‌یافته</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if page_obj.has_other_pages %}
+<div class="pager">
+  {% if page_obj.has_previous %}
+  <a href="?q={{ q }}&status={{ status }}&page={{ page_obj.previous_page_number }}">قبلی</a>
+  {% endif %}
+  <span class="current">{{ page_obj.number|fanum }} از {{ page_obj.paginator.num_pages|fanum }}</span>
+  {% if page_obj.has_next %}
+  <a href="?q={{ q }}&status={{ status }}&page={{ page_obj.next_page_number }}">بعدی</a>
+  {% endif %}
+</div>
+{% endif %}
+{% else %}
+<div class="empty">پرسنلی با این مشخصات پیدا نشد.</div>
+{% endif %}

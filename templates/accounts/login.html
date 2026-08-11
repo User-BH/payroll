@@ -1,0 +1,59 @@
+{% load static %}<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ورود به سامانه | تامین کالا باختر</title>
+<link rel="icon" href="{% static 'img/favicon.png' %}">
+<link rel="stylesheet" href="{% static 'css/app.css' %}">
+</head>
+<body data-theme="light">
+<div class="auth-wrap">
+  <div class="auth-art">
+    <div class="brand" style="border:none; padding:0; margin:0;">
+      <div class="brand-mark">
+        <img src="{% static 'img/logo-white.png' %}" alt="نشان تامین کالا باختر">
+      </div>
+      <div class="brand-text">
+        <b style="color:#fff;">تامین کالا باختر</b>
+        <span style="color:rgba(255,255,255,.75);">سامانه حقوق و دستمزد</span>
+      </div>
+    </div>
+    <div>
+      <h1>محاسبه حقوق، بدون اکسل و بدون حدس</h1>
+      <p>دوره‌های حقوقی، کارکرد ماهانه، فیش قابل دفاع و خروجی بیمه و مالیات — همه در یک جا.</p>
+    </div>
+    <div style="font-size:11.5px; opacity:.6; position:relative;">نسخه دمو — داده‌های نمونه</div>
+  </div>
+
+  <div class="auth-form">
+    <div class="auth-card">
+      <h2>ورود کارکنان مالی</h2>
+      <div class="lead">برای دسترسی به دوره‌ها و فیش‌ها وارد شوید.</div>
+
+      {% if error %}<div class="msg error" style="margin-bottom:18px;">{{ error }}</div>{% endif %}
+
+      <form method="post">
+        {% csrf_token %}
+        <div class="field">
+          <label for="username">نام کاربری</label>
+          <input class="input" id="username" name="username" value="{{ username }}" autocomplete="username" autofocus required>
+        </div>
+        <div class="field">
+          <label for="password">رمز عبور</label>
+          <input class="input" id="password" name="password" type="password" autocomplete="current-password" required>
+        </div>
+        <button class="btn btn-primary" style="width:100%; justify-content:center;" type="submit">ورود</button>
+      </form>
+
+      <div class="demo-hint">
+        <b style="color:var(--ink);">حساب‌های دمو</b><br>
+        کارشناس حقوق و دستمزد: <code>ali</code> / <code>demo1234</code><br>
+        مدیر سیستم: <code>admin</code> / <code>demo1234</code><br>
+        پرتال کارکنان: <a href="{% url 'portal_login' %}" style="color:var(--red);">ورود پرسنل</a>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

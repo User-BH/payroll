@@ -1,0 +1,43 @@
+{% load payroll_extras %}
+{% if page_obj.object_list %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>پرسنل</th><th>واحد</th><th>روز کارکرد</th><th>ناخالص</th>
+        <th>مبنای بیمه</th><th>مبنای مالیات</th><th>بیمه</th><th>مالیات</th><th>خالص پرداختی</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for slip in page_obj %}
+      <tr onclick="location.href='{% url 'payslip_detail' slip.pk %}'" style="cursor:pointer;">
+        <td>
+          <div class="cell-name">
+            <div class="av">{{ slip.employee.initials }}</div>
+            <div><b>{{ slip.employee.full_name }}</b><small>کد {{ slip.employee.personnel_code|fadigits }}</small></div>
+          </div>
+        </td>
+        <td>{{ slip.department.name }}</td>
+        <td class="num">{{ slip.work_days|fadec }}</td>
+        <td class="num">{{ slip.gross_total|rial }}</td>
+        <td class="num">{{ slip.insurable_base|rial }}</td>
+        <td class="num">{{ slip.taxable_base|rial }}</td>
+        <td class="num">{{ slip.ins_employee|rial }}</td>
+        <td class="num">{{ slip.tax_amount|rial }}</td>
+        <td class="num" style="font-weight:800;">{{ slip.net_payable|rial }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if page_obj.has_other_pages %}
+<div class="pager">
+  {% if page_obj.has_previous %}<a href="?q={{ q }}&page={{ page_obj.previous_page_number }}">قبلی</a>{% endif %}
+  <span class="current">{{ page_obj.number|fanum }} از {{ page_obj.paginator.num_pages|fanum }}</span>
+  {% if page_obj.has_next %}<a href="?q={{ q }}&page={{ page_obj.next_page_number }}">بعدی</a>{% endif %}
+</div>
+{% endif %}
+{% else %}
+<div class="empty">فیشی پیدا نشد.</div>
+{% endif %}

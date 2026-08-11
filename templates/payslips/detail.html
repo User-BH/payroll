@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% load payroll_extras %}
+{% block title %}فیش {{ payslip.employee.full_name }}{% endblock %}
+{% block heading %}فیش حقوقی {{ payslip.employee.full_name }}{% endblock %}
+{% block subheading %}{{ payslip.period.title }} · کد پرسنلی {{ payslip.employee.personnel_code|fadigits }}{% endblock %}
+
+{% block content %}
+<div class="search-bar no-print">
+  <a class="btn btn-outline btn-sm" href="{% url 'payslip_print' payslip.pk %}">نسخه چاپی</a>
+  <a class="btn btn-outline btn-sm" href="{% url 'payslip_list' payslip.period.pk %}">همه فیش‌های دوره</a>
+  <a class="btn btn-outline btn-sm" href="{% url 'employee_detail' payslip.employee.pk %}">پرونده پرسنلی</a>
+</div>
+
+<div class="panel">
+  <div class="slip-head">
+    <div class="slip-meta"><b>واحد سازمانی</b><span>{{ payslip.department.name }}</span></div>
+    <div class="slip-meta"><b>مرکز هزینه</b><span>{{ payslip.cost_center.name }}</span></div>
+    <div class="slip-meta"><b>روز کارکرد</b><span class="num">{{ payslip.work_days|fadec }}</span></div>
+    <div class="slip-meta"><b>مبنای بیمه</b><span class="num">{{ payslip.insurable_base|rial }}</span></div>
+    <div class="slip-meta"><b>مبنای مالیات</b><span class="num">{{ payslip.taxable_base|rial }}</span></div>
+    <div class="slip-meta"><b>شماره شبا</b><span class="num" style="direction:ltr; font-size:12px;">{{ payslip.iban_snapshot|default:"—" }}</span></div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th style="width:44%">شرح</th><th>مبنا</th><th>تعداد / ساعت</th><th>ضریب</th><th>مبلغ (ریال)</th></tr></thead>
+      <tbody>
+        <tr><td colspan="5" style="background:var(--paper); font-weight:800; font-size:12px; color:var(--muted);">مزایا</td></tr>
+        {% for line in earnings %}
+        <tr>
+          <td>
+            <b>{{ line.component_name }}</b>
+            {% if line.explanation %}<div class="explain">{{ line.explanation }}</div>{% endif %}
+          </td>
+          <td class="num">{{ line.base_amount|rial }}</td>
+          <td class="num">{{ line.quantity|fadec }}</td>
+          <td class="num">{{ line.rate|fadec }}</td>
+          <td class="num" style="font-weight:800;">{{ line.amount|rial }}</td>
+        </tr>
+        {% endfor %}
+        <tr>
+          <td style="font-weight:800;">جمع ناخالص</td>
+          <td colspan="3"></td>
+          <td class="num" style="font-weight:800;">{{ payslip.gross_total|rial }}</td>
+        </tr>
+
+        <tr><td colspan="5" style="background:var(--paper); font-weight:800; font-size:12px; color:var(--muted);">کسور</td></tr>
+        {% for line in deductions %}
+        <tr>
+          <td>
+            <b>{{ line.component_name }}</b>
+            {% if line.explanation %}<div class="explain">{{ line.explanation }}</div>{% endif %}
+          </td>
+          <td class="num">{{ line.base_amount|rial }}</td>
+          <td class="num">{{ line.quantity|fadec }}</td>
+          <td class="num">{{ line.rate|fadec }}</td>
+          <td class="num" style="font-weight:800; color:var(--red);">{{ line.amount|rial }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" style="color:var(--muted);">کسوری ثبت نشده است.</td></tr>
+        {% endfor %}
+        <tr>
+          <td style="font-weight:800;">جمع کسور</td>
+          <td colspan="3"></td>
+          <td class="num" style="font-weight:800; color:var(--red);">{{ payslip.total_deductions|rial }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="slip-total">
+    <div class="label">خالص قابل پرداخت</div>
+    <div class="value">{{ payslip.net_payable|rial }} <span style="font-size:13px; color:var(--muted);">ریال</span></div>
+  </div>
+</div>
+
+<div class="grid-2-even">
+  <div class="panel">
+    <div class="panel-head"><h3>هزینه کارفرما</h3><span class="hint">در فیش پرسنل چاپ نمی‌شود</span></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>شرح</th><th>مبنا</th><th>نرخ</th><th>مبلغ</th></tr></thead>
+        <tbody>
+          {% for line in employer_costs %}
+          <tr>
+            <td><b>{{ line.component_name }}</b>{% if line.explanation %}<div class="explain">{{ line.explanation }}</div>{% endif %}</td>
+            <td class="num">{{ line.base_amount|rial }}</td>
+            <td class="num">{{ line.rate|percent }}٪</td>
+            <td class="num" style="font-weight:800;">{{ line.amount|rial }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="4" style="color:var(--muted);">—</td></tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr><td>کل هزینه کارفرما</td><td colspan="2"></td><td class="num">{{ payslip.employer_total_cost|rial }}</td></tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h3>پارامترهای قانونی این فیش</h3>
+      <span class="hint">snapshot لحظه محاسبه</span>
+    </div>
+    <div class="panel-body">
+      <div class="note-box" style="margin-bottom:14px;">
+        این اعداد داخل خودِ فیش ذخیره شده‌اند. اگر سال بعد نرخ‌ها عوض شوند،
+        این فیش یک ریال هم تغییر نمی‌کند.
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+        {% for key, value in payslip.params_snapshot.items %}
+          {% if key != "shift_rates" %}
+          <div class="slip-meta">
+            <b>{{ key|param_label }}</b>
+            <span class="num" style="font-size:12.5px;">{{ value|snapshot_value }}</span>
+          </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+      <div style="margin-top:14px; font-size:11px; color:var(--muted);">
+        اثر انگشت محاسبه: <span class="num" style="direction:ltr; display:inline-block;">{{ payslip.calc_hash }}</span>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

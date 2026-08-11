@@ -1,0 +1,56 @@
+{% load payroll_extras %}
+{# یک سطر کارکرد. ذخیره درجا با HTMX — بدون رفرش صفحه. #}
+<tr id="ts-{{ ts.pk }}" class="{% if saved %}saved-flash{% endif %}"
+    hx-post="{% url 'timesheet_save' ts.pk %}"
+    hx-trigger="change"
+    hx-target="this"
+    hx-swap="outerHTML"
+    hx-include="closest tr">
+  <td>
+    <div class="cell-name">
+      <div class="av">{{ ts.employee.initials }}</div>
+      <div>
+        <b>{{ ts.employee.full_name }}</b>
+        <small>کد {{ ts.employee.personnel_code|fadigits }}</small>
+      </div>
+    </div>
+  </td>
+  <td>{{ ts.contract.department.name|default:"—" }}</td>
+
+  <td><input class="input-cell" name="work_days" value="{{ ts.work_days|floatformat:"-2" }}"
+             {% if not period.is_editable %}readonly{% endif %} inputmode="decimal"></td>
+  <td><input class="input-cell" name="paid_leave_days" value="{{ ts.paid_leave_days|floatformat:"-2" }}"
+             {% if not period.is_editable %}readonly{% endif %} inputmode="decimal"></td>
+  <td><input class="input-cell" name="absence_days" value="{{ ts.absence_days|floatformat:"-2" }}"
+             {% if not period.is_editable %}readonly{% endif %} inputmode="decimal"></td>
+  <td><input class="input-cell" name="overtime_hours" value="{{ ts.overtime_hours|floatformat:"-2" }}"
+             {% if not period.is_editable %}readonly{% endif %} inputmode="decimal"></td>
+  <td><input class="input-cell" name="night_hours" value="{{ ts.night_hours|floatformat:"-2" }}"
+             {% if not period.is_editable %}readonly{% endif %} inputmode="decimal"></td>
+  <td><input class="input-cell" name="friday_hours" value="{{ ts.friday_hours|floatformat:"-2" }}"
+             {% if not period.is_editable %}readonly{% endif %} inputmode="decimal"></td>
+
+  <td>
+    {% if error %}
+      <span class="badge wait"><span class="dot"></span>{{ error }}</span>
+    {% elif ts.status == 'APPROVED' %}
+      <button type="button" class="badge ok" style="border:none;"
+              hx-post="{% url 'timesheet_save' ts.pk %}"
+              hx-vals='{"approve": "0"}'
+              hx-target="#ts-{{ ts.pk }}"
+              hx-swap="outerHTML"
+              hx-include="closest tr">
+        <span class="dot"></span>تأییدشده
+      </button>
+    {% else %}
+      <button type="button" class="badge wait" style="border:none;"
+              hx-post="{% url 'timesheet_save' ts.pk %}"
+              hx-vals='{"approve": "1"}'
+              hx-target="#ts-{{ ts.pk }}"
+              hx-swap="outerHTML"
+              hx-include="closest tr">
+        <span class="dot"></span>در انتظار تأیید
+      </button>
+    {% endif %}
+  </td>
+</tr>

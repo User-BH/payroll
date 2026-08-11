@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% load payroll_extras %}
+{% block title %}دوره‌های حقوقی{% endblock %}
+{% block heading %}دوره‌های حقوقی{% endblock %}
+{% block subheading %}هر دوره یک ماشین حالت است؛ پس از قفل، فقط با فیش اصلاحی تغییر می‌کند{% endblock %}
+
+{% block content %}
+<div class="panel">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>دوره</th><th>وضعیت</th><th>تعداد فیش</th><th>ناخالص کل</th><th>خالص کل</th><th>هزینه کارفرما</th><th>محاسبه</th></tr>
+      </thead>
+      <tbody>
+        {% for period in periods %}
+        <tr onclick="location.href='{% url 'period_detail' period.pk %}'" style="cursor:pointer;">
+          <td><b>{{ period.title }}</b></td>
+          <td><span class="badge {{ period.status_tone }}"><span class="dot"></span>{{ period.get_status_display }}</span></td>
+          <td class="num">{{ period.payslip_count|fanum }}</td>
+          <td class="num">{{ period.total_gross|rial }}</td>
+          <td class="num">{{ period.total_net|rial }}</td>
+          <td class="num">{{ period.total_employer_cost|rial }}</td>
+          <td class="num" style="color:var(--muted); font-weight:600;">{{ period.calculated_at|jalali }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7"><div class="empty">دوره‌ای تعریف نشده است.</div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% load payroll_extras %}
+{% block title %}{{ employee.full_name }}{% endblock %}
+{% block heading %}{{ employee.full_name }}{% endblock %}
+{% block subheading %}کد پرسنلی {{ employee.personnel_code|fadigits }} · کد ملی {{ employee.national_id|fadigits }}{% endblock %}
+
+{% block content %}
+<div class="stat-row">
+  <div class="stat"><b>واحد سازمانی</b><span style="font-size:14px;">{{ current_contract.department.name|default:"—" }}</span></div>
+  <div class="stat"><b>مرکز هزینه</b><span style="font-size:14px;">{{ current_contract.cost_center.name|default:"—" }}</span></div>
+  <div class="stat"><b>حقوق پایه جاری</b><span>{{ current_contract.base_salary|rial }}</span></div>
+  <div class="stat"><b>تاریخ استخدام</b><span style="font-size:14px;">{{ employee.hire_date|jalali }}</span></div>
+  <div class="stat"><b>سابقه</b><span>{{ current_contract.seniority_years|default:0|fanum }} سال</span></div>
+</div>
+
+<div class="grid-2">
+  <div>
+    <div class="panel">
+      <div class="panel-head">
+        <h3>تاریخچه قراردادها</h3>
+        <span class="hint">هر تغییر حقوق یا واحد، یک قرارداد جدید است</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>از تاریخ</th><th>تا تاریخ</th><th>نوع</th><th>واحد</th><th>حقوق پایه</th><th>وضعیت</th></tr>
+          </thead>
+          <tbody>
+            {% for contract in contracts %}
+            <tr>
+              <td class="num">{{ contract.effective_from|jalali }}</td>
+              <td class="num">{% if contract.effective_to %}{{ contract.effective_to|jalali }}{% else %}<span style="color:var(--muted);">جاری</span>{% endif %}</td>
+              <td>{{ contract.get_contract_type_display }}</td>
+              <td>{{ contract.department.name }}</td>
+              <td class="num">{{ contract.base_salary|rial }}</td>
+              <td>
+                {% if contract.status == 'ACTIVE' %}<span class="badge ok"><span class="dot"></span>فعال</span>
+                {% else %}<span class="badge muted"><span class="dot"></span>{{ contract.get_status_display }}</span>{% endif %}
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6"><div class="empty">قراردادی ثبت نشده است.</div></td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h3>فیش‌های صادرشده</h3></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>دوره</th><th>روز کارکرد</th><th>ناخالص</th><th>بیمه</th><th>مالیات</th><th>خالص</th></tr></thead>
+          <tbody>
+            {% for slip in payslips %}
+            <tr onclick="location.href='{% url 'payslip_detail' slip.pk %}'" style="cursor:pointer;">
+              <td>{{ slip.period.title }}</td>
+              <td class="num">{{ slip.work_days|fadec }}</td>
+              <td class="num">{{ slip.gross_total|rial }}</td>
+              <td class="num">{{ slip.ins_employee|rial }}</td>
+              <td class="num">{{ slip.tax_amount|rial }}</td>
+              <td class="num" style="font-weight:800;">{{ slip.net_payable|rial }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6"><div class="empty">هنوز فیشی صادر نشده است.</div></td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="panel">
+      <div class="panel-head"><h3>اطلاعات هویتی</h3></div>
+      <div class="panel-body" style="display:grid; gap:13px;">
+        <div class="slip-meta"><b>نام پدر</b><span>{{ employee.father_name|default:"—" }}</span></div>
+        <div class="slip-meta"><b>تاریخ تولد</b><span>{{ employee.birth_date|jalali }}</span></div>
+        <div class="slip-meta"><b>وضعیت تأهل</b><span>{{ employee.get_marital_status_display }}</span></div>
+        <div class="slip-meta"><b>شماره بیمه</b><span class="num">{{ employee.insurance_number|fadigits|default:"—" }}</span></div>
+        <div class="slip-meta"><b>موبایل</b><span class="num">{{ employee.mobile|fadigits|default:"—" }}</span></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h3>افراد تحت تکفل</h3><span class="hint">مبنای حق اولاد</span></div>
+      <div class="comp-list">
+        {% for dependent in dependents %}
+        <div class="comp-item">
+          <div class="comp-item-l">
+            <span class="comp-dot" style="background:{% if dependent.child_allowance_eligible %}var(--green){% else %}var(--muted){% endif %}"></span>
+            <div>
+              <b>{{ dependent.first_name }} {{ dependent.last_name }}</b>
+              <small>{{ dependent.get_relation_display }}{% if dependent.child_allowance_eligible %} · مشمول حق اولاد{% endif %}</small>
+            </div>
+          </div>
+          <small style="color:var(--muted);">{{ dependent.birth_date|jalali }}</small>
+        </div>
+        {% empty %}
+        <div class="empty">فرد تحت تکفلی ثبت نشده است.</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h3>حساب بانکی</h3></div>
+      <div class="comp-list">
+        {% for account in bank_accounts %}
+        <div class="comp-item">
+          <div class="comp-item-l">
+            <span class="comp-dot" style="background:var(--red);"></span>
+            <div><b>{{ account.bank_name }}</b><small class="num" style="direction:ltr; display:block;">{{ account.iban }}</small></div>
+          </div>
+          {% if account.is_default %}<span class="badge ok"><span class="dot"></span>پیش‌فرض</span>{% endif %}
+        </div>
+        {% empty %}
+        <div class="empty">حساب بانکی ثبت نشده — این پرسنل در فایل پرداخت بانک نمی‌آید.</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    {% if loans %}
+    <div class="panel">
+      <div class="panel-head"><h3>وام و مساعده</h3></div>
+      <div class="comp-list">
+        {% for loan in loans %}
+        <div class="comp-item">
+          <div class="comp-item-l">
+            <span class="comp-dot" style="background:var(--amber);"></span>
+            <div>
+              <b>{{ loan.get_loan_type_display }} — {{ loan.principal|rial }}</b>
+              <small>{{ loan.total_installments|fanum }} قسط · مانده {{ loan.remaining|rial }} ریال</small>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

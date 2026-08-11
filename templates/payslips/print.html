@@ -1,0 +1,77 @@
+{% load static payroll_extras %}<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>فیش حقوقی {{ payslip.employee.full_name }} — {{ payslip.period.title }}</title>
+<link rel="stylesheet" href="{% static 'css/app.css' %}">
+<style>
+  body{background:#fff; padding:26px;}
+  .sheet{max-width:820px; margin:0 auto;}
+  .sheet-head{display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid var(--ink); padding-bottom:14px; margin-bottom:18px;}
+  .sheet-head h1{font-size:18px; font-weight:800;}
+  .sheet-head .co{font-size:12px; color:var(--muted); margin-top:4px;}
+  .meta-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:18px;}
+  .meta-grid div b{display:block; font-size:10px; color:var(--muted); margin-bottom:3px;}
+  .meta-grid div span{font-size:12.5px; font-weight:700;}
+  table{border:1px solid var(--line);}
+  thead th{background:var(--paper); padding:9px 12px;}
+  tbody td{padding:8px 12px; font-size:12px;}
+  .sign{display:flex; justify-content:space-between; margin-top:44px; font-size:11.5px; color:var(--muted);}
+</style>
+</head>
+<body data-theme="light">
+<div class="sheet">
+  <div class="sheet-head">
+    <div>
+      <h1>فیش حقوقی — {{ payslip.period.title }}</h1>
+      <div class="co">{{ payslip.period.company.name }}</div>
+    </div>
+    <button class="btn btn-outline btn-sm no-print" onclick="window.print()">چاپ</button>
+  </div>
+
+  <div class="meta-grid">
+    <div><b>نام و نام خانوادگی</b><span>{{ payslip.employee.full_name }}</span></div>
+    <div><b>کد پرسنلی</b><span class="num">{{ payslip.employee.personnel_code|fadigits }}</span></div>
+    <div><b>کد ملی</b><span class="num">{{ payslip.employee.national_id|fadigits }}</span></div>
+    <div><b>شماره بیمه</b><span class="num">{{ payslip.employee.insurance_number|fadigits|default:"—" }}</span></div>
+    <div><b>واحد سازمانی</b><span>{{ payslip.department.name }}</span></div>
+    <div><b>پست سازمانی</b><span>{{ payslip.contract.job_title.name }}</span></div>
+    <div><b>روز کارکرد</b><span class="num">{{ payslip.work_days|fadec }}</span></div>
+    <div><b>شماره شبا</b><span class="num" style="direction:ltr; font-size:11px;">{{ payslip.iban_snapshot|default:"—" }}</span></div>
+  </div>
+
+  <table>
+    <thead><tr><th style="width:50%">شرح</th><th>تعداد / ساعت</th><th>مبلغ (ریال)</th></tr></thead>
+    <tbody>
+      <tr><td colspan="3" style="background:var(--paper); font-weight:800; font-size:11px;">مزایا</td></tr>
+      {% for line in earnings %}
+      <tr>
+        <td>{{ line.component_name }}{% if line.explanation %}<div class="explain">{{ line.explanation }}</div>{% endif %}</td>
+        <td class="num">{{ line.quantity|fadec }}</td>
+        <td class="num">{{ line.amount|rial }}</td>
+      </tr>
+      {% endfor %}
+      <tr><td style="font-weight:800;">جمع ناخالص</td><td></td><td class="num" style="font-weight:800;">{{ payslip.gross_total|rial }}</td></tr>
+
+      <tr><td colspan="3" style="background:var(--paper); font-weight:800; font-size:11px;">کسور</td></tr>
+      {% for line in deductions %}
+      <tr>
+        <td>{{ line.component_name }}{% if line.explanation %}<div class="explain">{{ line.explanation }}</div>{% endif %}</td>
+        <td class="num">{{ line.quantity|fadec }}</td>
+        <td class="num">{{ line.amount|rial }}</td>
+      </tr>
+      {% endfor %}
+      <tr><td style="font-weight:800;">جمع کسور</td><td></td><td class="num" style="font-weight:800;">{{ payslip.total_deductions|rial }}</td></tr>
+    </tbody>
+    <tfoot>
+      <tr><td style="font-size:14px;">خالص قابل پرداخت</td><td></td><td class="num" style="font-size:15px;">{{ payslip.net_payable|rial }}</td></tr>
+    </tfoot>
+  </table>
+
+  <div class="sign">
+    <span>مهر و امضای کارفرما</span>
+    <span>امضای دریافت‌کننده</span>
+  </div>
+</div>
+</body>
+</html>

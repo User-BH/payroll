@@ -1,0 +1,44 @@
+{% load payroll_extras %}
+<tr id="comp-{{ component.pk }}" {% if not component.is_active %}style="opacity:.5;"{% endif %}>
+  <td>
+    <div class="cell-name">
+      <span class="comp-dot" style="background:{{ component.color }}; width:10px; height:10px;"></span>
+      <div>
+        <b>{{ component.name }}</b>
+        <small>{{ component.tag_label }}</small>
+      </div>
+    </div>
+  </td>
+  <td><span class="num" style="direction:ltr; display:inline-block; font-size:11px; color:var(--muted);">{{ component.code }}</span></td>
+  <td>
+    {{ component.get_calc_type_display }}
+    {% if component.engine_rule_key %}
+    <div class="explain" style="direction:ltr; text-align:right;">{{ component.engine_rule_key }}</div>
+    {% endif %}
+  </td>
+  <td class="num">
+    {% if component.calc_type == 'FIXED' %}{{ component.fixed_amount|rial }}
+    {% elif component.rate %}{{ component.rate|fadec }}
+    {% else %}—{% endif %}
+  </td>
+  <td>{% if component.is_insurable %}<span class="badge ok"><span class="dot"></span>مشمول</span>{% else %}<span class="badge muted">معاف</span>{% endif %}</td>
+  <td>{% if component.is_taxable %}<span class="badge ok"><span class="dot"></span>مشمول</span>{% else %}<span class="badge muted">معاف</span>{% endif %}</td>
+  <td>{% if component.affects_eid %}<span class="badge info">بله</span>{% else %}<span class="badge muted">خیر</span>{% endif %}</td>
+  <td>{% if component.affects_severance %}<span class="badge info">بله</span>{% else %}<span class="badge muted">خیر</span>{% endif %}</td>
+  <td class="num">{{ component.sequence|fanum }}</td>
+  <td>
+    {% if user.can_edit_payroll and not component.is_system %}
+    <button type="button" class="badge {% if component.is_active %}ok{% else %}muted{% endif %}" style="border:none;"
+            hx-post="{% url 'component_toggle' component.pk %}"
+            hx-target="#comp-{{ component.pk }}"
+            hx-swap="outerHTML">
+      <span class="dot"></span>{% if component.is_active %}فعال{% else %}غیرفعال{% endif %}
+    </button>
+    {% else %}
+    <span class="badge {% if component.is_active %}ok{% else %}muted{% endif %}">
+      <span class="dot"></span>{% if component.is_active %}فعال{% else %}غیرفعال{% endif %}
+      {% if component.is_system %} · سیستمی{% endif %}
+    </span>
+    {% endif %}
+  </td>
+</tr>

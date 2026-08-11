@@ -1,0 +1,69 @@
+{% extends "portal/base.html" %}
+{% load payroll_extras %}
+{% block title %}فیش {{ payslip.period.title }}{% endblock %}
+
+{% block content %}
+<div class="search-bar no-print">
+  <a class="btn btn-outline btn-sm" href="{% url 'portal_home' %}">بازگشت</a>
+  <a class="btn btn-outline btn-sm" href="#" onclick="window.print(); return false;">چاپ فیش</a>
+</div>
+
+<div class="panel">
+  <div class="panel-head">
+    <h3>فیش حقوقی {{ payslip.period.title }}</h3>
+    <span class="hint">{{ payslip.department.name }}</span>
+  </div>
+
+  <div class="slip-head">
+    <div class="slip-meta"><b>روز کارکرد</b><span class="num">{{ payslip.work_days|fadec }}</span></div>
+    <div class="slip-meta"><b>مبنای بیمه</b><span class="num">{{ payslip.insurable_base|rial }}</span></div>
+    <div class="slip-meta"><b>مبنای مالیات</b><span class="num">{{ payslip.taxable_base|rial }}</span></div>
+    <div class="slip-meta"><b>واریز به شبا</b><span class="num" style="direction:ltr; font-size:11.5px;">{{ payslip.iban_snapshot|default:"—" }}</span></div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th style="width:55%">شرح</th><th>تعداد / ساعت</th><th>مبلغ (ریال)</th></tr></thead>
+      <tbody>
+        <tr><td colspan="3" style="background:var(--paper); font-weight:800; font-size:12px; color:var(--muted);">مزایا</td></tr>
+        {% for line in earnings %}
+        <tr>
+          <td>
+            <b>{{ line.component_name }}</b>
+            {% if line.explanation %}<div class="explain">{{ line.explanation }}</div>{% endif %}
+          </td>
+          <td class="num">{{ line.quantity|fadec }}</td>
+          <td class="num" style="font-weight:800;">{{ line.amount|rial }}</td>
+        </tr>
+        {% endfor %}
+        <tr><td style="font-weight:800;">جمع ناخالص</td><td></td><td class="num" style="font-weight:800;">{{ payslip.gross_total|rial }}</td></tr>
+
+        <tr><td colspan="3" style="background:var(--paper); font-weight:800; font-size:12px; color:var(--muted);">کسور</td></tr>
+        {% for line in deductions %}
+        <tr>
+          <td>
+            <b>{{ line.component_name }}</b>
+            {% if line.explanation %}<div class="explain">{{ line.explanation }}</div>{% endif %}
+          </td>
+          <td class="num">{{ line.quantity|fadec }}</td>
+          <td class="num" style="font-weight:800; color:var(--red);">{{ line.amount|rial }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="3" style="color:var(--muted);">کسوری ثبت نشده است.</td></tr>
+        {% endfor %}
+        <tr><td style="font-weight:800;">جمع کسور</td><td></td><td class="num" style="font-weight:800; color:var(--red);">{{ payslip.total_deductions|rial }}</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="slip-total">
+    <div class="label">خالص قابل پرداخت</div>
+    <div class="value">{{ payslip.net_payable|rial }} <span style="font-size:13px; color:var(--muted);">ریال</span></div>
+  </div>
+</div>
+
+<div class="note-box">
+  زیر هر مبلغ، نحوه محاسبه‌اش نوشته شده است. اگر عددی با انتظار شما نمی‌خواند،
+  همان توضیح را به واحد مالی اعلام کنید.
+</div>
+{% endblock %}

@@ -1,0 +1,44 @@
+{% extends "portal/base.html" %}
+{% load payroll_extras %}
+{% block title %}فیش‌های من{% endblock %}
+
+{% block content %}
+{% if latest %}
+<div class="status-card">
+  <div class="status-left">
+    <div class="status-badge"><span class="dot"></span>آخرین فیش صادرشده</div>
+    <h2>{{ latest.period.title }}</h2>
+    <p>خالص پرداختی: {{ latest.net_payable|rial }} ریال · {{ latest.work_days|fadec }} روز کارکرد</p>
+  </div>
+  <div class="status-right">
+    <a class="btn btn-light" href="{% url 'portal_payslip' latest.pk %}">مشاهده فیش</a>
+  </div>
+</div>
+{% endif %}
+
+<div class="panel">
+  <div class="panel-head">
+    <h3>فیش‌های حقوقی من</h3>
+    <span class="hint">فیش‌ها پس از تأیید نهایی دوره در دسترس قرار می‌گیرند</span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>دوره</th><th>روز کارکرد</th><th>ناخالص</th><th>بیمه</th><th>مالیات</th><th>خالص پرداختی</th></tr></thead>
+      <tbody>
+        {% for slip in payslips %}
+        <tr onclick="location.href='{% url 'portal_payslip' slip.pk %}'" style="cursor:pointer;">
+          <td><b>{{ slip.period.title }}</b></td>
+          <td class="num">{{ slip.work_days|fadec }}</td>
+          <td class="num">{{ slip.gross_total|rial }}</td>
+          <td class="num">{{ slip.ins_employee|rial }}</td>
+          <td class="num">{{ slip.tax_amount|rial }}</td>
+          <td class="num" style="font-weight:800;">{{ slip.net_payable|rial }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6"><div class="empty">هنوز فیش تأییدشده‌ای برای شما صادر نشده است.</div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

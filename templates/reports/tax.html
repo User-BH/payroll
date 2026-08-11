@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% load payroll_extras %}
+{% block title %}لیست مالیات {{ period.title }}{% endblock %}
+{% block heading %}لیست مالیات حقوق — {{ period.title }}{% endblock %}
+{% block subheading %}شماره پرونده مالیاتی {{ period.company.tax_file_number|fadigits|default:"ثبت نشده" }} · {{ count|fanum }} نفر مشمول{% endblock %}
+
+{% block content %}
+<div class="search-bar no-print">
+  <a class="btn btn-primary btn-sm" href="{% url 'report_export' period.pk 'tax' %}">دانلود اکسل</a>
+  <a class="btn btn-outline btn-sm" href="{% url 'reports' %}">همه گزارش‌ها</a>
+</div>
+
+<div class="stat-row">
+  <div class="stat"><b>نفرات مشمول مالیات</b><span>{{ count|fanum }}</span></div>
+  <div class="stat"><b>جمع مبنای مالیات</b><span>{{ totals.taxable|rial }}</span></div>
+  <div class="stat"><b>جمع مالیات</b><span>{{ totals.tax|rial }}</span></div>
+</div>
+
+<div class="panel">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>ردیف</th><th>پرسنل</th><th>کد ملی</th><th>ناخالص</th><th>مبنای مالیات</th><th>مالیات</th></tr>
+      </thead>
+      <tbody>
+        {% for slip in rows %}
+        <tr onclick="location.href='{% url 'payslip_detail' slip.pk %}'" style="cursor:pointer;">
+          <td class="num">{{ forloop.counter|fanum }}</td>
+          <td>
+            <div class="cell-name">
+              <div class="av">{{ slip.employee.initials }}</div>
+              <div><b>{{ slip.employee.full_name }}</b><small>کد {{ slip.employee.personnel_code|fadigits }}</small></div>
+            </div>
+          </td>
+          <td class="num">{{ slip.employee.national_id|fadigits }}</td>
+          <td class="num">{{ slip.gross_total|rial }}</td>
+          <td class="num">{{ slip.taxable_base|rial }}</td>
+          <td class="num" style="font-weight:800;">{{ slip.tax_amount|rial }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6"><div class="empty">هیچ‌کس در این دوره مشمول مالیات نشده است.</div></td></tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr><td colspan="4">جمع کل</td><td class="num">{{ totals.taxable|rial }}</td><td class="num">{{ totals.tax|rial }}</td></tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,374 @@
+from decimal import Decimal
+
+from django.core.exceptions import ValidationError
+from django.db import models
+
+from apps.employees.models import Employee, EmploymentContract
+from apps.org.models import Company, CostCenter, Department
+from apps.payroll_config.models import FiscalYear, LegalParameter, SalaryComponent
+
+JALALI_MONTHS = [
+    "فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
+    "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند",
+]
+
+
+class PayrollPeriod(models.Model):
+    """دوره حقوقی — یک ماشین حالت.
+
+    عبور از هر حالت به بعدی برگشت‌پذیر است، به‌جز LOCKED که برگشت‌ناپذیر است و
+    از آن به بعد فقط فیش اصلاحی صادر می‌شود.
+    """
+
+    class Status(models.TextChoices):
+        DRAFT = "DRAFT", "پیش‌نویس"
+        TIMESHEET_LOCKED = "TIMESHEET_LOCKED", "کارکرد قفل‌شده"
+        CALCULATED = "CALCULATED", "محاسبه‌شده"
+        APPROVED = "APPROVED", "تأییدشده"
+        LOCKED = "LOCKED", "قفل‌شده"
+        PAID = "PAID", "پرداخت‌شده"
+
+    # ترتیب پیشروی حالت‌ها
+    FLOW = [
+        Status.DRAFT,
+        Status.TIMESHEET_LOCKED,
+        Status.CALCULATED,
+        Status.APPROVED,
+        Status.LOCKED,
+        Status.PAID,
+    ]
+
+    company = models.ForeignKey(
+        Company, on_delete=models.PROTECT, related_name="periods", verbose_name="شرکت"
+    )
+    fiscal_year = models.ForeignKey(
+        FiscalYear, on_delete=models.PROTECT, related_name="periods", verbose_name="سال مالی"
+    )
+    year = models.PositiveSmallIntegerField("سال (جلالی)")
+    month = models.PositiveSmallIntegerField("ماه")
+
+    start_date = models.DateField("شروع دوره")
+    end_date = models.DateField("پایان دوره")
+    payment_date = models.DateField("تاریخ پرداخت", null=True, blank=True)
+
+    status = models.CharField("وضعیت", max_length=20, choices=Status.choices, default=Status.DRAFT)
+    legal_parameter = models.ForeignKey(
+        LegalParameter, on_delete=models.PROTECT, null=True, blank=True,
+        related_name="periods", verbose_name="پارامتر اعمال‌شده",
+    )
+
+    # جمع‌های ذخیره‌شده برای کارت‌های داشبورد (بعد از هر محاسبه به‌روز می‌شوند)
+    total_gross = models.DecimalField("ناخالص کل", max_digits=20, decimal_places=0, default=0)
+    total_net = models.DecimalField("خالص کل", max_digits=20, decimal_places=0, default=0)
+    total_deductions = models.DecimalField("جمع کسور", max_digits=20, decimal_places=0, default=0)
+    total_employer_cost = models.DecimalField("هزینه کارفرما", max_digits=20, decimal_places=0, default=0)
+    employee_count = models.PositiveIntegerField("تعداد پرسنل", default=0)
+
+    calculated_at = models.DateTimeField("زمان محاسبه", null=True, blank=True)
+    approved_at = models.DateTimeField("زمان تأیید", null=True, blank=True)
+    locked_at = models.DateTimeField("زمان قفل", null=True, blank=True)
+    locked_by = models.ForeignKey(
+        "accounts.User", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="locked_periods", verbose_name="قفل‌کننده",
+    )
+    notes = models.TextField("توضیحات", blank=True)
+
+    class Meta:
+        verbose_name = "دوره حقوقی"
+        verbose_name_plural = "دوره‌های حقوقی"
+        unique_together = [("company", "year", "month")]
+        ordering = ["-year", "-month"]
+
+    def __str__(self):
+        return self.title
+
+    @property
+    def title(self):
+        from apps.payroll.utils import fa_digits
+
+        name = JALALI_MONTHS[self.month - 1] if 1 <= self.month <= 12 else str(self.month)
+        return f"{name} {fa_digits(self.year)}"
+
+    @property
+    def month_name(self):
+        return JALALI_MONTHS[self.month - 1] if 1 <= self.month <= 12 else str(self.month)
+
+    @property
+    def is_locked(self):
+        return self.status in {self.Status.LOCKED, self.Status.PAID}
+
+    @property
+    def is_editable(self):
+        """آیا کارکرد و داده‌های دوره هنوز قابل تغییرند؟"""
+        return self.status == self.Status.DRAFT
+
+    @property
+    def can_calculate(self):
+        return self.status in {
+            self.Status.DRAFT,
+            self.Status.TIMESHEET_LOCKED,
+            self.Status.CALCULATED,
+        }
+
+    @property
+    def next_status(self):
+        try:
+            index = self.FLOW.index(self.Status(self.status))
+        except ValueError:
+            return None
+        return self.FLOW[index + 1] if index + 1 < len(self.FLOW) else None
+
+    @property
+    def previous_status(self):
+        """برگشت فقط تا قبل از قفل مجاز است."""
+        if self.status in {self.Status.LOCKED, self.Status.PAID, self.Status.DRAFT}:
+            return None
+        index = self.FLOW.index(self.Status(self.status))
+        return self.FLOW[index - 1]
+
+    @property
+    def status_tone(self):
+        return {
+            self.Status.DRAFT: "wait",
+            self.Status.TIMESHEET_LOCKED: "wait",
+            self.Status.CALCULATED: "info",
+            self.Status.APPROVED: "ok",
+            self.Status.LOCKED: "lock",
+            self.Status.PAID: "ok",
+        }.get(self.status, "wait")
+
+
+class PayrollRun(models.Model):
+    """لاگ یک بار اجرای محاسبه.
+
+    جدا از دوره است چون محاسبه ممکن است چندین بار اجرا شود و باید بدانیم کدام
+    اجرا کدام فیش را ساخته و با کدام نسخه از موتور.
+    """
+
+    class Status(models.TextChoices):
+        RUNNING = "RUNNING", "در حال اجرا"
+        SUCCESS = "SUCCESS", "موفق"
+        FAILED = "FAILED", "ناموفق"
+
+    period = models.ForeignKey(
+        PayrollPeriod, on_delete=models.CASCADE, related_name="runs", verbose_name="دوره"
+    )
+    started_at = models.DateTimeField("شروع", auto_now_add=True)
+    finished_at = models.DateTimeField("پایان", null=True, blank=True)
+    status = models.CharField("وضعیت", max_length=10, choices=Status.choices, default=Status.RUNNING)
+    engine_version = models.CharField("نسخه موتور", max_length=20, blank=True)
+    run_by = models.ForeignKey(
+        "accounts.User", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="payroll_runs", verbose_name="اجراکننده",
+    )
+    success_count = models.PositiveIntegerField("موفق", default=0)
+    error_count = models.PositiveIntegerField("خطا", default=0)
+    error_detail = models.JSONField("جزئیات خطا", default=list, blank=True)
+
+    class Meta:
+        verbose_name = "اجرای محاسبه"
+        verbose_name_plural = "اجراهای محاسبه"
+        ordering = ["-started_at"]
+
+    def __str__(self):
+        return f"اجرای {self.period} — {self.get_status_display()}"
+
+    @property
+    def duration_seconds(self):
+        if not self.finished_at:
+            return None
+        return (self.finished_at - self.started_at).total_seconds()
+
+
+class PayrollInput(models.Model):
+    """مبالغ متغیرِ ورودی دستی برای یک دوره — مثل پورسانت فروش.
+
+    اقلامی که calc_type آن‌ها MANUAL است مقدارشان را از اینجا می‌گیرند.
+    """
+
+    period = models.ForeignKey(
+        PayrollPeriod, on_delete=models.CASCADE, related_name="inputs", verbose_name="دوره"
+    )
+    employee = models.ForeignKey(
+        Employee, on_delete=models.CASCADE, related_name="payroll_inputs", verbose_name="پرسنل"
+    )
+    component = models.ForeignKey(
+        SalaryComponent, on_delete=models.PROTECT, related_name="inputs", verbose_name="قلم حقوقی"
+    )
+    amount = models.DecimalField("مبلغ (ریال)", max_digits=18, decimal_places=0, default=0)
+    note = models.CharField("توضیح", max_length=160, blank=True)
+
+    class Meta:
+        verbose_name = "ورودی دستی دوره"
+        verbose_name_plural = "ورودی‌های دستی دوره"
+        unique_together = [("period", "employee", "component")]
+
+    def __str__(self):
+        return f"{self.employee} — {self.component}: {self.amount}"
+
+
+class Payslip(models.Model):
+    """فیش حقوقی.
+
+    بعد از قفل دوره هرگز تغییر نمی‌کند و باید به‌تنهایی — بدون اتکا به هیچ جدول
+    دیگری — قابل بازخوانی و قابل دفاع باشد. به همین دلیل نام واحد، شبا و کل
+    پارامترهای قانونی داخل خودش کپی می‌شوند.
+    """
+
+    class Status(models.TextChoices):
+        CALCULATED = "CALCULATED", "محاسبه‌شده"
+        APPROVED = "APPROVED", "تأییدشده"
+        PAID = "PAID", "پرداخت‌شده"
+        CANCELLED = "CANCELLED", "ابطال‌شده"
+
+    period = models.ForeignKey(
+        PayrollPeriod, on_delete=models.CASCADE, related_name="payslips", verbose_name="دوره"
+    )
+    employee = models.ForeignKey(
+        Employee, on_delete=models.PROTECT, related_name="payslips", verbose_name="پرسنل"
+    )
+    contract = models.ForeignKey(
+        EmploymentContract, on_delete=models.PROTECT, related_name="payslips", verbose_name="قرارداد"
+    )
+    run = models.ForeignKey(
+        PayrollRun, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="payslips", verbose_name="اجرای محاسبه",
+    )
+
+    # --- کپی‌های لحظه محاسبه (snapshot، نه تکرار داده)
+    department = models.ForeignKey(
+        Department, on_delete=models.PROTECT, related_name="payslips", verbose_name="واحد"
+    )
+    cost_center = models.ForeignKey(
+        CostCenter, on_delete=models.PROTECT, related_name="payslips", verbose_name="مرکز هزینه"
+    )
+    iban_snapshot = models.CharField("شبا در لحظه پرداخت", max_length=26, blank=True)
+    params_snapshot = models.JSONField("تصویر پارامترهای قانونی", default=dict, blank=True)
+
+    # --- ارقام
+    work_days = models.DecimalField("روز کارکرد", max_digits=6, decimal_places=2, default=0)
+    gross_total = models.DecimalField("ناخالص کل", max_digits=18, decimal_places=0, default=0)
+    insurable_base = models.DecimalField("مبنای بیمه", max_digits=18, decimal_places=0, default=0)
+    taxable_base = models.DecimalField("مبنای مالیات", max_digits=18, decimal_places=0, default=0)
+    total_deductions = models.DecimalField("جمع کسور", max_digits=18, decimal_places=0, default=0)
+    net_payable = models.DecimalField("خالص پرداختی", max_digits=18, decimal_places=0, default=0)
+    tax_amount = models.DecimalField("مالیات", max_digits=18, decimal_places=0, default=0)
+    ins_employee = models.DecimalField("بیمه سهم کارگر", max_digits=18, decimal_places=0, default=0)
+    ins_employer = models.DecimalField("بیمه سهم کارفرما", max_digits=18, decimal_places=0, default=0)
+    employer_total_cost = models.DecimalField(
+        "کل هزینه کارفرما", max_digits=18, decimal_places=0, default=0
+    )
+
+    status = models.CharField(
+        "وضعیت", max_length=12, choices=Status.choices, default=Status.CALCULATED
+    )
+    is_corrective = models.BooleanField("فیش اصلاحی", default=False)
+    original_payslip = models.ForeignKey(
+        "self", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="corrections", verbose_name="فیش اصلی",
+    )
+
+    calc_hash = models.CharField("اثر انگشت محاسبه", max_length=64, blank=True)
+    calculated_at = models.DateTimeField("زمان محاسبه", auto_now_add=True)
+    paid_at = models.DateTimeField("زمان پرداخت", null=True, blank=True)
+    payment_reference = models.CharField("مرجع پرداخت", max_length=60, blank=True)
+
+    class Meta:
+        verbose_name = "فیش حقوقی"
+        verbose_name_plural = "فیش‌های حقوقی"
+        ordering = ["employee__personnel_code"]
+        indexes = [models.Index(fields=["period", "employee"])]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["period", "employee"],
+                condition=models.Q(is_corrective=False),
+                name="unique_payslip_per_period_employee",
+            )
+        ]
+
+    def __str__(self):
+        return f"فیش {self.employee.full_name} — {self.period.title}"
+
+    def save(self, *args, **kwargs):
+        """لایه اول محافظت از فیش قفل‌شده.
+
+        لایه دوم باید یک تریگر BEFORE UPDATE در دیتابیس باشد؛ اتکا به منطق UI
+        کافی نیست.
+        """
+        if self.pk and not kwargs.pop("force_locked_write", False):
+            current = Payslip.objects.filter(pk=self.pk).values_list("period__status", flat=True).first()
+            if current in {PayrollPeriod.Status.LOCKED, PayrollPeriod.Status.PAID}:
+                raise ValidationError("این فیش در دوره قفل‌شده است و قابل تغییر نیست.")
+        super().save(*args, **kwargs)
+
+    @property
+    def earnings(self):
+        return [line for line in self.lines.all() if line.kind == SalaryComponent.Kind.EARNING]
+
+    @property
+    def deductions(self):
+        return [line for line in self.lines.all() if line.kind == SalaryComponent.Kind.DEDUCTION]
+
+    @property
+    def employer_costs(self):
+        return [line for line in self.lines.all() if line.kind == SalaryComponent.Kind.EMPLOYER_COST]
+
+
+class PayslipLine(models.Model):
+    """یک سطر از فیش.
+
+    فیلدهای component_code و component_name کپی‌اند: اگر سال بعد نام قلم عوض شود
+    یا غیرفعال شود، فیش قدیمی باید همان چیزی را نشان دهد که آن روز چاپ شد.
+    """
+
+    payslip = models.ForeignKey(
+        Payslip, on_delete=models.CASCADE, related_name="lines", verbose_name="فیش"
+    )
+    component = models.ForeignKey(
+        SalaryComponent, on_delete=models.PROTECT, null=True, blank=True,
+        related_name="payslip_lines", verbose_name="قلم حقوقی",
+    )
+    component_code = models.CharField("کد قلم", max_length=40)
+    component_name = models.CharField("نام قلم", max_length=80)
+    kind = models.CharField("نوع", max_length=16, choices=SalaryComponent.Kind.choices)
+    sequence = models.PositiveSmallIntegerField("ترتیب", default=100)
+
+    base_amount = models.DecimalField("مبنا", max_digits=18, decimal_places=0, default=0)
+    quantity = models.DecimalField("تعداد / ساعت", max_digits=10, decimal_places=2, default=0)
+    rate = models.DecimalField("ضریب / نرخ", max_digits=9, decimal_places=4, default=0)
+    amount = models.DecimalField("مبلغ", max_digits=18, decimal_places=0, default=0)
+
+    is_insurable = models.BooleanField("مشمول بیمه", default=False)
+    is_taxable = models.BooleanField("مشمول مالیات", default=False)
+    explanation = models.CharField(
+        "توضیح محاسبه", max_length=255, blank=True,
+        help_text="مثال: اضافه‌کاری: ۱۲ ساعت × (۸۵٬۰۰۰٬۰۰۰ ÷ ۳۰ ÷ ۷٫۳۳) × ۱٫۴",
+    )
+
+    class Meta:
+        verbose_name = "سطر فیش"
+        verbose_name_plural = "سطرهای فیش"
+        ordering = ["sequence", "id"]
+        indexes = [models.Index(fields=["payslip", "sequence"])]
+
+    def __str__(self):
+        return f"{self.component_name}: {self.amount}"
+
+
+class PayslipView(models.Model):
+    """لاگ مشاهده فیش در پرتال — چه کسی، کِی، از کجا."""
+
+    payslip = models.ForeignKey(
+        Payslip, on_delete=models.CASCADE, related_name="views", verbose_name="فیش"
+    )
+    user = models.ForeignKey(
+        "accounts.User", on_delete=models.SET_NULL, null=True,
+        related_name="payslip_views", verbose_name="کاربر",
+    )
+    viewed_at = models.DateTimeField("زمان مشاهده", auto_now_add=True)
+    ip = models.GenericIPAddressField("آی‌پی", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "مشاهده فیش"
+        verbose_name_plural = "مشاهدات فیش"
+        ordering = ["-viewed_at"]

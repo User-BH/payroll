@@ -1,0 +1,5 @@
+{% for ts in timesheets %}
+  {% include "timesheets/_row.html" %}
+{% empty %}
+<tr><td colspan="9"><div class="empty">ردیف کارکردی پیدا نشد.</div></td></tr>
+{% endfor %}

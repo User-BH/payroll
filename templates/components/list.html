@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% load payroll_extras %}
+{% block title %}اقلام حقوقی{% endblock %}
+{% block heading %}اقلام حقوقی{% endblock %}
+{% block subheading %}{{ total|fanum }} قلم تعریف شده — منطق محاسبه در کد است، اینجا فقط ضریب، ترتیب و شمول تعیین می‌شود{% endblock %}
+
+{% block content %}
+<div class="note-box">
+  <b>چرا منطق در کد است و نه در دیتابیس؟</b>
+  چون باگ در حقوق و دستمزد مسئولیت قانونی دارد. هر قلم به یک قاعده‌ی تست‌شده‌ی پایتون
+  وصل است (<span class="num" style="direction:ltr; display:inline-block;">engine_rule_key</span>)؛
+  دیتابیس فقط می‌گوید کدام قاعده، با چه ضریبی، با چه ترتیبی، و مشمول بیمه و مالیات هست یا نه.
+</div>
+
+{% for group in groups %}
+<div class="panel">
+  <div class="panel-head">
+    <h3>{{ group.label }}</h3>
+    <span class="hint">{{ group.items|length|fanum }} قلم</span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>قلم</th><th>کد</th><th>قاعده محاسبه</th><th>ضریب / مبلغ</th>
+          <th>بیمه</th><th>مالیات</th><th>عیدی</th><th>سنوات</th><th>ترتیب</th><th>وضعیت</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for component in group.items %}
+        {% include "components/_item.html" %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% empty %}
+<div class="panel"><div class="empty">قلم حقوقی تعریف نشده است.</div></div>
+{% endfor %}
+{% endblock %}

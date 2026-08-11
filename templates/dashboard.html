@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% load payroll_extras %}
+{% block title %}داشبورد{% endblock %}
+{% block heading %}داشبورد حقوق و دستمزد{% endblock %}
+{% block subheading %}خوش آمدید {{ user.first_name|default:user.username }} — وضعیت دورهٔ جاری را مرور کنید{% endblock %}
+
+{% block content %}
+{% if period %}
+<div class="status-card">
+  <div class="status-left">
+    <div class="status-badge">
+      <span class="dot"></span>
+      {{ period.get_status_display }}
+      {% if period.status == 'DRAFT' %} — هنوز نهایی نشده{% endif %}
+    </div>
+    <h2>دورهٔ حقوقی {{ period.title }}</h2>
+    <p>
+      {{ progress.done|fanum }} نفر از {{ progress.total|fanum }} پرسنل فعال، کارکرد تأییدشده دارند
+      {% if progress.remaining %} — {{ progress.remaining|fanum }} نفر باقی مانده{% endif %}
+    </p>
+  </div>
+  <div class="status-right">
+    <a class="btn btn-ghost" href="{% url 'timesheet_grid' period.pk %}">مشاهده ریز کارکرد</a>
+    {% if period.can_calculate and user.can_edit_payroll %}
+    <form method="post" action="{% url 'period_calculate' period.pk %}">
+      {% csrf_token %}
+      <button class="btn btn-light" type="submit">اجرای محاسبه دوره</button>
+    </form>
+    {% else %}
+    <a class="btn btn-light" href="{% url 'period_detail' period.pk %}">مشاهده دوره</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi">
+    <div class="kpi-top">
+      <div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="3.5"/><path d="M4.5 20c1.4-4 4-6 7.5-6s6.1 2 7.5 6"/></svg></div>
+    </div>
+    <div class="kpi-label">پرسنل فعال</div>
+    <div class="kpi-value">{{ active_employees|fanum }} <small>نفر</small></div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-top">
+      <div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M17 7.5c0-2-2.2-3.5-5-3.5s-5 1.4-5 3.3c0 4 10 2 10 6.2 0 2-2.2 3.5-5 3.5s-5-1.5-5-3.5"/></svg></div>
+      {% if deltas.gross %}<span class="kpi-trend {% if deltas.gross < 0 %}down{% endif %}">{{ deltas.gross|fadigits }}٪</span>{% endif %}
+    </div>
+    <div class="kpi-label">ناخالص کل دوره</div>
+    <div class="kpi-value">{{ period.total_gross|milliard }} <small>میلیارد ریال</small></div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-top">
+      <div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12l5 5L20 6"/></svg></div>
+      {% if deltas.net %}<span class="kpi-trend {% if deltas.net < 0 %}down{% endif %}">{{ deltas.net|fadigits }}٪</span>{% endif %}
+    </div>
+    <div class="kpi-label">خالص قابل پرداخت</div>
+    <div class="kpi-value">{{ period.total_net|milliard }} <small>میلیارد ریال</small></div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-top">
+      <div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 6.5 7 1-5 5 1.3 7-6.3-3.5L5.7 21.5 7 14.5l-5-5 7-1z"/></svg></div>
+      {% if deltas.employer %}<span class="kpi-trend {% if deltas.employer < 0 %}down{% endif %}">{{ deltas.employer|fadigits }}٪</span>{% endif %}
+    </div>
+    <div class="kpi-label">هزینهٔ کارفرما</div>
+    <div class="kpi-value">{{ period.total_employer_cost|milliard }} <small>میلیارد ریال</small></div>
+  </div>
+</div>
+
+<div class="grid-2">
+  <div class="panel">
+    <div class="panel-head">
+      <h3>فیش‌های اخیر</h3>
+      <a class="link-btn" href="{% url 'payslip_list' period.pk %}">مشاهده همه</a>
+    </div>
+    {% if recent_payslips %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>پرسنل</th><th>واحد</th><th>ناخالص</th><th>خالص پرداختی</th><th>وضعیت</th></tr>
+        </thead>
+        <tbody>
+          {% for slip in recent_payslips %}
+          <tr onclick="location.href='{% url 'payslip_detail' slip.pk %}'" style="cursor:pointer;">
+            <td>
+              <div class="cell-name">
+                <div class="av">{{ slip.employee.initials }}</div>
+                <div><b>{{ slip.employee.full_name }}</b><small>کد {{ slip.employee.personnel_code|fadigits }}</small></div>
+              </div>
+            </td>
+            <td>{{ slip.department.name }}</td>
+            <td class="num">{{ slip.gross_total|rial }}</td>
+            <td class="num">{{ slip.net_payable|rial }}</td>
+            <td><span class="badge ok"><span class="dot"></span>محاسبه‌شده</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty">
+      هنوز فیشی برای این دوره صادر نشده است.<br>
+      ابتدا کارکرد ماهانه را کامل کنید، سپس محاسبه دوره را اجرا کنید.
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h3>اقلام حقوقی فعال</h3>
+      {% if selected_cc %}<span class="hint">مرکز هزینه: {{ selected_cc.name }}</span>{% endif %}
+    </div>
+    <div class="comp-list">
+      {% for component in components %}
+      <div class="comp-item">
+        <div class="comp-item-l">
+          <span class="comp-dot" style="background:{{ component.color }}"></span>
+          <div><b>{{ component.name }}</b><small>{{ component.tag_label }}</small></div>
+        </div>
+      </div>
+      {% empty %}
+      <div class="empty">قلم حقوقی فعالی تعریف نشده است.</div>
+      {% endfor %}
+      <a class="add-comp" href="{% url 'component_list' %}">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+        مدیریت اقلام حقوقی
+      </a>
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="panel">
+  <div class="empty">
+    هنوز دوره حقوقی تعریف نشده است.<br>
+    <span style="font-size:12px;">برای ساخت داده نمونه دستور <code>python manage.py seed_demo</code> را اجرا کنید.</span>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

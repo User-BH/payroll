@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% load payroll_extras %}
+{% block title %}پرسنل{% endblock %}
+{% block heading %}پرسنل{% endblock %}
+{% block subheading %}{{ total|fanum }} نفر ثبت شده — جستجو بر اساس نام، کد پرسنلی یا کد ملی{% endblock %}
+
+{% block content %}
+<div class="search-bar">
+  <input class="input" type="search" name="q" value="{{ q }}" placeholder="جستجوی نام، کد پرسنلی یا کد ملی…"
+         hx-get="{% url 'employee_rows' %}"
+         hx-trigger="input changed delay:300ms, search"
+         hx-target="#employee-rows"
+         hx-include="[name='status']"
+         hx-indicator="#emp-spin">
+  <select class="input" name="status" style="max-width:180px;"
+          hx-get="{% url 'employee_rows' %}"
+          hx-trigger="change"
+          hx-target="#employee-rows"
+          hx-include="[name='q']">
+    <option value="">همه وضعیت‌ها</option>
+    {% for value, label in statuses %}
+    <option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <span class="spinner" id="emp-spin"></span>
+</div>
+
+<div class="panel">
+  <div id="employee-rows">
+    {% include "employees/_rows.html" %}
+  </div>
+</div>
+{% endblock %}

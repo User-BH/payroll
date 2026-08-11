@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% load payroll_extras %}
+{% block title %}گزارش‌ها{% endblock %}
+{% block heading %}گزارش‌ها و خروجی‌ها{% endblock %}
+{% block subheading %}لیست بیمه، لیست مالیات و فایل پرداخت بانک — به تفکیک دوره{% endblock %}
+
+{% block content %}
+<div class="note-box">
+  <b>در فاز ۴ اینجا کامل می‌شود.</b> در حال حاضر خروجی اکسل تولید می‌شود؛ فایل DSK
+  تأمین اجتماعی و ثبت کد رهگیری ارسال، بعد از تأیید فرمت واقعی با واحد مالی اضافه می‌شوند.
+</div>
+
+{% for period in periods %}
+<div class="panel">
+  <div class="panel-head">
+    <h3>{{ period.title }}</h3>
+    <span class="hint">{{ period.payslip_count|fanum }} فیش · خالص {{ period.total_net|rial }} ریال</span>
+  </div>
+  <div class="panel-body" style="display:flex; gap:10px; flex-wrap:wrap;">
+    <a class="btn btn-outline btn-sm" href="{% url 'report_insurance' period.pk %}">لیست بیمه</a>
+    <a class="btn btn-outline btn-sm" href="{% url 'report_tax' period.pk %}">لیست مالیات</a>
+    <a class="btn btn-outline btn-sm" href="{% url 'report_bank' period.pk %}">فایل پرداخت بانک</a>
+    <span style="flex:1;"></span>
+    <a class="btn btn-outline btn-sm" href="{% url 'report_export' period.pk 'payslips' %}">خروجی کامل اکسل</a>
+  </div>
+</div>
+{% empty %}
+<div class="panel"><div class="empty">هنوز دوره‌ای محاسبه نشده است.</div></div>
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,60 @@
+{% load static %}<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ورود کارکنان | تامین کالا باختر</title>
+<link rel="icon" href="{% static 'img/favicon.png' %}">
+<link rel="stylesheet" href="{% static 'css/app.css' %}">
+</head>
+<body data-theme="light">
+<div class="auth-wrap">
+  <div class="auth-art">
+    <div class="brand" style="border:none; padding:0; margin:0;">
+      <div class="brand-mark">
+        <img src="{% static 'img/logo-white.png' %}" alt="نشان تامین کالا باختر">
+      </div>
+      <div class="brand-text">
+        <b style="color:#fff;">تامین کالا باختر</b>
+        <span style="color:rgba(255,255,255,.75);">پرتال کارکنان</span>
+      </div>
+    </div>
+    <div>
+      <h1>فیش حقوقی خودتان را به‌صورت آنلاین ببینید</h1>
+      <p>ریز مزایا و کسور هر ماه، همراه با توضیح نحوه محاسبه هر عدد — بدون نیاز به مراجعه به واحد مالی.</p>
+    </div>
+    <div style="font-size:11.5px; opacity:.6; position:relative;">نسخه دمو — داده‌های نمونه</div>
+  </div>
+
+  <div class="auth-form">
+    <div class="auth-card">
+      <h2>ورود به پرتال کارکنان</h2>
+      <div class="lead">با کد پرسنلی و رمز عبور خود وارد شوید.</div>
+
+      {% if error %}<div class="msg error" style="margin-bottom:18px;">{{ error }}</div>{% endif %}
+
+      <form method="post">
+        {% csrf_token %}
+        <div class="field">
+          <label for="empCode">کد پرسنلی</label>
+          <input class="input" id="empCode" name="personnel_code" value="{{ personnel_code }}"
+                 inputmode="numeric" placeholder="مثال: ۱۰۰۱" autocomplete="username" autofocus required>
+        </div>
+        <div class="field">
+          <label for="empPass">رمز عبور</label>
+          <input class="input" id="empPass" name="password" type="password"
+                 placeholder="••••••••" autocomplete="current-password" required>
+        </div>
+        <button class="btn btn-primary" style="width:100%; justify-content:center;" type="submit">ورود</button>
+      </form>
+
+      <div class="demo-hint">
+        <b style="color:var(--ink);">حساب دمو</b><br>
+        کد پرسنلی: <code>1001</code> — رمز: <code>demo1234</code><br>
+        <a href="{% url 'login' %}" style="color:var(--red);">ورود کارکنان مالی</a>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

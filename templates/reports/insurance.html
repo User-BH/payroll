@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% load payroll_extras %}
+{% block title %}لیست بیمه {{ period.title }}{% endblock %}
+{% block heading %}لیست بیمه — {{ period.title }}{% endblock %}
+{% block subheading %}کد کارگاه {{ period.company.insurance_workshop_code|fadigits|default:"ثبت نشده" }} · {{ count|fanum }} نفر{% endblock %}
+
+{% block content %}
+<div class="search-bar no-print">
+  <a class="btn btn-primary btn-sm" href="{% url 'report_export' period.pk 'insurance' %}">دانلود اکسل</a>
+  <a class="btn btn-outline btn-sm" href="{% url 'reports' %}">همه گزارش‌ها</a>
+</div>
+
+<div class="stat-row">
+  <div class="stat"><b>تعداد بیمه‌شده</b><span>{{ count|fanum }}</span></div>
+  <div class="stat"><b>جمع مبنای بیمه</b><span>{{ totals.insurable|rial }}</span></div>
+  <div class="stat"><b>سهم کارگر</b><span>{{ totals.employee|rial }}</span></div>
+  <div class="stat"><b>سهم کارفرما</b><span>{{ totals.employer|rial }}</span></div>
+</div>
+
+<div class="panel">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>ردیف</th><th>پرسنل</th><th>کد ملی</th><th>شماره بیمه</th><th>روز کارکرد</th><th>مبنای بیمه</th><th>سهم کارگر</th><th>سهم کارفرما</th></tr>
+      </thead>
+      <tbody>
+        {% for slip in rows %}
+        <tr>
+          <td class="num">{{ forloop.counter|fanum }}</td>
+          <td>
+            <div class="cell-name">
+              <div class="av">{{ slip.employee.initials }}</div>
+              <div><b>{{ slip.employee.full_name }}</b><small>کد {{ slip.employee.personnel_code|fadigits }}</small></div>
+            </div>
+          </td>
+          <td class="num">{{ slip.employee.national_id|fadigits }}</td>
+          <td class="num">{{ slip.employee.insurance_number|fadigits|default:"—" }}</td>
+          <td class="num">{{ slip.work_days|fadec }}</td>
+          <td class="num">{{ slip.insurable_base|rial }}</td>
+          <td class="num">{{ slip.ins_employee|rial }}</td>
+          <td class="num">{{ slip.ins_employer|rial }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8"><div class="empty">رکوردی وجود ندارد.</div></td></tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="5">جمع کل</td>
+          <td class="num">{{ totals.insurable|rial }}</td>
+          <td class="num">{{ totals.employee|rial }}</td>
+          <td class="num">{{ totals.employer|rial }}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+{% endblock %}

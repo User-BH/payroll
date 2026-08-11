@@ -1,0 +1,38 @@
+{% load static payroll_extras %}<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}پرتال کارکنان{% endblock %} | تامین کالا باختر</title>
+<link rel="icon" href="{% static 'img/favicon.png' %}">
+<link rel="stylesheet" href="{% static 'css/app.css' %}">
+<style>
+  .portal-top{
+    background:var(--paper-2); border-bottom:1px solid var(--line);
+    padding:16px 26px; display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;
+  }
+  .portal-main{max-width:940px; margin:0 auto; padding:28px 22px 70px;}
+</style>
+</head>
+<body data-theme="light">
+<div class="portal-top">
+  <div class="brand" style="border:none; padding:0; margin:0;">
+    <div class="brand-mark">
+      <img src="{% static 'img/logo.png' %}" alt="نشان تامین کالا باختر">
+    </div>
+    <div class="brand-text"><b>تامین کالا باختر</b><span>پرتال کارکنان</span></div>
+  </div>
+  <div style="display:flex; align-items:center; gap:12px;">
+    <div class="user-chip">
+      <div class="av">{{ employee.initials }}</div>
+      <div class="meta"><b>{{ employee.full_name }}</b><span>کد {{ employee.personnel_code|fadigits }}</span></div>
+    </div>
+    <a class="btn btn-outline btn-sm no-print" href="{% url 'portal_logout' %}">خروج</a>
+  </div>
+</div>
+
+<div class="portal-main">
+  {% block content %}{% endblock %}
+</div>
+</body>
+</html>

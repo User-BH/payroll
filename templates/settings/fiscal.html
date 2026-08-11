@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% load payroll_extras %}
+{% block title %}تنظیمات سال مالی{% endblock %}
+{% block heading %}تنظیمات سال مالی{% endblock %}
+{% block subheading %}پارامترهای قانونی و پلکان مالیات — هیچ‌کدام از این اعداد در کد نوشته نشده‌اند{% endblock %}
+
+{% block content %}
+<div class="search-bar">
+  <select class="input" style="max-width:220px;" onchange="location.href='?year='+this.value">
+    {% for year in years %}
+    <option value="{{ year.pk }}" {% if fiscal_year.pk == year.pk %}selected{% endif %}>سال مالی {{ year.year|fadigits }}</option>
+    {% endfor %}
+  </select>
+</div>
+
+{% if params %}
+<div class="note-box">
+  <b>مقادیر این صفحه داده نمونه‌اند.</b> پیش از استفاده واقعی باید با بخشنامه‌های
+  وزارت کار و سازمان امور مالیاتی سال {{ fiscal_year.year|fadigits }} تطبیق داده شوند.
+</div>
+
+<div class="grid-2-even">
+  <div class="panel">
+    <div class="panel-head"><h3>مزد و مزایای پایه</h3><span class="hint">ریال</span></div>
+    <div class="table-wrap">
+      <table>
+        <tbody>
+          <tr><td>حداقل دستمزد روزانه</td><td class="num">{{ params.min_daily_wage|rial }}</td></tr>
+          <tr><td>حداقل دستمزد ماهانه</td><td class="num">{{ params.min_monthly_wage|rial }}</td></tr>
+          <tr><td>حق مسکن ماهانه</td><td class="num">{{ params.housing_allowance|rial }}</td></tr>
+          <tr><td>بن کارگری ماهانه</td><td class="num">{{ params.food_allowance|rial }}</td></tr>
+          <tr><td>حق اولاد (هر فرزند)</td><td class="num">{{ params.child_allowance|rial }}</td></tr>
+          <tr><td>پایه سنوات روزانه</td><td class="num">{{ params.seniority_daily|rial }}</td></tr>
+          <tr><td>حداکثر فرزند مشمول</td><td class="num">{% if params.max_children %}{{ params.max_children|fanum }}{% else %}بدون سقف{% endif %}</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>بیمه و ضرایب کارکرد</h3></div>
+    <div class="table-wrap">
+      <table>
+        <tbody>
+          <tr><td>سهم کارگر</td><td class="num">{{ params.ins_employee_rate|percent }}٪</td></tr>
+          <tr><td>سهم کارفرما</td><td class="num">{{ params.ins_employer_rate|percent }}٪</td></tr>
+          <tr><td>بیمه بیکاری</td><td class="num">{{ params.unemployment_rate|percent }}٪</td></tr>
+          <tr><td>سقف مبنای بیمه</td><td class="num">{{ params.insurance_ceiling|rial }}</td></tr>
+          <tr><td>ضریب اضافه‌کاری</td><td class="num">{{ params.overtime_factor|fadec }}</td></tr>
+          <tr><td>ضریب شب‌کاری</td><td class="num">{{ params.night_factor|fadec }}</td></tr>
+          <tr><td>ضریب جمعه‌کاری</td><td class="num">{{ params.friday_factor|fadec }}</td></tr>
+          <tr><td>ساعات کار روزانه</td><td class="num">{{ params.daily_work_hours|fadec }}</td></tr>
+          <tr><td>واحد گرد کردن خالص</td><td class="num">{{ params.rounding_unit|fanum }} ریال</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head">
+    <h3>پلکان مالیات حقوق — مبنای ماهانه</h3>
+    <span class="hint">
+      کسر بیمه سهم کارگر از درآمد مشمول:
+      {% if params.deduct_insurance_from_tax_base %}فعال{% else %}غیرفعال{% endif %}
+    </span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>پله</th><th>از مبلغ</th><th>تا مبلغ</th><th>نرخ</th><th>توضیح</th></tr></thead>
+      <tbody>
+        {% for bracket in brackets %}
+        <tr>
+          <td class="num">{{ bracket.row_order|fanum }}</td>
+          <td class="num">{{ bracket.from_amount|rial }}</td>
+          <td class="num">{% if bracket.to_amount %}{{ bracket.to_amount|rial }}{% else %}به بالا{% endif %}</td>
+          <td class="num" style="font-weight:800;">{{ bracket.rate|percent:0 }}٪</td>
+          <td>{% if bracket.is_exemption %}<span class="badge info">ردیف معافیت</span>{% endif %}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5"><div class="empty">پلکان مالیاتی تعریف نشده است.</div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="panel"><div class="empty">برای این سال مالی پارامتر قانونی تعریف نشده است.</div></div>
+{% endif %}
+{% endblock %}
