@@ -1,4 +1,5 @@
 Django>=5.0,<6.0
+mysqlclient>=2.2          # نیازمند: apt install default-libmysqlclient-dev build-essential pkg-config
 jdatetime>=5.0
 python-dotenv>=1.0
 openpyxl>=3.1
@@ -6,4 +7,3 @@ whitenoise>=6.6
 
 # --- production (Linux) ---
 gunicorn>=22.0
-mysqlclient>=2.2          # نیازمند: apt install default-libmysqlclient-dev build-essential pkg-config

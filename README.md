@@ -8,12 +8,33 @@
 
 ---
 
-## اجرای سریع (SQLite — بدون هیچ پیش‌نیاز)
+## دیتابیس: فقط MySQL 8
+
+سامانه روی هیچ موتور دیگری اجرا نمی‌شود — نه در توسعه، نه در تولید. دلیلش این است
+که رفتار دیتابیس دقیقاً در جاهایی که برای حقوق و دستمزد حیاتی است بین موتورها فرق
+دارد: پشتیبانی از قیدهای یکتایی، دقت `DECIMAL`، حالت `STRICT` و کولیشن فارسی. اگر
+روی یک موتور توسعه بدهیم و روی موتور دیگری اجرا کنیم، این تفاوت‌ها را دیر و روی
+دادهٔ واقعی حقوق کشف می‌کنیم.
+
+> نمونهٔ واقعی همین موضوع: قید «هر پرسنل در هر دوره فقط یک فیش اصلی» ابتدا با
+> `UniqueConstraint(condition=...)` نوشته شده بود. MySQL ایندکس شرطی ندارد و جنگو
+> چنین قیدی را **بی‌صدا نادیده می‌گیرد**. حالا با ستون `revision` نوشته شده تا قید
+> واقعاً در دیتابیس اعمال شود.
+
+## اجرای محلی
+
+```bash
+docker run -d --name payroll-mysql \
+  -e MYSQL_ROOT_PASSWORD=rootpw -e MYSQL_DATABASE=payroll \
+  -e MYSQL_USER=payroll -e MYSQL_PASSWORD=payrollpw \
+  -p 3307:3306 mysql:8 \
+  --character-set-server=utf8mb4 --collation-server=utf8mb4_persian_ci
+```
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env
+cp .env.example .env          # DB_PORT=3307 و DB_PASSWORD=payrollpw
 python manage.py migrate
 python manage.py seed_demo
 python manage.py runserver

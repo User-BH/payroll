@@ -81,29 +81,30 @@ TEMPLATES = [
 
 # ---------------------------------------------------------------- database
 
-if os.getenv("DB_ENGINE", "sqlite") == "mysql":
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.mysql",
-            "NAME": os.getenv("DB_NAME", "payroll"),
-            "USER": os.getenv("DB_USER", "payroll"),
-            "PASSWORD": os.getenv("DB_PASSWORD", ""),
-            "HOST": os.getenv("DB_HOST", "127.0.0.1"),
-            "PORT": os.getenv("DB_PORT", "3306"),
-            "OPTIONS": {
-                "charset": "utf8mb4",
-                # بدون STRICT_TRANS_TABLES مای‌اس‌کیوال داده نامعتبر را بی‌صدا برش می‌دهد
-                "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
-            },
-        }
+# این سامانه فقط روی MySQL اجرا می‌شود — نه در توسعه، نه در تولید.
+# دلیل: رفتار دیتابیس در جاهایی که برای حقوق و دستمزد حیاتی است (قیدهای یکتایی،
+# دقت DECIMAL، حالت STRICT، کولیشن فارسی) بین موتورها فرق دارد. اگر روی یک موتور
+# توسعه بدهیم و روی موتور دیگری اجرا کنیم، این تفاوت‌ها را دیر و روی داده واقعی
+# کشف می‌کنیم.
+
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.mysql",
+        "NAME": os.getenv("DB_NAME", "payroll"),
+        "USER": os.getenv("DB_USER", "payroll"),
+        "PASSWORD": os.getenv("DB_PASSWORD", ""),
+        "HOST": os.getenv("DB_HOST", "127.0.0.1"),
+        "PORT": os.getenv("DB_PORT", "3306"),
+        "CONN_MAX_AGE": int(os.getenv("DB_CONN_MAX_AGE", "60")),
+        "OPTIONS": {
+            "charset": "utf8mb4",
+            # بدون STRICT_TRANS_TABLES مای‌اس‌کیوال داده نامعتبر را بی‌صدا برش
+            # می‌دهد — برای مبالغ ریالی فاجعه است.
+            "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
+        },
+        "TEST": {"CHARSET": "utf8mb4", "COLLATION": "utf8mb4_persian_ci"},
     }
-else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
-        }
-    }
+}
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

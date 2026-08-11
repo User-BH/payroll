@@ -248,7 +248,7 @@ def calculate_period(period: PayrollPeriod, user=None) -> PayrollRun:
         due_month=period.month,
         status=LoanInstallment.Status.DEDUCTED,
     ).update(status=LoanInstallment.Status.DUE, payslip_line=None, deducted_at=None)
-    Payslip.objects.filter(period=period, is_corrective=False).delete()
+    Payslip.objects.filter(period=period, revision=0).delete()
 
     components = list(
         SalaryComponent.objects.filter(company=period.company, is_active=True)

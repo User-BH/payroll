@@ -263,6 +263,11 @@ class Payslip(models.Model):
         "وضعیت", max_length=12, choices=Status.choices, default=Status.CALCULATED
     )
     is_corrective = models.BooleanField("فیش اصلاحی", default=False)
+    revision = models.PositiveSmallIntegerField(
+        "شماره اصلاح",
+        default=0,
+        help_text="۰ = فیش اصلی دوره، ۱ به بعد = فیش‌های اصلاحی",
+    )
     original_payslip = models.ForeignKey(
         "self", on_delete=models.SET_NULL, null=True, blank=True,
         related_name="corrections", verbose_name="فیش اصلی",
@@ -279,9 +284,16 @@ class Payslip(models.Model):
         ordering = ["employee__personnel_code"]
         indexes = [models.Index(fields=["period", "employee"])]
         constraints = [
+            # روی هر دوره برای هر پرسنل فقط یک فیش اصلی (revision=0) و پس از آن
+            # فیش‌های اصلاحی شماره‌دار.
+            #
+            # نسخه اول این قید به‌صورت UniqueConstraint با condition نوشته شده
+            # بود؛ MySQL ایندکس شرطی (partial index) ندارد و جنگو چنین قیدی را
+            # روی MySQL بی‌صدا نادیده می‌گیرد (هشدار models.W038). یعنی دقیقاً
+            # همان جایی که نباید، امکان ثبت دو فیش تکراری باز می‌ماند. با یک
+            # ستون عددی، قید روی هر دیتابیسی واقعی است.
             models.UniqueConstraint(
-                fields=["period", "employee"],
-                condition=models.Q(is_corrective=False),
+                fields=["period", "employee", "revision"],
                 name="unique_payslip_per_period_employee",
             )
         ]
