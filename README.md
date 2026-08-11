@@ -119,6 +119,21 @@ python manage.py collectstatic --noinput
 python manage.py createsuperuser        # یا seed_demo برای دادهٔ نمونه
 ```
 
+> `migrate` فقط **جدول‌ها** را می‌سازد و هیچ کاربری ایجاد نمی‌کند. اگر این قدم را
+> رد کنید، سایت بالا می‌آید ولی هیچ حسابی برای ورود وجود ندارد.
+
+### بررسی سلامت نصب
+
+هر وقت چیزی کار نکرد، اول این را اجرا کنید:
+
+```bash
+python manage.py doctor
+```
+
+اتصال دیتابیس، کولیشن، تعداد جدول‌ها، وجود کاربر، `DEBUG`، `ALLOWED_HOSTS`،
+`SECURE_COOKIES`، `SECRET_KEY` و `collectstatic` را بررسی می‌کند و برای هر ایراد
+دقیقاً می‌گوید چه دستوری را اجرا کنید.
+
 ### ۶. سرویس systemd
 
 `/etc/systemd/system/payroll.service`:
