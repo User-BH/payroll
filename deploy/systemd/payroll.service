@@ -1,0 +1,42 @@
+# ---------------------------------------------------------------------------
+# نصب:
+#   sudo cp deploy/systemd/payroll.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now payroll
+#
+# لاگ:  sudo journalctl -u payroll -f
+# ---------------------------------------------------------------------------
+
+[Unit]
+Description=Payroll — سامانه حقوق و دستمزد تامین کالا باختر
+After=network.target mysql.service
+# Wants و نه Requires: اگر نام سرویس مای‌اس‌کیوال روی این سرور فرق داشته باشد،
+# سرویس حقوق و دستمزد نباید اصلاً بالا نیاید.
+Wants=mysql.service
+
+[Service]
+Type=notify
+User=www-data
+Group=www-data
+WorkingDirectory=/srv/payroll
+
+ExecStart=/srv/payroll/.venv/bin/gunicorn config.wsgi:application \
+    --bind 127.0.0.1:8001 \
+    --workers 3 \
+    --timeout 120 \
+    --access-logfile - \
+    --error-logfile -
+
+ExecReload=/bin/kill -s HUP $MAINPID
+Restart=always
+RestartSec=5
+
+# محدودسازی دسترسی سرویس به سیستم
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/srv/payroll
+
+[Install]
+WantedBy=multi-user.target

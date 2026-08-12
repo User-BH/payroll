@@ -136,69 +136,45 @@ python manage.py doctor
 
 ### ۶. سرویس systemd
 
-`/etc/systemd/system/payroll.service`:
-
-```ini
-[Unit]
-Description=Payroll (Tamin Kala Bakhtar)
-After=network.target mysql.service
-
-[Service]
-User=www-data
-Group=www-data
-WorkingDirectory=/srv/payroll
-EnvironmentFile=/srv/payroll/.env
-ExecStart=/srv/payroll/.venv/bin/gunicorn config.wsgi:application \
-          --bind 127.0.0.1:8001 --workers 3 --timeout 120
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-```
+فایل آماده در `deploy/systemd/payroll.service` است:
 
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now payroll
+sudo cp deploy/systemd/payroll.service /etc/systemd/system/
+sudo chown -R www-data:www-data /srv/payroll
+sudo systemctl daemon-reload && sudo systemctl enable --now payroll
+sudo systemctl status payroll --no-pager
 ```
 
 ### ۷. nginx
 
-`/etc/nginx/sites-available/payroll`:
-
-```nginx
-server {
-    listen 80;
-    server_name tamin.justup.ir;
-
-    client_max_body_size 20M;
-
-    location /static/ {
-        alias /srv/payroll/staticfiles/;
-        expires 30d;
-        access_log off;
-    }
-
-    location / {
-        proxy_pass http://127.0.0.1:8001;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_redirect off;
-    }
-}
-```
+فایل آماده در `deploy/nginx/payroll.conf` است:
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/payroll /etc/nginx/sites-enabled/
-sudo rm -f /etc/nginx/sites-enabled/default
+sudo cp deploy/nginx/payroll.conf /etc/nginx/sites-available/payroll
+sudo ln -sf /etc/nginx/sites-available/payroll /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-nginx باید به `staticfiles/` دسترسی داشته باشد:
+nginx باید بتواند وارد مسیر شود تا فایل‌های استاتیک را بخواند:
 
 ```bash
 sudo chmod o+x /srv /srv/payroll
+```
+
+**سایت `default` را کورکورانه پاک نکنید.** اگر روی این سرور سایت دیگری هم هست،
+حذفش آن‌ها را می‌خواباند. کانفیگ ما با `server_name` کار می‌کند و با بقیه‌ی
+سایت‌ها تداخلی ندارد. `default` را فقط وقتی غیرفعال کنید که مطمئنید سایت دیگری
+به آن وابسته نیست:
+
+```bash
+sudo ls -l /etc/nginx/sites-enabled/          # اول ببینید چه چیزی فعال است
+sudo rm /etc/nginx/sites-enabled/default      # فقط در صورت اطمینان
+```
+
+اگر دامنه به سایت اشتباهی می‌رسد، ببینید nginx کدام بلوک را برای آن انتخاب می‌کند:
+
+```bash
+sudo nginx -T | grep -n "server_name"
 ```
 
 ### SSL (توصیه‌شده)
