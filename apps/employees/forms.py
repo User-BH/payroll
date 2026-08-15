@@ -1,5 +1,7 @@
 from django import forms
 
+from apps.payroll.form_fields import JalaliDateField
+
 from apps.employees.models import (
     BankAccount,
     Dependent,
@@ -31,11 +33,10 @@ class EmployeeForm(BootstrapMixin, forms.ModelForm):
             "insurance_number", "mobile", "email", "address", "postal_code",
             "hire_date", "status",
         ]
-        widgets = {
-            "birth_date": forms.DateInput(attrs={"type": "date"}),
-            "hire_date": forms.DateInput(attrs={"type": "date"}),
-            "address": forms.Textarea(attrs={"rows": 2}),
-        }
+        widgets = {"address": forms.Textarea(attrs={"rows": 2})}
+
+    birth_date = JalaliDateField(label="تاریخ تولد", required=False)
+    hire_date = JalaliDateField(label="تاریخ استخدام")
 
     def clean_national_id(self):
         value = (self.cleaned_data.get("national_id") or "").strip()
@@ -62,11 +63,10 @@ class ContractForm(BootstrapMixin, forms.ModelForm):
             "seniority_years", "weekly_hours", "is_insured", "is_taxable",
             "tax_exemption", "status", "notes",
         ]
-        widgets = {
-            "effective_from": forms.DateInput(attrs={"type": "date"}),
-            "effective_to": forms.DateInput(attrs={"type": "date"}),
-            "notes": forms.Textarea(attrs={"rows": 2}),
-        }
+        widgets = {"notes": forms.Textarea(attrs={"rows": 2})}
+
+    effective_from = JalaliDateField(label="شروع اعتبار")
+    effective_to = JalaliDateField(label="پایان اعتبار", required=False)
 
     def __init__(self, *args, employee=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -94,11 +94,10 @@ class DependentForm(BootstrapMixin, forms.ModelForm):
             "relation", "first_name", "last_name", "national_id", "birth_date",
             "child_allowance_eligible", "is_insured", "start_date", "end_date",
         ]
-        widgets = {
-            "birth_date": forms.DateInput(attrs={"type": "date"}),
-            "start_date": forms.DateInput(attrs={"type": "date"}),
-            "end_date": forms.DateInput(attrs={"type": "date"}),
-        }
+
+    birth_date = JalaliDateField(label="تاریخ تولد", required=False)
+    start_date = JalaliDateField(label="شروع تکفل")
+    end_date = JalaliDateField(label="پایان تکفل", required=False)
 
 
 class SignatureForm(forms.ModelForm):

@@ -2,6 +2,7 @@ from django import forms
 from django.forms import modelformset_factory
 
 from apps.employees.forms import BootstrapMixin
+from apps.payroll.form_fields import JalaliDateField
 from apps.payroll_config.models import (
     ComponentScope,
     LegalParameter,
@@ -25,10 +26,9 @@ class LegalParameterForm(BootstrapMixin, forms.ModelForm):
             "monthly_days", "daily_work_hours", "leave_day_minutes",
             "rounding_unit", "deduct_insurance_from_tax_base",
         ]
-        widgets = {
-            "effective_from": forms.DateInput(attrs={"type": "date"}),
-            "effective_to": forms.DateInput(attrs={"type": "date"}),
-        }
+
+    effective_from = JalaliDateField(label="شروع اعتبار")
+    effective_to = JalaliDateField(label="پایان اعتبار", required=False)
 
     GROUPS = [
         ("اعتبار", ["effective_from", "effective_to"]),

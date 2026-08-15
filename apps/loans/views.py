@@ -15,6 +15,7 @@ from django.views.decorators.http import require_POST
 
 from apps.accounts.decorators import can_edit_required, payroll_staff_required
 from apps.employees.forms import BootstrapMixin
+from apps.payroll.form_fields import JalaliDateField
 from apps.employees.models import Employee
 from apps.loans.models import Loan, LoanInstallment
 from apps.payroll.utils import JALALI_MONTHS
@@ -27,7 +28,8 @@ class LoanForm(BootstrapMixin, forms.ModelForm):
             "employee", "loan_type", "title", "principal", "total_installments",
             "installment_amount", "grant_date", "first_year", "first_month", "notes",
         ]
-        widgets = {"grant_date": forms.DateInput(attrs={"type": "date"})}
+
+    grant_date = JalaliDateField(label="تاریخ پرداخت", required=False)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
