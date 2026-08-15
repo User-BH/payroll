@@ -1,5 +1,8 @@
+from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
+from django.views.decorators.http import require_POST
 
 from apps.employees.models import Employee
 from apps.payroll.models import Payslip, PayslipView
@@ -94,6 +97,8 @@ def portal_payslip(request, pk):
         return redirect("portal_home")
 
     PayslipView.objects.create(payslip=payslip, user=request.user, ip=_client_ip(request))
+    # اولین باز کردن فیش = «دیده شد». از این لحظه پرسنل باید تأیید یا اعتراض کند.
+    payslip.mark_viewed()
 
     lines = payslip.lines.all().order_by("sequence", "id")
     return render(
@@ -106,3 +111,42 @@ def portal_payslip(request, pk):
             "deductions": [l for l in lines if l.kind == SalaryComponent.Kind.DEDUCTION],
         },
     )
+
+
+@require_POST
+def portal_payslip_ack(request, pk):
+    """ثبت تأیید یا اعتراض پرسنل روی فیش خودش."""
+    if not request.user.is_authenticated:
+        return redirect("portal_login")
+    employee = getattr(request.user, "employee", None)
+    if employee is None:
+        return redirect("portal_login")
+
+    payslip = get_object_or_404(Payslip, pk=pk, employee=employee)
+    if payslip.period.status not in {"APPROVED", "LOCKED", "PAID"}:
+        return redirect("portal_home")
+
+    action = request.POST.get("action")
+
+    if action == "accept":
+        payslip.ack_status = Payslip.Ack.ACCEPTED
+        payslip.acknowledged_at = timezone.now()
+        payslip.save_ack(["ack_status", "acknowledged_at"])
+        messages.success(request, "فیش این ماه توسط شما تأیید شد.")
+
+    elif action == "dispute":
+        reason = (request.POST.get("reason") or "").strip()
+        if len(reason) < 10:
+            messages.error(
+                request, "لطفاً علت اعتراض را کمی کامل‌تر بنویسید تا قابل بررسی باشد."
+            )
+            return redirect("portal_payslip", pk=payslip.pk)
+        payslip.ack_status = Payslip.Ack.DISPUTED
+        payslip.dispute_reason = reason
+        payslip.disputed_at = timezone.now()
+        payslip.save_ack(["ack_status", "dispute_reason", "disputed_at"])
+        messages.success(
+            request, "اعتراض شما ثبت شد و برای بررسی به واحد مالی ارسال گردید."
+        )
+
+    return redirect("portal_payslip", pk=payslip.pk)

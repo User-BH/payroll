@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone
 
 from apps.employees.models import Employee, EmploymentContract
 from apps.org.models import Company, CostCenter, Department
@@ -278,6 +279,30 @@ class Payslip(models.Model):
     paid_at = models.DateTimeField("زمان پرداخت", null=True, blank=True)
     payment_reference = models.CharField("مرجع پرداخت", max_length=60, blank=True)
 
+    # ---- گردش مشاهده و تأیید توسط پرسنل
+    # جایگزین امضای دستی پای فیش کاغذی. مسیر:
+    #   در انتظار → دیده شد → (تأیید | اعتراض) → بررسی‌شده
+    class Ack(models.TextChoices):
+        PENDING = "PENDING", "در انتظار مشاهده"
+        VIEWED = "VIEWED", "دیده شد"
+        ACCEPTED = "ACCEPTED", "تأیید شد"
+        DISPUTED = "DISPUTED", "اعتراض ثبت شد"
+        RESOLVED = "RESOLVED", "بررسی و پاسخ داده شد"
+
+    ack_status = models.CharField(
+        "وضعیت تأیید پرسنل", max_length=10, choices=Ack.choices, default=Ack.PENDING
+    )
+    first_viewed_at = models.DateTimeField("اولین مشاهده", null=True, blank=True)
+    acknowledged_at = models.DateTimeField("زمان تأیید", null=True, blank=True)
+    dispute_reason = models.TextField("علت اعتراض", blank=True)
+    disputed_at = models.DateTimeField("زمان ثبت اعتراض", null=True, blank=True)
+    review_note = models.TextField("پاسخ واحد مالی", blank=True)
+    reviewed_by = models.ForeignKey(
+        "accounts.User", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="reviewed_payslips", verbose_name="بررسی‌کننده",
+    )
+    reviewed_at = models.DateTimeField("زمان بررسی", null=True, blank=True)
+
     class Meta:
         verbose_name = "فیش حقوقی"
         verbose_name_plural = "فیش‌های حقوقی"
@@ -324,6 +349,36 @@ class Payslip(models.Model):
     @property
     def employer_costs(self):
         return [line for line in self.lines.all() if line.kind == SalaryComponent.Kind.EMPLOYER_COST]
+
+    @property
+    def ack_tone(self):
+        return {
+            self.Ack.PENDING: "muted",
+            self.Ack.VIEWED: "info",
+            self.Ack.ACCEPTED: "ok",
+            self.Ack.DISPUTED: "wait",
+            self.Ack.RESOLVED: "lock",
+        }.get(self.ack_status, "muted")
+
+    @property
+    def awaiting_employee_action(self):
+        """دیده شده ولی هنوز تأیید یا اعتراض نکرده."""
+        return self.ack_status == self.Ack.VIEWED
+
+    def save_ack(self, fields):
+        """ذخیره فیلدهای گردش تأیید.
+
+        عمداً از save() مدل رد می‌شود: فیش قفل‌شده تغییرناپذیر است، ولی مشاهده و
+        تأیید و اعتراض پرسنل دقیقاً بعد از قفل شدن دوره اتفاق می‌افتد. این فیلدها
+        هیچ‌کدام روی ارقام فیش اثر ندارند.
+        """
+        super().save(update_fields=fields)
+
+    def mark_viewed(self):
+        if self.ack_status == self.Ack.PENDING:
+            self.ack_status = self.Ack.VIEWED
+            self.first_viewed_at = timezone.now()
+            self.save_ack(["ack_status", "first_viewed_at"])
 
 
 class PayslipLine(models.Model):

@@ -260,7 +260,11 @@ class Command(BaseCommand):
             ("SENIORITY", "پایه سنوات", "EARNING", "seniority", 20, True, True, True, True, green, False),
             ("HOUSING", "حق مسکن", "EARNING", "housing_allowance", 30, True, True, True, False, green, False),
             ("FOOD", "بن کارگری", "EARNING", "food_allowance", 40, True, True, True, False, green, False),
-            ("CHILD", "حق اولاد", "EARNING", "child_allowance", 50, True, False, False, False, amber, False),
+            # حق اولاد و حق ماموریت معاف از بیمه‌اند. این از روی سه فیش واقعی تیر
+            # ۱۴۰۵ استخراج شده و ریال‌به‌ریال با مبلغ بیمه‌ی همان فیش‌ها خواند:
+            #     مبنای بیمه = جمع پرداختی‌ها − حق ماموریت − حق اولاد
+            ("CHILD", "حق اولاد", "EARNING", "child_allowance", 50, False, False, False, False, amber, False),
+            ("MISSION", "حق ماموریت", "EARNING", "manual_input", 55, False, False, False, False, amber, False),
             ("JOB_ALLOWANCE", "فوق‌العاده شغل", "EARNING", "contract_allowance", 60, True, True, True, True, green, False),
             ("OVERTIME", "اضافه‌کاری", "EARNING", "overtime", 70, True, True, False, False, green, False),
             ("NIGHT", "شب‌کاری", "EARNING", "night_work", 80, True, True, False, False, green, False),
@@ -275,15 +279,22 @@ class Command(BaseCommand):
             ("UNEMPLOYMENT", "بیمه بیکاری", "EMPLOYER_COST", "unemployment_insurance", 310, False, False, False, False, grey, True),
         ]
 
+        # اقلامی که مشمولیت مالیاتشان هنوز از روی فیش واقعی قابل استخراج نبود
+        # (دو فیش از سه فیش نمونه مالیات صفر داشتند، پس داده کافی نیست).
+        TAX_UNCONFIRMED = {"CHILD", "MISSION"}
+
         components = {}
         for code, name, kind, rule, seq, ins, tax, eid, sev, color, system in specs:
+            calc_type = "MANUAL" if rule == "manual_input" else ("ENGINE_RULE" if rule else "FIXED")
             components[code] = SalaryComponent.objects.create(
                 company=company, code=code, name=name, kind=kind,
-                calc_type="ENGINE_RULE" if rule else "FIXED",
+                calc_type=calc_type,
                 engine_rule_key=rule, sequence=seq,
                 is_insurable=ins, is_taxable=tax,
                 affects_eid=eid, affects_severance=sev,
                 color=color, is_system=system,
+                description="مشمولیت مالیات نیازمند تأیید با فیش واقعی"
+                if code in TAX_UNCONFIRMED else "",
             )
 
         # پورسانت سه‌سطحی — فقط برای مرکز هزینه فروش، مشمول مالیات و معاف از بیمه

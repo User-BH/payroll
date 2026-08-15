@@ -62,8 +62,74 @@
   </div>
 </div>
 
+{# ---- گردش تأیید: جایگزین امضای پای فیش کاغذی ---- #}
+<div class="panel" x-data="{ showForm: false }">
+  <div class="panel-head">
+    <h3>تأیید فیش</h3>
+    <span class="badge {{ payslip.ack_tone }}"><span class="dot"></span>{{ payslip.get_ack_status_display }}</span>
+  </div>
+
+  {% if payslip.ack_status == 'ACCEPTED' %}
+    <div class="panel-body">
+      <div class="msg success" style="box-shadow:none;">
+        شما این فیش را در {{ payslip.acknowledged_at|jalali_long }} تأیید کرده‌اید.
+      </div>
+    </div>
+
+  {% elif payslip.ack_status == 'DISPUTED' %}
+    <div class="panel-body">
+      <div class="msg warning" style="box-shadow:none; margin-bottom:12px;">
+        اعتراض شما در {{ payslip.disputed_at|jalali_long }} ثبت شد و در انتظار بررسی واحد مالی است.
+      </div>
+      <div class="slip-meta"><b>متن اعتراض شما</b><span style="font-weight:500; line-height:1.9;">{{ payslip.dispute_reason }}</span></div>
+    </div>
+
+  {% elif payslip.ack_status == 'RESOLVED' %}
+    <div class="panel-body">
+      <div class="slip-meta" style="margin-bottom:14px;">
+        <b>اعتراض شما</b><span style="font-weight:500; line-height:1.9;">{{ payslip.dispute_reason }}</span>
+      </div>
+      <div class="note-box" style="margin:0;">
+        <b>پاسخ واحد مالی:</b><br>{{ payslip.review_note }}
+        <div style="font-size:11px; margin-top:6px;">{{ payslip.reviewed_at|jalali_long }}</div>
+      </div>
+    </div>
+
+  {% else %}
+    <div class="panel-body">
+      <p style="margin-bottom:16px;">
+        لطفاً ارقام فیش را بررسی کنید. اگر مورد تأیید شماست دکمهٔ تأیید را بزنید؛
+        در غیر این صورت علت را بنویسید تا واحد مالی بررسی کند.
+      </p>
+
+      <div style="display:flex; gap:10px; flex-wrap:wrap;" x-show="!showForm">
+        <form method="post" action="{% url 'portal_payslip_ack' payslip.pk %}">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="accept">
+          <button class="btn btn-primary" type="submit">فیش را تأیید می‌کنم</button>
+        </form>
+        <button class="btn btn-outline" type="button" @click="showForm = true">اعتراض دارم</button>
+      </div>
+
+      <form method="post" action="{% url 'portal_payslip_ack' payslip.pk %}" x-show="showForm" x-cloak>
+        {% csrf_token %}
+        <input type="hidden" name="action" value="dispute">
+        <div class="field">
+          <label for="reason">علت اعتراض</label>
+          <textarea class="input" id="reason" name="reason" rows="4" required minlength="10"
+                    placeholder="مثلاً: اضافه‌کاری این ماه ۳۲ ساعت بود ولی ۲۴ ساعت ثبت شده است."></textarea>
+        </div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn btn-primary" type="submit">ثبت اعتراض</button>
+          <button class="btn btn-outline" type="button" @click="showForm = false">انصراف</button>
+        </div>
+      </form>
+    </div>
+  {% endif %}
+</div>
+
 <div class="note-box">
   زیر هر مبلغ، نحوه محاسبه‌اش نوشته شده است. اگر عددی با انتظار شما نمی‌خواند،
-  همان توضیح را به واحد مالی اعلام کنید.
+  همان توضیح را در متن اعتراض بنویسید تا بررسی سریع‌تر انجام شود.
 </div>
 {% endblock %}

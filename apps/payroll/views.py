@@ -269,6 +269,47 @@ def payslip_print(request, pk):
     )
 
 
+@payroll_staff_required
+def dispute_list(request):
+    """اعتراض‌های ثبت‌شده پرسنل روی فیش‌ها."""
+    open_disputes = (
+        Payslip.objects.filter(ack_status=Payslip.Ack.DISPUTED)
+        .select_related("employee", "period", "department")
+        .order_by("-disputed_at")
+    )
+    resolved = (
+        Payslip.objects.filter(ack_status=Payslip.Ack.RESOLVED)
+        .select_related("employee", "period", "reviewed_by")
+        .order_by("-reviewed_at")[:20]
+    )
+    return render(
+        request,
+        "disputes/list.html",
+        {"open_disputes": open_disputes, "resolved": resolved},
+    )
+
+
+@can_edit_required
+@require_POST
+def dispute_resolve(request, pk):
+    payslip = get_object_or_404(Payslip, pk=pk)
+    note = (request.POST.get("note") or "").strip()
+    if len(note) < 5:
+        messages.error(request, "پاسخ به اعتراض نمی‌تواند خالی باشد.")
+        return redirect("dispute_list")
+
+    payslip.ack_status = Payslip.Ack.RESOLVED
+    payslip.review_note = note
+    payslip.reviewed_by = request.user
+    payslip.reviewed_at = timezone.now()
+    payslip.save_ack(["ack_status", "review_note", "reviewed_by", "reviewed_at"])
+    messages.success(
+        request,
+        f"پاسخ برای {payslip.employee.full_name} ثبت شد و در پرتال او نمایش داده می‌شود.",
+    )
+    return redirect("dispute_list")
+
+
 # ----------------------------------------------------------------- گزارش‌ها
 
 

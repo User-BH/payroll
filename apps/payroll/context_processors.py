@@ -17,6 +17,8 @@ NAV_SECTIONS = {
     "payslip_list": "payslips",
     "payslip_detail": "payslips",
     "payslip_print": "payslips",
+    "dispute_list": "disputes",
+    "dispute_resolve": "disputes",
     "component_list": "components",
     "component_toggle": "components",
     "reports": "reports",

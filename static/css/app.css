@@ -60,6 +60,9 @@
 }
 
 *{box-sizing:border-box; margin:0; padding:0;}
+/* تا قبل از راه‌اندازی Alpine، عناصر x-show پنهان بمانند */
+[x-cloak]{display:none !important;}
+textarea.input{resize:vertical; line-height:1.9;}
 html{scroll-behavior:smooth;}
 body{
   font-family:'Vazirmatn', Tahoma, sans-serif;

@@ -36,6 +36,9 @@ urlpatterns = [
     path("periods/<int:pk>/payslips/", payroll_views.payslip_list, name="payslip_list"),
     path("payslips/<int:pk>/", payroll_views.payslip_detail, name="payslip_detail"),
     path("payslips/<int:pk>/print/", payroll_views.payslip_print, name="payslip_print"),
+    # ---- اعتراض‌های پرسنل
+    path("disputes/", payroll_views.dispute_list, name="dispute_list"),
+    path("disputes/<int:pk>/resolve/", payroll_views.dispute_resolve, name="dispute_resolve"),
     # ---- پیکربندی
     path("components/", config_views.component_list, name="component_list"),
     path("components/<int:pk>/toggle/", config_views.component_toggle, name="component_toggle"),
@@ -51,4 +54,5 @@ urlpatterns = [
     path("portal/logout/", portal_views.portal_logout, name="portal_logout"),
     path("portal/", portal_views.portal_home, name="portal_home"),
     path("portal/payslip/<int:pk>/", portal_views.portal_payslip, name="portal_payslip"),
+    path("portal/payslip/<int:pk>/ack/", portal_views.portal_payslip_ack, name="portal_payslip_ack"),
 ]

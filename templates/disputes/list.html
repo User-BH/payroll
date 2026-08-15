@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% load payroll_extras %}
+{% block title %}اعتراض‌های پرسنل{% endblock %}
+{% block heading %}اعتراض‌های پرسنل{% endblock %}
+{% block subheading %}{{ open_disputes|length|fanum }} اعتراض در انتظار بررسی{% endblock %}
+
+{% block content %}
+<div class="panel">
+  <div class="panel-head">
+    <h3>در انتظار بررسی</h3>
+    <span class="hint">پاسخ شما مستقیماً در پرتال پرسنل نمایش داده می‌شود</span>
+  </div>
+
+  {% if open_disputes %}
+    {% for slip in open_disputes %}
+    <div style="padding:18px 20px; border-bottom:1px solid var(--line);" x-data="{ open: false }">
+      <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+        <div class="cell-name">
+          <div class="av">{{ slip.employee.initials }}</div>
+          <div>
+            <b>{{ slip.employee.full_name }}</b>
+            <small>کد {{ slip.employee.personnel_code|fadigits }} · {{ slip.department.name }} · {{ slip.period.title }}</small>
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span style="font-size:12px; color:var(--muted);">{{ slip.disputed_at|jalali }}</span>
+          <a class="btn btn-outline btn-sm" href="{% url 'payslip_detail' slip.pk %}">مشاهده فیش</a>
+          {% if user.can_edit_payroll %}
+          <button class="btn btn-primary btn-sm" type="button" @click="open = !open">ثبت پاسخ</button>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="note-box" style="margin:14px 0 0;">
+        <b>متن اعتراض:</b><br>{{ slip.dispute_reason }}
+      </div>
+
+      <div style="display:flex; gap:20px; flex-wrap:wrap; margin-top:12px; font-size:12px; color:var(--muted);">
+        <span>ناخالص: <b class="num" style="color:var(--ink);">{{ slip.gross_total|rial }}</b></span>
+        <span>خالص: <b class="num" style="color:var(--ink);">{{ slip.net_payable|rial }}</b></span>
+        <span>روز کارکرد: <b class="num" style="color:var(--ink);">{{ slip.work_days|fadec }}</b></span>
+      </div>
+
+      {% if user.can_edit_payroll %}
+      <form method="post" action="{% url 'dispute_resolve' slip.pk %}" x-show="open" x-cloak style="margin-top:14px;">
+        {% csrf_token %}
+        <div class="field">
+          <label for="note-{{ slip.pk }}">پاسخ به پرسنل</label>
+          <textarea class="input" id="note-{{ slip.pk }}" name="note" rows="3" required minlength="5"
+                    placeholder="مثلاً: کارکرد بازبینی شد؛ ۸ ساعت اضافه‌کاری جامانده در فیش مرداد اضافه می‌شود."></textarea>
+        </div>
+        <button class="btn btn-primary btn-sm" type="submit">ثبت پاسخ و بستن اعتراض</button>
+      </form>
+      {% endif %}
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="empty">هیچ اعتراض بازی وجود ندارد.</div>
+  {% endif %}
+</div>
+
+{% if resolved %}
+<div class="panel">
+  <div class="panel-head"><h3>بررسی‌شده‌ها</h3><span class="hint">۲۰ مورد اخیر</span></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>پرسنل</th><th>دوره</th><th>اعتراض</th><th>پاسخ</th><th>بررسی‌کننده</th><th>تاریخ</th></tr></thead>
+      <tbody>
+        {% for slip in resolved %}
+        <tr>
+          <td><b>{{ slip.employee.full_name }}</b></td>
+          <td>{{ slip.period.title }}</td>
+          <td style="max-width:260px; font-weight:500;">{{ slip.dispute_reason|truncatechars:90 }}</td>
+          <td style="max-width:260px; font-weight:500;">{{ slip.review_note|truncatechars:90 }}</td>
+          <td>{{ slip.reviewed_by.display_name|default:"—" }}</td>
+          <td class="num">{{ slip.reviewed_at|jalali }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
