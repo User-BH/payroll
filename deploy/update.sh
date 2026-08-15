@@ -51,6 +51,11 @@ git pull --ff-only
 say "نصب وابستگی‌ها"
 "$VENV/bin/pip" install --quiet -r requirements.txt
 
+# بررسی پیکربندی پیش از دست زدن به دیتابیس. اگر وابستگی‌ای جا افتاده باشد یا
+# تنظیمات ایراد داشته باشد، همین‌جا معلوم می‌شود — نه وسط migrate.
+say "بررسی پیکربندی"
+"$VENV/bin/python" manage.py check
+
 # ---------------------------------------------------------------- ۴) دیتابیس
 say "اعمال مهاجرت‌های دیتابیس"
 "$VENV/bin/python" manage.py migrate --noinput
