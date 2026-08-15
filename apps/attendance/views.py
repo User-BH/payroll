@@ -1,11 +1,22 @@
+from django import forms
+from django.contrib import messages
 from django.db.models import Q
-from django.shortcuts import get_object_or_404, render
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from apps.accounts.decorators import can_edit_required, payroll_staff_required
+from apps.attendance.importer import build_template, import_timesheets
 from apps.attendance.leave import DEFAULT_DAY_MINUTES, balances_for, compute_balance
 from apps.attendance.models import Timesheet
+
+
+class TimesheetImportForm(forms.Form):
+    file = forms.FileField(
+        label="فایل اکسل کارکرد",
+        help_text="ابتدا فایل این دوره را دانلود کنید، اعداد را پر کنید و برگردانید",
+    )
 from apps.employees.models import Employee
 from apps.payroll.models import PayrollPeriod
 from apps.payroll.utils import parse_decimal
@@ -103,6 +114,72 @@ def timesheet_rows(request, pk):
             "balances": balances_for(period, _day_minutes(period)),
         },
     )
+
+
+@payroll_staff_required
+def timesheet_import_template(request, pk):
+    period = get_object_or_404(PayrollPeriod.objects.select_related("legal_parameter"), pk=pk)
+    if period.is_editable:
+        _ensure_timesheets(period)
+    response = HttpResponse(
+        build_template(period),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    response["Content-Disposition"] = (
+        f'attachment; filename="timesheet-{period.year}-{period.month:02d}.xlsx"'
+    )
+    return response
+
+
+@can_edit_required
+def timesheet_import(request, pk):
+    period = get_object_or_404(PayrollPeriod.objects.select_related("legal_parameter"), pk=pk)
+    form = TimesheetImportForm(request.POST or None, request.FILES or None)
+    result = None
+
+    if request.method == "POST" and form.is_valid():
+        upload = form.cleaned_data["file"]
+        try:
+            result = import_timesheets(
+                upload, period, user=request.user, file_name=upload.name
+            )
+        except Exception as exc:  # noqa: BLE001 — خطای فایل باید به کاربر برسد
+            messages.error(request, f"فایل خوانده نشد: {exc}")
+        else:
+            if result["errors"]:
+                messages.error(
+                    request,
+                    f"{len(result['errors'])} سطر ایراد دارد و هیچ ردیفی به‌روز نشد.",
+                )
+            else:
+                messages.success(request, f"کارکرد {result['updated']} نفر به‌روز شد.")
+                return redirect("timesheet_grid", pk=period.pk)
+
+    return render(
+        request,
+        "timesheets/import.html",
+        {"period": period, "form": form, "result": result},
+    )
+
+
+@can_edit_required
+@require_POST
+def timesheet_approve_all(request, pk):
+    """تأیید یکجای همه کارکردهای دوره."""
+    period = get_object_or_404(PayrollPeriod, pk=pk)
+    if not period.is_editable:
+        messages.error(request, "دوره در وضعیت پیش‌نویس نیست.")
+        return redirect("timesheet_grid", pk=period.pk)
+
+    count = Timesheet.objects.filter(period=period).exclude(
+        status=Timesheet.Status.APPROVED
+    ).update(
+        status=Timesheet.Status.APPROVED,
+        approved_by=request.user,
+        approved_at=timezone.now(),
+    )
+    messages.success(request, f"{count} ردیف کارکرد تأیید شد.")
+    return redirect("timesheet_grid", pk=period.pk)
 
 
 @can_edit_required

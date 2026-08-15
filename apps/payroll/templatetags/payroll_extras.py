@@ -73,6 +73,15 @@ def dictget(mapping, key):
     return mapping.get(key)
 
 
+@register.filter(name="month_name")
+def month_name(number):
+    """شماره ماه جلالی → نام ماه."""
+    try:
+        return utils.JALALI_MONTHS[int(number) - 1]
+    except (ValueError, TypeError, IndexError):
+        return number
+
+
 @register.filter(name="dhm")
 def dhm(minutes):
     """دقیقه → «۲۴ روز و ۷ ساعت و ۱۰ دقیقه»."""

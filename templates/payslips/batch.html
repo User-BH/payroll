@@ -1,0 +1,54 @@
+{% load static payroll_extras %}<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>فیش‌های {{ period.title }} — تامین کالا باختر</title>
+<link rel="icon" href="{% static 'img/favicon.png' %}">
+{% include "payslips/_a5_styles.html" %}
+<style>
+  /* هر فیش یک برگه A5 مستقل؛ در چاپ، صفحه‌شکن بین برگه‌ها */
+  .slip{margin-bottom:18px;}
+  .slip:last-child{margin-bottom:0;}
+  @media print{
+    .slip{page-break-after:always; break-after:page;}
+    .slip:last-child{page-break-after:auto; break-after:auto;}
+  }
+  .bar select{
+    font-family:inherit; font-size:8.5pt; font-weight:700; padding:7px 12px;
+    border-radius:7px; border:1px solid var(--line); background:#fff; color:var(--ink);
+  }
+  .bar .count{
+    margin-inline-end:auto; font-size:9pt; font-weight:700; color:var(--muted);
+    align-self:center;
+  }
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <span class="count">{{ count|fanum }} فیش · {{ period.title }}</span>
+  <select onchange="location.href='?department='+this.value">
+    <option value="">همه واحدها</option>
+    {% for department in departments %}
+    <option value="{{ department.pk }}" {% if selected_department == department.pk|stringformat:"s" %}selected{% endif %}>
+      {{ department.name }}
+    </option>
+    {% endfor %}
+  </select>
+  <button class="primary" onclick="window.print()">چاپ همه / ذخیره PDF</button>
+  <a href="{% url 'payslip_list' period.pk %}">بازگشت</a>
+</div>
+
+{% for item in slips %}
+  {% with payslip=item.payslip earnings=item.earnings deductions=item.deductions %}
+    {% include "payslips/_a5.html" %}
+  {% endwith %}
+{% empty %}
+  <div class="slip" style="text-align:center; padding:40mm 10mm; color:var(--muted);">
+    فیشی برای این انتخاب وجود ندارد.
+  </div>
+{% endfor %}
+
+</body>
+</html>

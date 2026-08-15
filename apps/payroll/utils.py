@@ -84,6 +84,28 @@ def jalali_to_gregorian(year: int, month: int, day: int):
     return jdatetime.date(year, month, day).togregorian()
 
 
+def parse_jalali_input(text):
+    """«۱۴۰۵/۰۵/۲۰» یا «1405-05-20» یا تاریخ میلادی → date میلادی."""
+    if not text:
+        return None
+    if isinstance(text, date):
+        return text
+    cleaned = str(text).translate(ARABIC_INDIC).replace("-", "/").strip()
+    parts = [p for p in cleaned.split("/") if p]
+    if len(parts) != 3:
+        return None
+    try:
+        year, month, day = (int(p) for p in parts)
+    except ValueError:
+        return None
+    try:
+        if year < 1500:
+            return jdatetime.date(year, month, day).togregorian()
+        return date(year, month, day)
+    except ValueError:
+        return None
+
+
 def jalali_month_range(year: int, month: int):
     """اولین و آخرین روز یک ماه جلالی، به میلادی."""
     start = jdatetime.date(year, month, 1)

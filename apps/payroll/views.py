@@ -11,7 +11,7 @@ from django.views.decorators.http import require_POST
 from apps.accounts.decorators import can_edit_required, payroll_staff_required
 from apps.attendance.models import Timesheet
 from apps.employees.models import Employee, EmploymentContract
-from apps.org.models import CostCenter
+from apps.org.models import CostCenter, Department
 from apps.payroll.engine.runner import CalculationError, calculate_period
 from apps.payroll.models import PayrollInput, PayrollPeriod, Payslip
 from apps.payroll.utils import fa_money, jalali_str
@@ -409,6 +409,48 @@ def payslip_detail(request, pk):
             "earnings": [l for l in lines if l.kind == SalaryComponent.Kind.EARNING],
             "deductions": [l for l in lines if l.kind == SalaryComponent.Kind.DEDUCTION],
             "employer_costs": [l for l in lines if l.kind == SalaryComponent.Kind.EMPLOYER_COST],
+        },
+    )
+
+
+@payroll_staff_required
+def payslip_batch_print(request, pk):
+    """چاپ دسته‌ای همه فیش‌های یک دوره — هر فیش در یک صفحه A5 جدا.
+
+    فیش فعلی شرکت یک PDF چندصفحه‌ای است؛ چاپ تک‌تک ۱۴۶ فیش عملی نیست.
+    """
+    period = get_object_or_404(PayrollPeriod.objects.select_related("company"), pk=pk)
+    query = request.GET.get("department")
+
+    payslips = (
+        Payslip.objects.filter(period=period)
+        .select_related("employee", "contract", "contract__job_title", "department", "cost_center")
+        .prefetch_related("lines")
+        .order_by("employee__personnel_code")
+    )
+    if query:
+        payslips = payslips.filter(department_id=query)
+
+    slips = []
+    for payslip in payslips:
+        lines = list(payslip.lines.all())
+        slips.append({
+            "payslip": payslip,
+            "earnings": [l for l in lines if l.kind == SalaryComponent.Kind.EARNING],
+            "deductions": [l for l in lines if l.kind == SalaryComponent.Kind.DEDUCTION],
+        })
+
+    return render(
+        request,
+        "payslips/batch.html",
+        {
+            "period": period,
+            "slips": slips,
+            "count": len(slips),
+            "departments": Department.objects.filter(
+                payslips__period=period
+            ).distinct().order_by("name"),
+            "selected_department": query,
         },
     )
 

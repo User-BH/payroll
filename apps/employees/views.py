@@ -3,6 +3,7 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
 
 from apps.accounts.decorators import can_edit_required, payroll_staff_required
 from apps.employees.forms import (
@@ -185,6 +186,63 @@ def dependent_create(request, pk):
         "employees/simple_form.html",
         {"form": form, "employee": employee, "title": "افزودن فرد تحت تکفل"},
     )
+
+
+@can_edit_required
+@require_POST
+def employee_terminate(request, pk):
+    """ثبت خروج پرسنل.
+
+    سه کار با هم انجام می‌شود، چون جدا انجام دادنشان یعنی پرسنلِ خارج‌شده در
+    محاسبه ماه بعد هم می‌آید: وضعیت خاتمه، تاریخ خروج، و بستن قرارداد فعال.
+    """
+    from apps.employees.models import EmploymentContract
+    from apps.payroll.utils import parse_jalali_input
+
+    employee = get_object_or_404(Employee, pk=pk)
+    raw_date = (request.POST.get("termination_date") or "").strip()
+    reason = (request.POST.get("termination_reason") or "").strip()
+
+    date_value = parse_jalali_input(raw_date)
+    if date_value is None:
+        messages.error(request, "تاریخ خروج معتبر نیست.")
+        return redirect("employee_detail", pk=employee.pk)
+
+    employee.termination_date = date_value
+    employee.termination_reason = reason
+    employee.status = Employee.Status.TERMINATED
+    employee.save(update_fields=["termination_date", "termination_reason", "status"])
+
+    closed = 0
+    for contract in employee.contracts.filter(status=EmploymentContract.Status.ACTIVE):
+        contract.effective_to = date_value
+        contract.status = EmploymentContract.Status.ENDED
+        contract.save(update_fields=["effective_to", "status"])
+        closed += 1
+
+    messages.success(
+        request,
+        f"خروج {employee.full_name} ثبت شد و {closed} قرارداد فعال بسته شد. "
+        "از دوره‌های بعدی در محاسبه نمی‌آید. "
+        "توجه: تسویه‌حساب پایان کار هنوز در سامانه نیست و باید دستی انجام شود.",
+    )
+    return redirect("employee_detail", pk=employee.pk)
+
+
+@can_edit_required
+@require_POST
+def employee_reactivate(request, pk):
+    employee = get_object_or_404(Employee, pk=pk)
+    employee.status = Employee.Status.ACTIVE
+    employee.termination_date = None
+    employee.termination_reason = ""
+    employee.save(update_fields=["status", "termination_date", "termination_reason"])
+    messages.success(
+        request,
+        f"{employee.full_name} دوباره فعال شد. برای ورود به چرخه حقوق باید "
+        "قرارداد جدیدی برایش تعریف کنید.",
+    )
+    return redirect("employee_detail", pk=employee.pk)
 
 
 @payroll_staff_required

@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% load payroll_extras %}
+{% block title %}ورود کارکرد {{ period.title }}{% endblock %}
+{% block heading %}ورود کارکرد از اکسل — {{ period.title }}{% endblock %}
+{% block subheading %}ثبت دستی کارکرد هر ماه برای همه پرسنل، منطقی نیست{% endblock %}
+
+{% block content %}
+{% if not period.is_editable %}
+<div class="note-box">
+  <b>وضعیت دوره «{{ period.get_status_display }}» است.</b>
+  کارکرد فقط در وضعیت پیش‌نویس قابل تغییر است.
+</div>
+{% endif %}
+
+<div class="grid-2">
+  <div>
+    <div class="panel">
+      <div class="panel-head"><h3>بارگذاری فایل</h3></div>
+      <div class="panel-body">
+        <form method="post" enctype="multipart/form-data">
+          {% csrf_token %}
+          {% for field in form %}
+          <div class="field">
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {% if field.help_text %}<div class="explain">{{ field.help_text }}</div>{% endif %}
+            {% if field.errors %}<div style="color:var(--red); font-size:11.5px; margin-top:5px;">{{ field.errors|striptags }}</div>{% endif %}
+          </div>
+          {% endfor %}
+          <button class="btn btn-primary" type="submit" {% if not period.is_editable %}disabled{% endif %}>بارگذاری</button>
+        </form>
+      </div>
+    </div>
+
+    {% if result and result.errors %}
+    <div class="panel">
+      <div class="panel-head">
+        <h3 style="color:var(--red);">{{ result.errors|length|fanum }} ایراد — هیچ ردیفی به‌روز نشد</h3>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th style="width:80px;">سطر</th><th>ایراد</th></tr></thead>
+          <tbody>
+            {% for error in result.errors %}
+            <tr><td class="num">{{ error.row|fanum }}</td><td data-label="ایراد">{{ error.message }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>راهنما</h3></div>
+    <div class="panel-body">
+      <a class="btn btn-primary" style="width:100%; justify-content:center; margin-bottom:16px;"
+         href="{% url 'timesheet_import_template' period.pk %}">دانلود فایل این دوره</a>
+
+      <div class="note-box" style="margin-bottom:14px;">
+        فایل نمونه <b>از پیش با پرسنل همین دوره پر شده</b> و مقادیر فعلی را دارد.
+        فقط اعداد را عوض کنید و برگردانید — کد پرسنلی را دست نزنید.
+      </div>
+
+      <div style="font-size:12.5px; color:var(--muted); line-height:2;">
+        <b style="color:var(--ink);">نکته‌ها:</b>
+        <ul style="margin:8px 0 0; padding-inline-start:18px;">
+          <li>مرخصی سه ستون دارد: روز، ساعت، دقیقه</li>
+          <li>روز کارکرد باید بین ۰ و ۳۱ باشد</li>
+          <li>کد پرسنلی ناشناس، خطاست و رکورد جدید ساخته نمی‌شود</li>
+          <li>اگر یک سطر ایراد داشته باشد، <b>هیچ ردیفی</b> به‌روز نمی‌شود</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

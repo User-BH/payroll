@@ -51,6 +51,10 @@
       فیش حقوقی
     </a>
 
+    <a class="nav-item {% if section == 'loans' %}active{% endif %}" href="{% url 'loan_list' %}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg>
+      وام و اقساط
+    </a>
     <a class="nav-item {% if section == 'disputes' %}active{% endif %}" href="{% url 'dispute_list' %}">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.7 8.7 0 0 1-3.8-.9L3 20.5l1.5-4.5A8.4 8.4 0 0 1 3.6 11.5a8.4 8.4 0 0 1 8.4-8.4 8.4 8.4 0 0 1 9 8.4Z"/><path d="M12 8v4M12 15.5v.01"/></svg>
       اعتراض‌های پرسنل
@@ -72,6 +76,10 @@
     <a class="nav-item {% if section == 'portal_accounts' %}active{% endif %}" href="{% url 'portal_accounts' %}">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="10.5" width="18" height="10.5" rx="2.5"/><path d="M7.5 10.5V7a4.5 4.5 0 0 1 9 0v3.5M12 14.5v2.5"/></svg>
       حساب‌های پرتال
+    </a>
+    <a class="nav-item {% if section == 'org' %}active{% endif %}" href="{% url 'org_settings' %}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2.5" width="6" height="5" rx="1.5"/><rect x="2.5" y="16.5" width="6" height="5" rx="1.5"/><rect x="15.5" y="16.5" width="6" height="5" rx="1.5"/><path d="M12 7.5v4M5.5 16.5v-2a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v2"/></svg>
+      شرکت و ساختار
     </a>
     <a class="nav-item {% if section == 'fiscal' %}active{% endif %}" href="{% url 'fiscal_settings' %}">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.5-2.3.9a7 7 0 0 0-2-1.2L14 3h-4l-.6 2.5a7 7 0 0 0-2 1.2l-2.3-.9-2 3.5 2 1.5A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.5 2.3-.9c.6.5 1.3.9 2 1.2L10 21h4l.6-2.5c.7-.3 1.4-.7 2-1.2l2.3.9 2-3.5-2-1.5c.1-.4.1-.8.1-1.2Z"/></svg>

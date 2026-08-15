@@ -11,7 +11,51 @@
   <a class="btn btn-outline btn-sm" href="{% url 'contract_create' employee.pk %}">قرارداد جدید</a>
   <a class="btn btn-outline btn-sm" href="{% url 'bank_account_create' employee.pk %}">افزودن حساب بانکی</a>
   <a class="btn btn-outline btn-sm" href="{% url 'dependent_create' employee.pk %}">افزودن تحت تکفل</a>
+  {% if employee.status == 'TERMINATED' %}
+  <form method="post" action="{% url 'employee_reactivate' employee.pk %}"
+        onsubmit="return confirm('{{ employee.full_name }} دوباره فعال شود؟');">
+    {% csrf_token %}
+    <button class="btn btn-outline btn-sm" type="submit">بازگرداندن به کار</button>
+  </form>
+  {% else %}
+  <button class="btn btn-outline btn-sm" type="button" x-data @click="$refs.term.hidden = !$refs.term.hidden">ثبت خروج</button>
+  {% endif %}
 </div>
+
+{% if employee.status != 'TERMINATED' %}
+<div class="panel" x-ref="term" hidden>
+  <div class="panel-head"><h3>ثبت خروج از شرکت</h3></div>
+  <div class="panel-body">
+    <div class="note-box">
+      با ثبت خروج، وضعیت پرسنل «خاتمه‌یافته» می‌شود و قرارداد فعالش بسته می‌شود،
+      پس از دوره‌های بعدی در محاسبه نمی‌آید. فیش‌های گذشته دست‌نخورده می‌مانند.
+      <b>تسویه‌حساب پایان کار هنوز در سامانه نیست و باید دستی انجام شود.</b>
+    </div>
+    <form method="post" action="{% url 'employee_terminate' employee.pk %}"
+          style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;"
+          onsubmit="return confirm('خروج {{ employee.full_name }} ثبت شود؟');">
+      {% csrf_token %}
+      <div class="field" style="margin:0;">
+        <label for="tdate">تاریخ خروج (جلالی)</label>
+        <input class="input" id="tdate" name="termination_date" placeholder="۱۴۰۵/۰۵/۳۱" style="width:180px;" required>
+      </div>
+      <div class="field" style="margin:0; flex:1; min-width:220px;">
+        <label for="treason">علت خروج</label>
+        <input class="input" id="treason" name="termination_reason" placeholder="استعفا، اتمام قرارداد، …">
+      </div>
+      <button class="btn btn-primary" type="submit">ثبت خروج</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+{% if employee.status == 'TERMINATED' %}
+<div class="note-box">
+  <b>این پرسنل در {{ employee.termination_date|jalali }} از شرکت خارج شده است.</b>
+  {% if employee.termination_reason %} علت: {{ employee.termination_reason }}{% endif %}
+  در محاسبه دوره‌های جدید نمی‌آید.
+</div>
+{% endif %}
 {% endif %}
 
 {% if not current_contract %}

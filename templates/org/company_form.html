@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}ویرایش اطلاعات شرکت{% endblock %}
+{% block heading %}اطلاعات شرکت{% endblock %}
+{% block subheading %}کد کارگاه بیمه و شماره پرونده مالیاتی روی گزارش‌های رسمی چاپ می‌شوند{% endblock %}
+
+{% block content %}
+<form method="post" novalidate>
+  {% csrf_token %}
+  <div class="panel">
+    <div class="panel-body" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:0 18px;">
+      {% for field in form %}
+      <div class="field">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.help_text %}<div class="explain">{{ field.help_text }}</div>{% endif %}
+        {% if field.errors %}<div style="color:var(--red); font-size:11.5px; margin-top:5px; font-weight:600;">{{ field.errors|striptags }}</div>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  <div style="display:flex; gap:10px;">
+    <button class="btn btn-primary" type="submit">ذخیره</button>
+    <a class="btn btn-outline" href="{% url 'org_settings' %}">انصراف</a>
+  </div>
+</form>
+{% endblock %}

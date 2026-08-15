@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% load payroll_extras %}
+{% block title %}وام و مساعده{% endblock %}
+{% block heading %}وام و مساعده{% endblock %}
+{% block subheading %}اقساط سررسیدشده خودکار از فیش کسر می‌شوند{% endblock %}
+
+{% block content %}
+<div class="search-bar">
+  <input class="input" type="search" name="q" value="{{ q }}" placeholder="جستجوی پرسنل…"
+         onchange="location.href='?q='+encodeURIComponent(this.value)">
+  <select class="input" style="max-width:180px;" onchange="location.href='?status='+this.value">
+    <option value="">همه وضعیت‌ها</option>
+    {% for value, label in statuses %}
+    <option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  {% if user.can_edit_payroll %}
+  <a class="btn btn-primary btn-sm" href="{% url 'loan_create' %}">ثبت وام جدید</a>
+  {% endif %}
+</div>
+
+<div class="stat-row">
+  <div class="stat"><b>تعداد</b><span>{{ rows|length|fanum }}</span></div>
+  <div class="stat"><b>جمع اصل وام</b><span>{{ total_principal|rial }}</span></div>
+  <div class="stat"><b>جمع مانده</b><span>{{ total_remaining|rial }}</span></div>
+</div>
+
+<div class="panel">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>پرسنل</th><th>نوع</th><th>مبلغ اصل</th><th>اقساط</th><th>مانده</th><th>وضعیت</th></tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr onclick="location.href='{% url 'loan_detail' row.loan.pk %}'" style="cursor:pointer;">
+          <td>
+            <div class="cell-name">
+              <div class="av">{{ row.loan.employee.initials }}</div>
+              <div><b>{{ row.loan.employee.full_name }}</b><small>کد {{ row.loan.employee.personnel_code|fadigits }}</small></div>
+            </div>
+          </td>
+          <td data-label="نوع">{{ row.loan.get_loan_type_display }}</td>
+          <td data-label="مبلغ اصل" class="num">{{ row.loan.principal|rial }}</td>
+          <td data-label="اقساط" class="num">{{ row.loan.total_installments|fanum }} × {{ row.loan.installment_amount|rial }}</td>
+          <td data-label="مانده" class="num" style="font-weight:800;">{{ row.remaining|rial }}</td>
+          <td data-label="وضعیت">
+            <span class="badge {% if row.loan.status == 'ACTIVE' %}ok{% elif row.loan.status == 'SETTLED' %}info{% else %}muted{% endif %}">
+              <span class="dot"></span>{{ row.loan.get_status_display }}
+            </span>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6"><div class="empty">وامی ثبت نشده است.</div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

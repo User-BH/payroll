@@ -19,6 +19,14 @@
          hx-target="#ts-rows"
          hx-indicator="#ts-spin">
   <span class="spinner" id="ts-spin"></span>
+  {% if user.can_edit_payroll and period.is_editable %}
+  <a class="btn btn-primary btn-sm" href="{% url 'timesheet_import' period.pk %}">ورود از اکسل</a>
+  <form method="post" action="{% url 'timesheet_approve_all' period.pk %}"
+        onsubmit="return confirm('همه ردیف‌های کارکرد این دوره تأیید شوند؟');">
+    {% csrf_token %}
+    <button class="btn btn-outline btn-sm" type="submit">تأیید همه</button>
+  </form>
+  {% endif %}
   <a class="btn btn-outline btn-sm" href="{% url 'period_detail' period.pk %}">بازگشت به دوره</a>
 </div>
 

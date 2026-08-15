@@ -1,0 +1,138 @@
+{% load static payroll_extras %}
+{# یک برگه فیش A5. متغیرها: payslip، earnings، deductions #}
+<div class="slip">
+  <div class="head">
+    <img src="{% static 'img/logo.png' %}" alt="">
+    <div class="co">
+      <b>تامین کالا باختر</b>
+      <span>پخش مواد غذایی، بهداشتی و شوینده</span>
+    </div>
+    <div class="doc">
+      <b>فیش حقوق و مزایای {{ payslip.period.title }}</b>
+      <span>تاریخ تهیه: {{ payslip.calculated_at|jalali }}</span>
+    </div>
+  </div>
+
+  <div class="meta">
+    <div><b>شماره پرسنلی</b><span class="num">{{ payslip.employee.personnel_code|fadigits }}</span></div>
+    <div><b>نام و نام خانوادگی</b><span>{{ payslip.employee.full_name }}</span></div>
+    <div><b>سمت</b><span>{{ payslip.contract.job_title.name }}</span></div>
+    <div><b>مرکز هزینه</b><span>{{ payslip.cost_center.name }}</span></div>
+  </div>
+
+  <div class="cols">
+    <div class="col">
+      <h3>پرداختی‌ها <em>ریال</em></h3>
+      <table>
+        {% for line in earnings %}
+        <tr>
+          <td>
+            {{ line.component_name }}
+            {% if line.explanation %}<em class="why">{{ line.explanation }}</em>{% endif %}
+          </td>
+          <td class="qty">{% if line.quantity and line.quantity != 1 %}{{ line.quantity|fadec }}{% endif %}</td>
+          <td class="amt">{{ line.amount|rial }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+      <table class="sum">
+        <tr><td>جمع پرداختی‌ها</td><td class="amt">{{ payslip.gross_total|rial }}</td></tr>
+      </table>
+    </div>
+
+    <div class="col">
+      <h3>کسورات <em>ریال</em></h3>
+      <table>
+        {% for line in deductions %}
+        <tr>
+          <td>
+            {{ line.component_name }}
+            {% if line.explanation %}<em class="why">{{ line.explanation }}</em>{% endif %}
+          </td>
+          <td class="amt">{{ line.amount|rial }}</td>
+        </tr>
+        {% empty %}
+        <tr><td style="color:var(--muted);">کسوری ثبت نشده است</td><td class="amt">—</td></tr>
+        {% endfor %}
+      </table>
+      <table class="sum">
+        <tr><td>جمع کسورات</td><td class="amt">{{ payslip.total_deductions|rial }}</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="net">
+    <span class="lbl">خالص قابل پرداخت</span>
+    <span class="val">{{ payslip.net_payable|rial }} <small>ریال</small></span>
+  </div>
+
+  <div class="foot">
+    <div class="box">
+      <h4>اطلاعات پرداخت</h4>
+      <div class="row"><span>بانک عامل</span><b>{{ payslip.bank_snapshot|default:"رسالت" }}</b></div>
+      <div class="row"><span>شماره حساب</span><b class="num" style="direction:ltr;">{{ payslip.account_snapshot|default:"—" }}</b></div>
+      <div class="row"><span>مبلغ واریزی</span><b class="num">{{ payslip.net_payable|rial }}</b></div>
+    </div>
+    <div class="box">
+      <h4>مبنای محاسبه</h4>
+      <div class="row"><span>روز کارکرد</span><b class="num">{{ payslip.work_days|fadec }}</b></div>
+      <div class="row"><span>مبنای بیمه</span><b class="num">{{ payslip.insurable_base|rial }}</b></div>
+      <div class="row"><span>مبنای مالیات</span><b class="num">{{ payslip.taxable_base|rial }}</b></div>
+    </div>
+  </div>
+
+  {% if payslip.leave_snapshot %}
+  {% with lv=payslip.leave_snapshot %}
+  <div class="box" style="margin-top:6px;">
+    <h4>مرخصی</h4>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0 14px;">
+      <div class="row"><span>انتقالی از سال قبل</span><b>{{ lv.carried_over|dhm }}</b></div>
+      <div class="row"><span>مصرفی این ماه</span><b>{{ lv.used_period|dhm }}</b></div>
+      <div class="row"><span>استحقاقی امسال</span><b>{{ lv.annual|dhm }}</b></div>
+      <div class="row"><span>مصرفی از اول سال</span><b>{{ lv.used_ytd|dhm }}</b></div>
+      <div class="row" style="border-top:1px dotted var(--line); margin-top:2px; padding-top:2px;">
+        <span>قابل استفاده</span><b>{{ lv.total|dhm }}</b>
+      </div>
+      <div class="row" style="border-top:1px dotted var(--line); margin-top:2px; padding-top:2px;">
+        <span>مانده تا آخر سال</span><b style="color:var(--red-deep);">{{ lv.remaining|dhm }}</b>
+      </div>
+    </div>
+  </div>
+  {% endwith %}
+  {% endif %}
+
+  <div class="ack">
+    <span>وضعیت تأیید پرسنل</span>
+    {% if payslip.ack_status == 'ACCEPTED' %}
+      <span class="chip ok">✓ تأیید شده در {{ payslip.acknowledged_at|jalali }}</span>
+    {% elif payslip.ack_status == 'DISPUTED' %}
+      <span class="chip wait">اعتراض ثبت شده در {{ payslip.disputed_at|jalali }}</span>
+    {% elif payslip.ack_status == 'RESOLVED' %}
+      <span class="chip ok">اعتراض بررسی و پاسخ داده شد</span>
+    {% elif payslip.ack_status == 'VIEWED' %}
+      <span class="chip muted">دیده شد در {{ payslip.first_viewed_at|jalali }} — در انتظار تأیید</span>
+    {% else %}
+      <span class="chip muted">هنوز مشاهده نشده</span>
+    {% endif %}
+  </div>
+
+  <div class="sign">
+    <div><i>مهر و امضای کارفرما</i></div>
+    <div>
+      {% if payslip.ack_status == 'ACCEPTED' and payslip.employee.signature %}
+      <img src="{{ payslip.employee.signature.url }}" alt=""
+           style="max-height:34px; max-width:38mm; display:block; margin:0 auto -4px;">
+      <i style="border-top:1px solid var(--line); margin-top:2px;">
+        امضای دریافت‌کننده — تأیید الکترونیکی {{ payslip.acknowledged_at|jalali }}
+      </i>
+      {% else %}
+      <i>امضای دریافت‌کننده</i>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="tag">
+    این فیش پس از قفل دوره صادر شده و تغییرناپذیر است ·
+    شناسه محاسبه <span class="num" style="direction:ltr; display:inline-block;">{{ payslip.calc_hash|slice:":12" }}</span>
+  </div>
+</div>

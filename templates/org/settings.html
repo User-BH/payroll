@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% load payroll_extras %}
+{% block title %}ساختار سازمانی{% endblock %}
+{% block heading %}شرکت و ساختار سازمانی{% endblock %}
+{% block subheading %}واحد، مرکز هزینه و پست سازمانی — مبنای دامنه شمول اقلام و تفکیک گزارش‌ها{% endblock %}
+
+{% block content %}
+<div class="panel">
+  <div class="panel-head">
+    <h3>اطلاعات شرکت</h3>
+    {% if user.can_edit_payroll %}
+    <a class="btn btn-outline btn-sm" href="{% url 'company_edit' %}">ویرایش</a>
+    {% endif %}
+  </div>
+  {% if company %}
+  <div class="panel-body" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px;">
+    <div class="slip-meta"><b>نام</b><span>{{ company.name }}</span></div>
+    <div class="slip-meta"><b>شناسه ملی</b><span class="num">{{ company.national_id|fadigits|default:"—" }}</span></div>
+    <div class="slip-meta">
+      <b>کد کارگاه بیمه</b>
+      <span class="num">
+        {% if company.insurance_workshop_code %}{{ company.insurance_workshop_code|fadigits }}
+        {% else %}<span class="badge wait"><span class="dot"></span>ثبت نشده</span>{% endif %}
+      </span>
+    </div>
+    <div class="slip-meta">
+      <b>شماره پرونده مالیاتی</b>
+      <span class="num">
+        {% if company.tax_file_number %}{{ company.tax_file_number|fadigits }}
+        {% else %}<span class="badge wait"><span class="dot"></span>ثبت نشده</span>{% endif %}
+      </span>
+    </div>
+    <div class="slip-meta"><b>تلفن</b><span class="num">{{ company.phone|fadigits|default:"—" }}</span></div>
+  </div>
+  {% if not company.insurance_workshop_code or not company.tax_file_number %}
+  <div class="panel-body" style="padding-top:0;">
+    <div class="note-box" style="margin:0;">
+      کد کارگاه بیمه و شماره پرونده مالیاتی روی لیست بیمه و لیست مالیات چاپ می‌شوند.
+      تا تکمیل نشوند، آن گزارش‌ها ناقص‌اند.
+    </div>
+  </div>
+  {% endif %}
+  {% else %}
+  <div class="empty">شرکتی تعریف نشده است.</div>
+  {% endif %}
+</div>
+
+<div class="grid-2-even">
+  {% for group in groups %}{% endfor %}
+
+  <div class="panel">
+    <div class="panel-head">
+      <h3>واحدهای سازمانی</h3>
+      {% if user.can_edit_payroll %}<a class="link-btn" href="{% url 'org_item_create' 'department' %}">افزودن</a>{% endif %}
+    </div>
+    <div class="comp-list">
+      {% for item in departments %}
+      <div class="comp-item">
+        <div class="comp-item-l">
+          <span class="comp-dot" style="background:{% if item.is_active %}var(--green){% else %}var(--muted){% endif %}"></span>
+          <div><b>{{ item.name }}</b><small>{% if not item.is_active %}غیرفعال{% else %}{{ item.code|default:"" }}{% endif %}</small></div>
+        </div>
+        {% if user.can_edit_payroll %}
+        <div style="display:flex; gap:6px;">
+          <a class="btn btn-outline btn-sm" href="{% url 'org_item_edit' 'department' item.pk %}">ویرایش</a>
+          <form method="post" action="{% url 'org_item_delete' 'department' item.pk %}" onsubmit="return confirm('حذف «{{ item.name }}»؟');">
+            {% csrf_token %}<button class="btn btn-outline btn-sm" type="submit">حذف</button>
+          </form>
+        </div>
+        {% endif %}
+      </div>
+      {% empty %}<div class="empty">تعریف نشده است.</div>{% endfor %}
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h3>مراکز هزینه</h3>
+      {% if user.can_edit_payroll %}<a class="link-btn" href="{% url 'org_item_create' 'cost-center' %}">افزودن</a>{% endif %}
+    </div>
+    <div class="comp-list">
+      {% for item in cost_centers %}
+      <div class="comp-item">
+        <div class="comp-item-l">
+          <span class="comp-dot" style="background:{% if item.is_active %}var(--red){% else %}var(--muted){% endif %}"></span>
+          <div><b>{{ item.name }}</b><small>{% if not item.is_active %}غیرفعال{% else %}{{ item.gl_account|default:"" }}{% endif %}</small></div>
+        </div>
+        {% if user.can_edit_payroll %}
+        <div style="display:flex; gap:6px;">
+          <a class="btn btn-outline btn-sm" href="{% url 'org_item_edit' 'cost-center' item.pk %}">ویرایش</a>
+          <form method="post" action="{% url 'org_item_delete' 'cost-center' item.pk %}" onsubmit="return confirm('حذف «{{ item.name }}»؟');">
+            {% csrf_token %}<button class="btn btn-outline btn-sm" type="submit">حذف</button>
+          </form>
+        </div>
+        {% endif %}
+      </div>
+      {% empty %}<div class="empty">تعریف نشده است.</div>{% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head">
+    <h3>پست‌های سازمانی</h3>
+    {% if user.can_edit_payroll %}<a class="link-btn" href="{% url 'org_item_create' 'job-title' %}">افزودن</a>{% endif %}
+  </div>
+  <div class="comp-list" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr));">
+    {% for item in job_titles %}
+    <div class="comp-item">
+      <div class="comp-item-l">
+        <span class="comp-dot" style="background:{% if item.is_active %}var(--blue){% else %}var(--muted){% endif %}"></span>
+        <div><b>{{ item.name }}</b><small>{% if item.job_group %}گروه شغلی {{ item.job_group|fanum }}{% endif %}{% if not item.is_active %} · غیرفعال{% endif %}</small></div>
+      </div>
+      {% if user.can_edit_payroll %}
+      <a class="btn btn-outline btn-sm" href="{% url 'org_item_edit' 'job-title' item.pk %}">ویرایش</a>
+      {% endif %}
+    </div>
+    {% empty %}<div class="empty">تعریف نشده است.</div>{% endfor %}
+  </div>
+</div>
+{% endblock %}

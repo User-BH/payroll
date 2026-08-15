@@ -8,6 +8,8 @@ from apps.accounts import views as accounts_views
 from apps.attendance import entitlement_views
 from apps.attendance import views as attendance_views
 from apps.employees import views as employees_views
+from apps.loans import views as loans_views
+from apps.org import views as org_views
 from apps.payroll import views as payroll_views
 from apps.payroll_config import views as config_views
 from apps.portal import views as portal_views
@@ -34,6 +36,8 @@ urlpatterns = [
     path("employees/<int:pk>/contract/new/", employees_views.contract_create, name="contract_create"),
     path("employees/<int:pk>/bank/new/", employees_views.bank_account_create, name="bank_account_create"),
     path("employees/<int:pk>/dependent/new/", employees_views.dependent_create, name="dependent_create"),
+    path("employees/<int:pk>/terminate/", employees_views.employee_terminate, name="employee_terminate"),
+    path("employees/<int:pk>/reactivate/", employees_views.employee_reactivate, name="employee_reactivate"),
     path("contracts/<int:pk>/edit/", employees_views.contract_edit, name="contract_edit"),
     # ---- دوره‌های حقوقی
     path("periods/", payroll_views.period_list, name="period_list"),
@@ -51,10 +55,38 @@ urlpatterns = [
     path("periods/<int:pk>/timesheets/", attendance_views.timesheet_grid, name="timesheet_grid"),
     path("periods/<int:pk>/timesheets/rows/", attendance_views.timesheet_rows, name="timesheet_rows"),
     path("timesheets/<int:pk>/save/", attendance_views.timesheet_save, name="timesheet_save"),
+    path("periods/<int:pk>/timesheets/import/", attendance_views.timesheet_import, name="timesheet_import"),
+    path(
+        "periods/<int:pk>/timesheets/template/",
+        attendance_views.timesheet_import_template,
+        name="timesheet_import_template",
+    ),
+    path(
+        "periods/<int:pk>/timesheets/approve-all/",
+        attendance_views.timesheet_approve_all,
+        name="timesheet_approve_all",
+    ),
+    # ---- وام و اقساط
+    path("loans/", loans_views.loan_list, name="loan_list"),
+    path("loans/new/", loans_views.loan_create, name="loan_create"),
+    path("loans/<int:pk>/", loans_views.loan_detail, name="loan_detail"),
+    path("loans/<int:pk>/edit/", loans_views.loan_edit, name="loan_edit"),
+    path("loans/<int:pk>/status/", loans_views.loan_set_status, name="loan_set_status"),
+    # ---- شرکت و ساختار سازمانی
+    path("org/", org_views.org_settings, name="org_settings"),
+    path("org/company/", org_views.company_edit, name="company_edit"),
+    path("org/<str:kind>/new/", org_views.org_item_form, name="org_item_create"),
+    path("org/<str:kind>/<int:pk>/edit/", org_views.org_item_form, name="org_item_edit"),
+    path("org/<str:kind>/<int:pk>/delete/", org_views.org_item_delete, name="org_item_delete"),
     # ---- فیش حقوقی
     path("periods/<int:pk>/payslips/", payroll_views.payslip_list, name="payslip_list"),
     path("payslips/<int:pk>/", payroll_views.payslip_detail, name="payslip_detail"),
     path("payslips/<int:pk>/print/", payroll_views.payslip_print, name="payslip_print"),
+    path(
+        "periods/<int:pk>/payslips/print/",
+        payroll_views.payslip_batch_print,
+        name="payslip_batch_print",
+    ),
     # ---- اعتراض‌های پرسنل
     path("disputes/", payroll_views.dispute_list, name="dispute_list"),
     path("disputes/<int:pk>/resolve/", payroll_views.dispute_resolve, name="dispute_resolve"),

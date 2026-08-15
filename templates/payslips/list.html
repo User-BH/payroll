@@ -12,6 +12,7 @@
          hx-target="#slip-rows"
          hx-indicator="#slip-spin">
   <span class="spinner" id="slip-spin"></span>
+  <a class="btn btn-primary btn-sm" href="{% url 'payslip_batch_print' period.pk %}">چاپ دسته‌ای فیش‌ها</a>
   <a class="btn btn-outline btn-sm" href="{% url 'report_export' period.pk 'payslips' %}">خروجی اکسل</a>
   <a class="btn btn-outline btn-sm" href="{% url 'period_detail' period.pk %}">بازگشت به دوره</a>
 </div>

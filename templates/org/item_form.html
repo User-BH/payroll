@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block heading %}{{ title }}{% endblock %}
+{% block subheading %}
+  {% if kind == 'cost-center' %}مبنای تفکیک هزینه و دامنه شمول اقلام حقوقی
+  {% elif kind == 'job-title' %}برای محدود کردن اقلامی مثل جرائم خودرو به یک سمت
+  {% else %}چارت سازمانی و تفکیک گزارش‌ها{% endif %}
+{% endblock %}
+
+{% block content %}
+<form method="post" novalidate style="max-width:560px;">
+  {% csrf_token %}
+  <div class="panel">
+    <div class="panel-body">
+      {% for field in form %}
+      <div class="field">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.help_text %}<div class="explain">{{ field.help_text }}</div>{% endif %}
+        {% if field.errors %}<div style="color:var(--red); font-size:11.5px; margin-top:5px; font-weight:600;">{{ field.errors|striptags }}</div>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  <div style="display:flex; gap:10px;">
+    <button class="btn btn-primary" type="submit">ذخیره</button>
+    <a class="btn btn-outline" href="{% url 'org_settings' %}">انصراف</a>
+  </div>
+</form>
+{% endblock %}

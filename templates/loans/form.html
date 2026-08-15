@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block heading %}{{ title }}{% endblock %}
+{% block subheading %}جدول اقساط در لحظه ثبت ساخته می‌شود تا سررسیدها از قبل مشخص باشند{% endblock %}
+
+{% block content %}
+{% if deducted %}
+<div class="note-box">
+  <b>از این وام قسطی کسر شده است.</b> مبالغش قابل تغییر نیست، چون تغییرشان یعنی
+  ناهماهنگی با فیش‌های صادرشده. برای اصلاح، وام را تعلیق کنید و وام جدیدی ثبت کنید.
+</div>
+{% endif %}
+
+<form method="post" novalidate>
+  {% csrf_token %}
+  {% if form.non_field_errors %}
+  <div class="msg error" style="margin-bottom:16px;">{{ form.non_field_errors|striptags }}</div>
+  {% endif %}
+
+  <div class="panel">
+    <div class="panel-body" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:0 18px;">
+      {% for field in form %}
+      <div class="field">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.help_text %}<div class="explain">{{ field.help_text }}</div>{% endif %}
+        {% if field.errors %}<div style="color:var(--red); font-size:11.5px; margin-top:5px; font-weight:600;">{{ field.errors|striptags }}</div>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div style="display:flex; gap:10px;">
+    <button class="btn btn-primary" type="submit">ذخیره</button>
+    <a class="btn btn-outline" href="{% if loan %}{% url 'loan_detail' loan.pk %}{% else %}{% url 'loan_list' %}{% endif %}">انصراف</a>
+  </div>
+</form>
+{% endblock %}

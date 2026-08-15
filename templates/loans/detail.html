@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% load payroll_extras %}
+{% block title %}وام {{ loan.employee.full_name }}{% endblock %}
+{% block heading %}{{ loan.get_loan_type_display }} — {{ loan.employee.full_name }}{% endblock %}
+{% block subheading %}کد پرسنلی {{ loan.employee.personnel_code|fadigits }}{% endblock %}
+
+{% block content %}
+<div class="search-bar">
+  {% if user.can_edit_payroll %}
+  <a class="btn btn-outline btn-sm" href="{% url 'loan_edit' loan.pk %}">ویرایش</a>
+  <form method="post" action="{% url 'loan_set_status' loan.pk %}">
+    {% csrf_token %}
+    <input type="hidden" name="status" value="{% if loan.status == 'ACTIVE' %}SUSPENDED{% else %}ACTIVE{% endif %}">
+    <button class="btn btn-outline btn-sm" type="submit">
+      {% if loan.status == 'ACTIVE' %}تعلیق وام{% else %}فعال‌سازی مجدد{% endif %}
+    </button>
+  </form>
+  {% endif %}
+  <a class="btn btn-outline btn-sm" href="{% url 'loan_list' %}">همه وام‌ها</a>
+  <a class="btn btn-outline btn-sm" href="{% url 'employee_detail' loan.employee.pk %}">پرونده پرسنلی</a>
+</div>
+
+<div class="stat-row">
+  <div class="stat"><b>مبلغ اصل</b><span>{{ loan.principal|rial }}</span></div>
+  <div class="stat"><b>کسرشده</b><span>{{ paid|rial }}</span></div>
+  <div class="stat"><b>مانده</b><span>{{ remaining|rial }}</span></div>
+  <div class="stat"><b>وضعیت</b><span style="font-size:14px;">{{ loan.get_status_display }}</span></div>
+</div>
+
+<div class="panel">
+  <div class="panel-head">
+    <h3>جدول اقساط</h3>
+    <span class="hint">هر قسط می‌داند در کدام فیش کسر شده</span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>قسط</th><th>سررسید</th><th>مبلغ</th><th>وضعیت</th><th>کسر شده در</th></tr></thead>
+      <tbody>
+        {% for item in installments %}
+        <tr>
+          <td><b>{{ item.number|fanum }}</b></td>
+          <td data-label="سررسید">{{ item.due_month|month_name }} {{ item.due_year|fadigits }}</td>
+          <td data-label="مبلغ" class="num">{{ item.amount|rial }}</td>
+          <td data-label="وضعیت">
+            {% if item.status == 'DEDUCTED' %}
+              <span class="badge ok"><span class="dot"></span>کسر شده</span>
+            {% elif item.status == 'SKIPPED' %}
+              <span class="badge muted"><span class="dot"></span>خارج از چرخه</span>
+            {% else %}
+              <span class="badge wait"><span class="dot"></span>{{ item.get_status_display }}</span>
+            {% endif %}
+          </td>
+          <td data-label="کسر شده در">
+            {% if item.payslip_line %}
+              <a class="link-btn" href="{% url 'payslip_detail' item.payslip_line.payslip.pk %}">
+                فیش {{ item.payslip_line.payslip.period.title }}
+              </a>
+            {% else %}—{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
