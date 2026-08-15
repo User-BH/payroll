@@ -18,13 +18,43 @@ class CompanyForm(BootstrapMixin, forms.ModelForm):
             "name", "legal_name", "national_id", "economic_code",
             "registration_number", "insurance_workshop_code", "tax_file_number",
             "address", "phone",
+            "bank_file_columns", "bank_file_delimiter", "bank_file_include_header",
+            "bank_file_extension", "bank_file_encoding",
         ]
         widgets = {"address": forms.Textarea(attrs={"rows": 2})}
+
+    GROUPS = [
+        ("مشخصات", ["name", "legal_name", "national_id", "economic_code",
+                    "registration_number", "phone", "address"]),
+        ("کدهای رسمی", ["insurance_workshop_code", "tax_file_number"]),
+        ("فرمت فایل پرداخت بانک", ["bank_file_columns", "bank_file_delimiter",
+                                   "bank_file_include_header", "bank_file_extension",
+                                   "bank_file_encoding"]),
+    ]
+
+    def grouped(self):
+        for title, names in self.GROUPS:
+            yield title, [self[name] for name in names]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["insurance_workshop_code"].help_text = "روی لیست بیمه چاپ می‌شود"
         self.fields["tax_file_number"].help_text = "روی لیست مالیات چاپ می‌شود"
+
+    def clean_bank_file_columns(self):
+        from apps.payroll.exports.generators import BANK_TOKENS
+
+        raw = (self.cleaned_data.get("bank_file_columns") or "").strip()
+        columns = [c.strip() for c in raw.split(",") if c.strip()]
+        if not columns:
+            raise forms.ValidationError("حداقل یک ستون لازم است.")
+        unknown = [c for c in columns if c not in BANK_TOKENS]
+        if unknown:
+            raise forms.ValidationError(
+                "ستون ناشناخته: " + "، ".join(unknown)
+                + " — مقادیر مجاز: " + "، ".join(BANK_TOKENS)
+            )
+        return ",".join(columns)
 
 
 class _OrgFormBase(BootstrapMixin, forms.ModelForm):

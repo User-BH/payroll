@@ -13,7 +13,8 @@ from apps.attendance.models import Timesheet
 from apps.employees.models import Employee, EmploymentContract
 from apps.org.models import CostCenter, Department
 from apps.payroll.engine.runner import CalculationError, calculate_period
-from apps.payroll.models import PayrollInput, PayrollPeriod, Payslip
+from apps.payroll.exports import generate_export
+from apps.payroll.models import PayrollExport, PayrollInput, PayrollPeriod, Payslip
 from apps.payroll.utils import fa_money, jalali_str
 from apps.payroll_config.models import SalaryComponent
 
@@ -579,6 +580,93 @@ def report_bank(request, pk):
             "missing_account": missing_account,
         },
     )
+
+
+@payroll_staff_required
+def export_center(request, pk):
+    """مرکز خروجی‌های قانونی یک دوره."""
+    period = get_object_or_404(PayrollPeriod.objects.select_related("company"), pk=pk)
+    company = period.company
+    exports = period.exports.select_related("generated_by").order_by("-generated_at")
+
+    latest = {}
+    for export in exports:
+        latest.setdefault(export.kind, export)
+
+    warnings = []
+    if not company.insurance_workshop_code:
+        warnings.append("کد کارگاه بیمه در اطلاعات شرکت ثبت نشده — لیست بیمه ناقص می‌شود.")
+    if not company.tax_file_number:
+        warnings.append("شماره پرونده مالیاتی ثبت نشده — لیست مالیات ناقص می‌شود.")
+    missing_account = period.payslips.filter(account_snapshot="").count()
+    if missing_account:
+        warnings.append(
+            f"{missing_account} نفر شماره حساب ندارند و در فایل بانک ناقص می‌آیند."
+        )
+
+    return render(
+        request,
+        "exports/center.html",
+        {
+            "period": period,
+            "company": company,
+            "exports": exports,
+            "latest": latest,
+            "kinds": PayrollExport.Kind.choices,
+            "warnings": warnings,
+            "payslip_count": period.payslips.count(),
+        },
+    )
+
+
+@can_edit_required
+@require_POST
+def export_generate(request, pk, kind):
+    period = get_object_or_404(PayrollPeriod, pk=pk)
+    try:
+        export = generate_export(period, kind, user=request.user)
+    except ValueError as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.success(
+            request,
+            f"{export.get_kind_display()} تولید شد — {export.record_count} رکورد. "
+            "پیش از ارسال رسمی، محتوایش را بازبینی کنید.",
+        )
+    return redirect("export_center", pk=period.pk)
+
+
+@payroll_staff_required
+def export_download(request, pk):
+    export = get_object_or_404(PayrollExport.objects.select_related("period"), pk=pk)
+    response = HttpResponse(export.file.read(), content_type="application/octet-stream")
+    response["Content-Disposition"] = f'attachment; filename="{export.file_name}"'
+    return response
+
+
+@can_edit_required
+@require_POST
+def export_update_status(request, pk):
+    """ثبت کد رهگیری و وضعیت ارسال."""
+    export = get_object_or_404(PayrollExport.objects.select_related("period"), pk=pk)
+    status = request.POST.get("status")
+    if status not in dict(PayrollExport.Status.choices):
+        messages.error(request, "وضعیت نامعتبر است.")
+        return redirect("export_center", pk=export.period.pk)
+
+    tracking = (request.POST.get("tracking_code") or "").strip()
+    if status in {PayrollExport.Status.SUBMITTED, PayrollExport.Status.ACCEPTED} and not tracking:
+        messages.error(request, "برای ثبت ارسال، کد رهگیری اجباری است.")
+        return redirect("export_center", pk=export.period.pk)
+
+    export.status = status
+    export.tracking_code = tracking
+    export.note = (request.POST.get("note") or "").strip()[:250]
+    if status != PayrollExport.Status.GENERATED and not export.submitted_at:
+        export.submitted_at = timezone.now()
+    export.save()
+    messages.success(request, "وضعیت خروجی ثبت شد.")
+    return redirect("export_center", pk=export.period.pk)
 
 
 REPORT_SPECS = {

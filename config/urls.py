@@ -116,6 +116,11 @@ urlpatterns = [
     path("reports/<int:pk>/tax/", payroll_views.report_tax, name="report_tax"),
     path("reports/<int:pk>/bank/", payroll_views.report_bank, name="report_bank"),
     path("reports/<int:pk>/export/<str:kind>/", payroll_views.report_export, name="report_export"),
+    # ---- خروجی‌های قانونی
+    path("periods/<int:pk>/exports/", payroll_views.export_center, name="export_center"),
+    path("periods/<int:pk>/exports/<str:kind>/generate/", payroll_views.export_generate, name="export_generate"),
+    path("exports/<int:pk>/download/", payroll_views.export_download, name="export_download"),
+    path("exports/<int:pk>/status/", payroll_views.export_update_status, name="export_update_status"),
     # ---- پرتال کارکنان
     path("portal/login/", portal_views.portal_login, name="portal_login"),
     path("portal/logout/", portal_views.portal_logout, name="portal_logout"),

@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% load payroll_extras %}
+{% block title %}خروجی‌های قانونی {{ period.title }}{% endblock %}
+{% block heading %}خروجی‌های قانونی — {{ period.title }}{% endblock %}
+{% block subheading %}لیست بیمه، لیست مالیات و فایل پرداخت بانک، با ثبت کد رهگیری{% endblock %}
+
+{% block content %}
+{% if not payslip_count %}
+<div class="note-box">
+  <b>این دوره فیشی ندارد.</b> ابتدا محاسبه را اجرا کنید.
+</div>
+{% endif %}
+
+{% for warning in warnings %}
+<div class="note-box">{{ warning }}</div>
+{% endfor %}
+
+<div class="note-box" style="border-inline-start-color:var(--amber); background:var(--amber-soft);">
+  <b>پیش از اولین ارسال رسمی، خروجی را با یک فایل واقعیِ پذیرفته‌شده مقایسه کنید.</b>
+  فرمت لیست بیمه طبق ساختار منتشرشدهٔ ListDSK ساخته شده ولی با فایل واقعی شما
+  تطبیق داده نشده. فایل بانک هم از روی تنظیمات
+  <a href="{% url 'company_edit' %}" style="color:var(--red);">اطلاعات شرکت</a>
+  ساخته می‌شود و باید با فرمت بانک رسالت جور شود.
+</div>
+
+<div class="grid-2-even">
+  {% for value, label in kinds %}
+  {% with export=latest|dictget:value %}
+  <div class="panel">
+    <div class="panel-head">
+      <h3>{{ label }}</h3>
+      {% if export %}
+      <span class="badge {{ export.status_tone }}"><span class="dot"></span>{{ export.get_status_display }}</span>
+      {% else %}
+      <span class="badge muted"><span class="dot"></span>تولید نشده</span>
+      {% endif %}
+    </div>
+
+    <div class="panel-body">
+      {% if export %}
+      <div style="display:grid; gap:9px; margin-bottom:16px;">
+        {% for key, item in export.summary.items %}
+        <div class="box-row" style="display:flex; justify-content:space-between; font-size:12.5px;">
+          <span style="color:var(--muted); font-weight:600;">{{ key }}</span>
+          <b class="num">{{ item|fadigits }}</b>
+        </div>
+        {% endfor %}
+        <div class="box-row" style="display:flex; justify-content:space-between; font-size:12.5px; border-top:1px solid var(--line); padding-top:8px;">
+          <span style="color:var(--muted); font-weight:600;">تولید شده در</span>
+          <b>{{ export.generated_at|jalali }} · {{ export.generated_by.display_name|default:"—" }}</b>
+        </div>
+        {% if export.tracking_code %}
+        <div class="box-row" style="display:flex; justify-content:space-between; font-size:12.5px;">
+          <span style="color:var(--muted); font-weight:600;">کد رهگیری</span>
+          <b class="num">{{ export.tracking_code|fadigits }}</b>
+        </div>
+        {% endif %}
+      </div>
+      {% else %}
+      <p style="color:var(--muted); font-size:12.5px; margin-bottom:16px;">
+        هنوز تولید نشده است.
+      </p>
+      {% endif %}
+
+      <div style="display:flex; gap:9px; flex-wrap:wrap;">
+        {% if user.can_edit_payroll and payslip_count %}
+        <form method="post" action="{% url 'export_generate' period.pk value %}">
+          {% csrf_token %}
+          <button class="btn btn-primary btn-sm" type="submit">
+            {% if export %}تولید مجدد{% else %}تولید فایل{% endif %}
+          </button>
+        </form>
+        {% endif %}
+        {% if export %}
+        <a class="btn btn-outline btn-sm" href="{% url 'export_download' export.pk %}">دانلود</a>
+        {% endif %}
+      </div>
+
+      {% if export and user.can_edit_payroll %}
+      <form method="post" action="{% url 'export_update_status' export.pk %}"
+            style="margin-top:16px; border-top:1px solid var(--line); padding-top:14px;">
+        {% csrf_token %}
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0 12px;">
+          <div class="field">
+            <label for="st-{{ value }}">وضعیت ارسال</label>
+            <select class="input" id="st-{{ value }}" name="status">
+              {% for sv, sl in export.Status.choices %}
+              <option value="{{ sv }}" {% if export.status == sv %}selected{% endif %}>{{ sl }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label for="tc-{{ value }}">کد رهگیری</label>
+            <input class="input" id="tc-{{ value }}" name="tracking_code" value="{{ export.tracking_code }}">
+          </div>
+        </div>
+        <div class="field">
+          <label for="nt-{{ value }}">توضیح</label>
+          <input class="input" id="nt-{{ value }}" name="note" value="{{ export.note }}"
+                 placeholder="مثلاً: در سامانه ثبت شد، در انتظار تأیید">
+        </div>
+        <button class="btn btn-outline btn-sm" type="submit">ثبت وضعیت</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+  {% endwith %}
+  {% endfor %}
+</div>
+
+{% if exports %}
+<div class="panel">
+  <div class="panel-head">
+    <h3>تاریخچه تولید</h3>
+    <span class="hint">هر بار تولید، رکورد جدیدی می‌سازد تا سابقه بماند</span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>نوع</th><th>فایل</th><th>رکورد</th><th>جمع مبلغ</th><th>وضعیت</th><th>کد رهگیری</th><th>تولید</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for item in exports %}
+        <tr>
+          <td><b>{{ item.get_kind_display }}</b></td>
+          <td data-label="فایل" class="num" style="direction:ltr; text-align:right; font-size:11.5px;">{{ item.file_name }}</td>
+          <td data-label="رکورد" class="num">{{ item.record_count|fanum }}</td>
+          <td data-label="جمع مبلغ" class="num">{{ item.total_amount|rial }}</td>
+          <td data-label="وضعیت"><span class="badge {{ item.status_tone }}"><span class="dot"></span>{{ item.get_status_display }}</span></td>
+          <td data-label="کد رهگیری" class="num">{{ item.tracking_code|fadigits|default:"—" }}</td>
+          <td data-label="تولید" class="num" style="color:var(--muted);">{{ item.generated_at|jalali }}</td>
+          <td><a class="link-btn" href="{% url 'export_download' item.pk %}">دانلود</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

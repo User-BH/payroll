@@ -16,6 +16,25 @@ class Company(models.Model):
     phone = models.CharField("تلفن", max_length=30, blank=True)
     is_active = models.BooleanField("فعال", default=True)
 
+    # --- تنظیمات فایل پرداخت بانک
+    # هر بانک فرمت خودش را می‌خواهد. به‌جای hard-code کردن فرمت یک بانک، ستون‌ها
+    # و جداکننده از اینجا خوانده می‌شوند تا تطبیق با بانک بدون تغییر کد ممکن باشد.
+    bank_file_columns = models.CharField(
+        "ستون‌های فایل بانک", max_length=200, default="row,account,amount",
+        help_text="با کاما جدا کنید. مقادیر مجاز: "
+                  "row, personnel_code, national_id, name, account, iban, amount, description",
+    )
+    bank_file_delimiter = models.CharField(
+        "جداکننده", max_length=5, default=",",
+        help_text="مثلاً , یا ; یا | — برای tab بنویسید \\t",
+    )
+    bank_file_include_header = models.BooleanField("سطر عنوان داشته باشد", default=False)
+    bank_file_extension = models.CharField("پسوند فایل", max_length=8, default="txt")
+    bank_file_encoding = models.CharField(
+        "کدگذاری فایل", max_length=20, default="utf-8-sig",
+        help_text="utf-8-sig برای اکسل فارسی · cp1256 برای سامانه‌های قدیمی",
+    )
+
     class Meta:
         verbose_name = "شرکت"
         verbose_name_plural = "شرکت‌ها"

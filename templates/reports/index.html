@@ -17,9 +17,10 @@
     <span class="hint">{{ period.payslip_count|fanum }} فیش · خالص {{ period.total_net|rial }} ریال</span>
   </div>
   <div class="panel-body" style="display:flex; gap:10px; flex-wrap:wrap;">
-    <a class="btn btn-outline btn-sm" href="{% url 'report_insurance' period.pk %}">لیست بیمه</a>
-    <a class="btn btn-outline btn-sm" href="{% url 'report_tax' period.pk %}">لیست مالیات</a>
-    <a class="btn btn-outline btn-sm" href="{% url 'report_bank' period.pk %}">فایل پرداخت بانک</a>
+    <a class="btn btn-primary btn-sm" href="{% url 'export_center' period.pk %}">خروجی‌های قانونی</a>
+    <a class="btn btn-outline btn-sm" href="{% url 'report_insurance' period.pk %}">مرور لیست بیمه</a>
+    <a class="btn btn-outline btn-sm" href="{% url 'report_tax' period.pk %}">مرور لیست مالیات</a>
+    <a class="btn btn-outline btn-sm" href="{% url 'report_bank' period.pk %}">مرور فایل بانک</a>
     <span style="flex:1;"></span>
     <a class="btn btn-outline btn-sm" href="{% url 'report_export' period.pk 'payslips' %}">خروجی کامل اکسل</a>
   </div>

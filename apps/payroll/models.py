@@ -428,6 +428,67 @@ class PayslipLine(models.Model):
         return f"{self.component_name}: {self.amount}"
 
 
+class PayrollExport(models.Model):
+    """رکورد یک خروجی قانونی.
+
+    فایل به‌تنهایی کافی نیست: باید بدانیم چه چیزی، کِی، با چه جمعی تولید شد و
+    آیا ارسال شده یا نه. شش ماه بعد که سازمان سؤال کند، همین رکورد جواب است.
+    """
+
+    class Kind(models.TextChoices):
+        INSURANCE = "INSURANCE", "لیست بیمه (DSK)"
+        TAX = "TAX", "لیست مالیات"
+        BANK = "BANK", "فایل پرداخت بانک"
+
+    class Status(models.TextChoices):
+        GENERATED = "GENERATED", "تولید شده"
+        SUBMITTED = "SUBMITTED", "ارسال شده"
+        ACCEPTED = "ACCEPTED", "پذیرفته شده"
+        REJECTED = "REJECTED", "رد شده"
+
+    period = models.ForeignKey(
+        PayrollPeriod, on_delete=models.CASCADE, related_name="exports", verbose_name="دوره"
+    )
+    kind = models.CharField("نوع خروجی", max_length=12, choices=Kind.choices)
+    file = models.FileField("فایل", upload_to="exports/%Y/%m/")
+    file_name = models.CharField("نام فایل", max_length=160)
+
+    record_count = models.PositiveIntegerField("تعداد رکورد", default=0)
+    total_amount = models.DecimalField("جمع مبلغ", max_digits=20, decimal_places=0, default=0)
+    summary = models.JSONField("خلاصه ارقام", default=dict, blank=True)
+
+    status = models.CharField(
+        "وضعیت", max_length=10, choices=Status.choices, default=Status.GENERATED
+    )
+    tracking_code = models.CharField("کد رهگیری", max_length=60, blank=True)
+    submitted_at = models.DateTimeField("زمان ارسال", null=True, blank=True)
+    note = models.CharField("توضیح", max_length=250, blank=True)
+
+    generated_by = models.ForeignKey(
+        "accounts.User", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="payroll_exports", verbose_name="تولیدکننده",
+    )
+    generated_at = models.DateTimeField("زمان تولید", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "خروجی قانونی"
+        verbose_name_plural = "خروجی‌های قانونی"
+        ordering = ["-generated_at"]
+        indexes = [models.Index(fields=["period", "kind"])]
+
+    def __str__(self):
+        return f"{self.get_kind_display()} — {self.period.title}"
+
+    @property
+    def status_tone(self):
+        return {
+            self.Status.GENERATED: "muted",
+            self.Status.SUBMITTED: "info",
+            self.Status.ACCEPTED: "ok",
+            self.Status.REJECTED: "wait",
+        }.get(self.status, "muted")
+
+
 class PayslipView(models.Model):
     """لاگ مشاهده فیش در پرتال — چه کسی، کِی، از کجا."""
 
