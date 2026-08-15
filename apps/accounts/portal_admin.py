@@ -7,8 +7,8 @@ must_change_password ساخته می‌شود و پرسنل در اولین ور
 
 import io
 import secrets
-import string
 
+from django import forms
 from django.contrib import messages
 from django.contrib.auth import get_user_model, update_session_auth_hash
 from django.contrib.auth.forms import PasswordChangeForm
@@ -150,6 +150,128 @@ def portal_accounts_export(request):
     )
     response["Content-Disposition"] = 'attachment; filename="portal-accounts.xlsx"'
     return response
+
+
+class StaffUserForm(forms.ModelForm):
+    """ساخت و ویرایش کاربران بخش مالی."""
+
+    password1 = forms.CharField(
+        label="رمز عبور", widget=forms.PasswordInput, required=False,
+        help_text="برای کاربر جدید اجباری · هنگام ویرایش، خالی یعنی بدون تغییر",
+    )
+
+    class Meta:
+        model = User
+        fields = ["username", "first_name", "last_name", "role", "mobile",
+                  "job_title_label", "is_active"]
+        labels = {"username": "نام کاربری", "job_title_label": "عنوان نمایشی"}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # نقش «کارمند» اینجا انتخاب نمی‌شود؛ حساب پرتال از صفحه دیگری ساخته می‌شود
+        self.fields["role"].choices = [
+            (value, label) for value, label in User.Role.choices
+            if value != User.Role.EMPLOYEE
+        ]
+        for name, field in self.fields.items():
+            if not isinstance(field.widget, forms.CheckboxInput):
+                css = field.widget.attrs.get("class", "")
+                field.widget.attrs["class"] = (css + " input").strip()
+
+    def clean_username(self):
+        username = (self.cleaned_data.get("username") or "").strip()
+        queryset = User.objects.filter(username=username)
+        if self.instance.pk:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        if queryset.exists():
+            raise forms.ValidationError("این نام کاربری قبلاً استفاده شده است.")
+        return username
+
+    def clean(self):
+        cleaned = super().clean()
+        password = cleaned.get("password1")
+        if not self.instance.pk and not password:
+            self.add_error("password1", "برای کاربر جدید رمز عبور اجباری است.")
+        elif password and len(password) < 8:
+            self.add_error("password1", "رمز عبور باید حداقل ۸ نویسه باشد.")
+        return cleaned
+
+
+@payroll_staff_required
+def staff_users(request):
+    users = User.objects.exclude(role=User.Role.EMPLOYEE).order_by("role", "username")
+    active_staff = [u for u in users if u.is_active]
+    return render(
+        request,
+        "accounts/staff_users.html",
+        {
+            "users": users,
+            "active_count": len(active_staff),
+            "lonely": len(active_staff) <= 1,
+        },
+    )
+
+
+@can_edit_required
+def staff_user_form(request, pk=None):
+    instance = get_object_or_404(User, pk=pk) if pk else None
+    form = StaffUserForm(request.POST or None, instance=instance)
+
+    if request.method == "POST" and form.is_valid():
+        user = form.save(commit=False)
+        password = form.cleaned_data.get("password1")
+        if password:
+            user.set_password(password)
+            # رمزی که مدیر تعیین می‌کند موقت است و باید عوض شود
+            user.must_change_password = True
+        if instance is None:
+            user.is_staff = user.role == User.Role.ADMIN
+        user.save()
+        messages.success(
+            request,
+            f"کاربر «{user.username}» ذخیره شد."
+            + (" در اولین ورود باید رمزش را عوض کند." if password else ""),
+        )
+        return redirect("staff_users")
+
+    return render(
+        request,
+        "accounts/staff_user_form.html",
+        {
+            "form": form,
+            "instance": instance,
+            "title": f"ویرایش {instance.username}" if instance else "افزودن کاربر مالی",
+        },
+    )
+
+
+@can_edit_required
+@require_POST
+def staff_user_toggle(request, pk):
+    user = get_object_or_404(User, pk=pk)
+    if user.pk == request.user.pk:
+        messages.error(request, "نمی‌توانید حساب خودتان را غیرفعال کنید.")
+        return redirect("staff_users")
+
+    if user.is_active:
+        others = [
+            u for u in User.objects.exclude(pk=user.pk).filter(is_active=True)
+            if u.is_payroll_staff
+        ]
+        if not others:
+            messages.error(
+                request,
+                "این تنها کاربر فعالِ دارای دسترسی مالی است. با غیرفعال کردنش "
+                "هیچ‌کس نمی‌تواند وارد سامانه شود.",
+            )
+            return redirect("staff_users")
+
+    user.is_active = not user.is_active
+    user.save(update_fields=["is_active"])
+    messages.success(
+        request, f"«{user.username}» {'فعال' if user.is_active else 'غیرفعال'} شد."
+    )
+    return redirect("staff_users")
 
 
 def password_change(request):

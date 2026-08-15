@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% load payroll_extras %}
+{% block title %}کاربران سامانه{% endblock %}
+{% block heading %}کاربران سامانه{% endblock %}
+{% block subheading %}{{ active_count|fanum }} کاربر فعال با دسترسی مالی{% endblock %}
+
+{% block content %}
+{% if lonely %}
+<div class="note-box">
+  <b>فقط یک نفر دسترسی مالی دارد.</b>
+  اگر رمزش را فراموش کند یا در دسترس نباشد، هیچ‌کس نمی‌تواند وارد سامانه شود.
+  یک کاربر دوم تعریف کنید.
+</div>
+{% endif %}
+
+<div class="search-bar">
+  {% if user.can_edit_payroll %}
+  <a class="btn btn-primary btn-sm" href="{% url 'staff_user_create' %}">افزودن کاربر</a>
+  {% endif %}
+  <a class="btn btn-outline btn-sm" href="{% url 'portal_accounts' %}">حساب‌های پرتال پرسنل</a>
+</div>
+
+<div class="panel">
+  <div class="panel-head">
+    <h3>کاربران بخش مالی</h3>
+    <span class="hint">حساب پرسنل برای مشاهده فیش، از صفحه «حساب‌های پرتال» ساخته می‌شود</span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>کاربر</th><th>نام کاربری</th><th>نقش</th><th>اجازه ویرایش</th><th>وضعیت</th><th>آخرین ورود</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for item in users %}
+        <tr {% if not item.is_active %}style="opacity:.5;"{% endif %}>
+          <td>
+            <div class="cell-name">
+              <div class="av">{{ item.initials }}</div>
+              <div>
+                <b>{{ item.display_name }}</b>
+                <small>{{ item.job_title_label|default:"—" }}</small>
+              </div>
+            </div>
+          </td>
+          <td data-label="نام کاربری" class="num" style="direction:ltr; text-align:right;">{{ item.username }}</td>
+          <td data-label="نقش">
+            {{ item.get_role_display }}
+            {% if item.is_superuser %}<span class="badge lock" style="margin-inline-start:6px;">ابرکاربر</span>{% endif %}
+          </td>
+          <td data-label="اجازه ویرایش">
+            {% if item.can_edit_payroll %}
+              <span class="badge ok"><span class="dot"></span>دارد</span>
+            {% else %}
+              <span class="badge muted"><span class="dot"></span>فقط مشاهده</span>
+            {% endif %}
+          </td>
+          <td data-label="وضعیت">
+            {% if item.is_active %}
+              {% if item.must_change_password %}
+                <span class="badge wait"><span class="dot"></span>در انتظار تغییر رمز</span>
+              {% else %}
+                <span class="badge ok"><span class="dot"></span>فعال</span>
+              {% endif %}
+            {% else %}
+              <span class="badge muted"><span class="dot"></span>غیرفعال</span>
+            {% endif %}
+          </td>
+          <td data-label="آخرین ورود" class="num" style="color:var(--muted);">
+            {{ item.last_login|jalali|default:"هرگز" }}
+          </td>
+          <td>
+            {% if user.can_edit_payroll %}
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              <a class="btn btn-outline btn-sm" href="{% url 'staff_user_edit' item.pk %}">ویرایش</a>
+              {% if item.pk != user.pk %}
+              <form method="post" action="{% url 'staff_user_toggle' item.pk %}">
+                {% csrf_token %}
+                <button class="btn btn-outline btn-sm" type="submit">
+                  {% if item.is_active %}غیرفعال{% else %}فعال{% endif %}
+                </button>
+              </form>
+              {% endif %}
+            </div>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7"><div class="empty">کاربری تعریف نشده است.</div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>نقش‌ها چه فرقی دارند</h3></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>نقش</th><th>دسترسی</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><b>مدیر سیستم</b></td>
+          <td data-label="دسترسی">همه‌چیز، شامل تنظیمات سال مالی، اقلام حقوقی و مدیریت کاربران</td>
+        </tr>
+        <tr>
+          <td><b>کارشناس حقوق و دستمزد</b></td>
+          <td data-label="دسترسی">ثبت پرسنل و کارکرد، اجرای محاسبه، صدور فیش و خروجی‌ها</td>
+        </tr>
+        <tr>
+          <td><b>مدیر</b></td>
+          <td data-label="دسترسی">فقط مشاهده — گزارش‌ها و فیش‌ها را می‌بیند ولی چیزی را تغییر نمی‌دهد</td>
+        </tr>
+        <tr>
+          <td><b>کارمند</b></td>
+          <td data-label="دسترسی">فقط پرتال و فیش خودش — از صفحه «حساب‌های پرتال» ساخته می‌شود</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block heading %}{{ title }}{% endblock %}
+{% block subheading %}کاربران بخش مالی — حساب پرسنل از صفحه «حساب‌های پرتال» ساخته می‌شود{% endblock %}
+
+{% block content %}
+<form method="post" novalidate style="max-width:720px;">
+  {% csrf_token %}
+  {% if form.non_field_errors %}
+  <div class="msg error" style="margin-bottom:16px;">{{ form.non_field_errors|striptags }}</div>
+  {% endif %}
+
+  <div class="panel">
+    <div class="panel-body" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:0 18px;">
+      {% for field in form %}
+      <div class="field">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.help_text %}<div class="explain">{{ field.help_text }}</div>{% endif %}
+        {% if field.errors %}<div style="color:var(--red); font-size:11.5px; margin-top:5px; font-weight:600;">{{ field.errors|striptags }}</div>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="note-box">
+    رمزی که اینجا تعیین می‌کنید <b>موقت</b> است — کاربر در اولین ورود مجبور به
+    تغییرش می‌شود.
+  </div>
+
+  <div style="display:flex; gap:10px;">
+    <button class="btn btn-primary" type="submit">ذخیره</button>
+    <a class="btn btn-outline" href="{% url 'staff_users' %}">انصراف</a>
+  </div>
+</form>
+{% endblock %}

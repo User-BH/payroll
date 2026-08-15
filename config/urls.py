@@ -110,6 +110,11 @@ urlpatterns = [
     path("portal-accounts/export/", portal_admin.portal_accounts_export, name="portal_accounts_export"),
     path("portal-accounts/<int:pk>/reset/", portal_admin.portal_account_reset, name="portal_account_reset"),
     path("password/change/", portal_admin.password_change, name="password_change"),
+    # ---- کاربران سامانه
+    path("users/", portal_admin.staff_users, name="staff_users"),
+    path("users/new/", portal_admin.staff_user_form, name="staff_user_create"),
+    path("users/<int:pk>/edit/", portal_admin.staff_user_form, name="staff_user_edit"),
+    path("users/<int:pk>/toggle/", portal_admin.staff_user_toggle, name="staff_user_toggle"),
     # ---- گزارش‌ها
     path("reports/", payroll_views.reports, name="reports"),
     path("reports/<int:pk>/insurance/", payroll_views.report_insurance, name="report_insurance"),

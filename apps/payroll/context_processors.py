@@ -60,6 +60,9 @@ NAV_SECTIONS = {
     "entitlement_save": "leave",
     "entitlement_fill_all": "leave",
     "portal_accounts": "portal_accounts",
+    "staff_users": "staff_users",
+    "staff_user_create": "staff_users",
+    "staff_user_edit": "staff_users",
     "portal_accounts_create": "portal_accounts",
     "portal_account_reset": "portal_accounts",
 }
