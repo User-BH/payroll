@@ -37,6 +37,17 @@ NAV_SECTIONS = {
     "report_bank": "reports",
     "report_export": "reports",
     "fiscal_settings": "fiscal",
+    "legal_parameter_edit": "fiscal",
+    "tax_brackets_edit": "fiscal",
+    "component_create": "components",
+    "component_edit": "components",
+    "component_scope_add": "components",
+    "entitlement_list": "leave",
+    "entitlement_save": "leave",
+    "entitlement_fill_all": "leave",
+    "portal_accounts": "portal_accounts",
+    "portal_accounts_create": "portal_accounts",
+    "portal_account_reset": "portal_accounts",
 }
 
 

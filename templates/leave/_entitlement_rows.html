@@ -1,0 +1,5 @@
+{% for row in rows %}
+  {% include "leave/_entitlement_row.html" %}
+{% empty %}
+<tr><td colspan="5"><div class="empty">پرسنلی پیدا نشد.</div></td></tr>
+{% endfor %}

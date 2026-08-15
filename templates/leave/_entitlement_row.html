@@ -1,0 +1,29 @@
+{% load payroll_extras %}
+<tr id="ent-{{ row.employee.pk }}" class="{% if saved %}saved-flash{% endif %}"
+    hx-post="{% url 'entitlement_save' %}"
+    hx-trigger="change"
+    hx-target="this"
+    hx-swap="outerHTML"
+    hx-include="closest tr">
+  <input type="hidden" name="fiscal_year" value="{{ fiscal_year.pk }}">
+  <input type="hidden" name="employee" value="{{ row.employee.pk }}">
+  <td>
+    <div class="cell-name">
+      <div class="av">{{ row.employee.initials }}</div>
+      <div>
+        <b>{{ row.employee.full_name }}</b>
+        <small>کد {{ row.employee.personnel_code|fadigits }}</small>
+      </div>
+    </div>
+  </td>
+  <td><input class="input-cell" name="carried_days" value="{{ row.carried_days }}" inputmode="decimal"></td>
+  <td><input class="input-cell" name="annual_days" value="{{ row.annual_days }}" inputmode="decimal"></td>
+  <td style="font-size:12px; color:var(--muted); font-weight:600;">{{ row.used }}</td>
+  <td style="font-size:12px; font-weight:700;">
+    {% if row.missing %}
+      <span class="badge muted"><span class="dot"></span>سهمیه ثبت نشده</span>
+    {% elif row.remaining %}
+      {{ row.remaining }}
+    {% else %}—{% endif %}
+  </td>
+</tr>

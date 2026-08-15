@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% load payroll_extras %}
+{% block title %}سهمیه مرخصی{% endblock %}
+{% block heading %}سهمیه مرخصی سال {{ fiscal_year.year|fadigits }}{% endblock %}
+{% block subheading %}
+  فقط دو عدد ورودی دارد: انتقالی از سال قبل و استحقاقی سال. مصرفی و مانده همیشه از روی کارکرد ساخته می‌شوند
+{% endblock %}
+
+{% block content %}
+{% if not fiscal_year %}
+<div class="panel"><div class="empty">سال مالی تعریف نشده است.</div></div>
+{% else %}
+
+{% if missing_count %}
+<div class="note-box">
+  <b>{{ missing_count|fanum }} نفر هنوز سهمیه مرخصی ندارند.</b>
+  تا سهمیه ثبت نشود، مانده مرخصی این افراد روی فیش صفر می‌آید.
+</div>
+
+{% if user.can_edit_payroll %}
+<div class="panel">
+  <div class="panel-head"><h3>ثبت یکجا برای همه</h3><span class="hint">کسانی که قبلاً سهمیه دارند دست‌نخورده می‌مانند</span></div>
+  <div class="panel-body">
+    <form method="post" action="{% url 'entitlement_fill_all' %}" style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;">
+      {% csrf_token %}
+      <input type="hidden" name="fiscal_year" value="{{ fiscal_year.pk }}">
+      <div class="field" style="margin:0;">
+        <label for="annual">استحقاقی سال (روز)</label>
+        <input class="input" id="annual" name="annual_days" value="26" style="width:150px;" inputmode="decimal">
+      </div>
+      <div class="field" style="margin:0;">
+        <label for="carried">انتقالی از سال قبل (روز)</label>
+        <input class="input" id="carried" name="carried_days" value="0" style="width:170px;" inputmode="decimal">
+      </div>
+      <button class="btn btn-primary" type="submit">ثبت برای {{ missing_count|fanum }} نفر</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+{% endif %}
+
+<div class="search-bar">
+  <select class="input" style="max-width:190px;" onchange="location.href='?year='+this.value">
+    {% for year in years %}
+    <option value="{{ year.pk }}" {% if fiscal_year.pk == year.pk %}selected{% endif %}>سال {{ year.year|fadigits }}</option>
+    {% endfor %}
+  </select>
+  <input class="input" type="search" name="q" value="{{ q }}" placeholder="جستجوی پرسنل…"
+         hx-get="{% url 'entitlement_list' %}?year={{ fiscal_year.pk }}"
+         hx-trigger="input changed delay:300ms, search"
+         hx-target="#ent-rows"
+         hx-indicator="#ent-spin">
+  <span class="spinner" id="ent-spin"></span>
+</div>
+
+<div class="panel">
+  <div class="panel-head">
+    <h3>سهمیه پرسنل</h3>
+    <span class="hint">هر روز مرخصی = {{ day_minutes|fanum }} دقیقه</span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>پرسنل</th>
+          <th style="width:150px;">انتقالی (روز)</th>
+          <th style="width:150px;">استحقاقی (روز)</th>
+          <th>مصرفی از اول سال</th>
+          <th>مانده</th>
+        </tr>
+      </thead>
+      <tbody id="ent-rows">
+        {% include "leave/_entitlement_rows.html" %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

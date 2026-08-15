@@ -1,5 +1,6 @@
 """ابزارهای مشترک: ارقام فارسی، مبالغ ریالی و تاریخ جلالی."""
 
+from datetime import date, datetime
 from decimal import Decimal, ROUND_HALF_UP
 
 import jdatetime
@@ -52,11 +53,20 @@ def rial_to_milliard(value) -> str:
 
 
 def to_jalali(value):
-    """تبدیل date/datetime میلادی به jdatetime.date."""
-    if value is None:
+    """تبدیل date/datetime میلادی به jdatetime.date.
+
+    در قالب ممکن است مقدار خالی یا رشته برسد (مثلاً وقتی رابطه‌ای None است و
+    جنگو آن را به رشته خالی تبدیل می‌کند). در آن حالت None برمی‌گردد تا فیلتر
+    تاریخ کل صفحه را با خطا نخواباند.
+    """
+    if value is None or value == "":
         return None
-    if hasattr(value, "date") and not isinstance(value, jdatetime.date):
+    if isinstance(value, jdatetime.date):
+        return value
+    if isinstance(value, datetime):
         value = value.date()
+    if not isinstance(value, date):
+        return None
     return jdatetime.date.fromgregorian(date=value)
 
 

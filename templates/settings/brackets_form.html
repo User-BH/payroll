@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% load payroll_extras %}
+{% block title %}پلکان مالیات {{ fiscal_year.year|fadigits }}{% endblock %}
+{% block heading %}پلکان مالیات سال {{ fiscal_year.year|fadigits }}{% endblock %}
+{% block subheading %}مبالغ به ریال · نرخ اعشاری (برای ۱۰ درصد عدد ۰٫۱){% endblock %}
+
+{% block content %}
+<div class="note-box">
+  آخرین پله باید «تا مبلغ» خالی داشته باشد تا بی‌نهایت در نظر گرفته شود.
+  ردیف معافیت را با نرخ صفر و تیک «ردیف معافیت» بسازید.
+</div>
+
+<form method="post">
+  {% csrf_token %}
+  {{ formset.management_form }}
+
+  <div class="panel">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>ترتیب</th><th>از مبلغ</th><th>تا مبلغ</th><th>نرخ</th><th>معافیت</th><th>حذف</th></tr>
+        </thead>
+        <tbody>
+          {% for form in formset %}
+          <tr>
+            {{ form.id }}
+            <td>{{ form.row_order }}</td>
+            <td>{{ form.from_amount }}</td>
+            <td>{{ form.to_amount }}</td>
+            <td>{{ form.rate }}</td>
+            <td style="text-align:center;">{{ form.is_exemption }}</td>
+            <td style="text-align:center;">{% if form.instance.pk %}{{ form.DELETE }}{% endif %}</td>
+          </tr>
+          {% if form.errors %}
+          <tr><td colspan="6" style="color:var(--red); font-size:12px;">{{ form.errors }}</td></tr>
+          {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div style="display:flex; gap:10px;">
+    <button class="btn btn-primary" type="submit">ذخیره پلکان</button>
+    <a class="btn btn-outline" href="{% url 'fiscal_settings' %}?year={{ fiscal_year.pk }}">انصراف</a>
+  </div>
+</form>
+{% endblock %}

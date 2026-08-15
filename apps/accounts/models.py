@@ -19,6 +19,10 @@ class User(AbstractUser):
     role = models.CharField("نقش", max_length=16, choices=Role.choices, default=Role.EMPLOYEE)
     mobile = models.CharField("موبایل", max_length=15, blank=True)
     job_title_label = models.CharField("عنوان نمایشی", max_length=80, blank=True)
+    must_change_password = models.BooleanField(
+        "باید رمز را تغییر دهد", default=False,
+        help_text="رمز اولیه روی کاغذ تحویل می‌شود، پس در اولین ورود باید عوض شود",
+    )
 
     class Meta:
         verbose_name = "کاربر"

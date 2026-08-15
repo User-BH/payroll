@@ -59,6 +59,8 @@ def portal_home(request):
     employee = getattr(request.user, "employee", None)
     if employee is None:
         return redirect("portal_login")
+    if request.user.must_change_password:
+        return redirect("password_change")
 
     payslips = (
         Payslip.objects.filter(employee=employee)

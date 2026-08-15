@@ -1,7 +1,9 @@
 from django.contrib import admin
 from django.urls import path
 
+from apps.accounts import portal_admin
 from apps.accounts import views as accounts_views
+from apps.attendance import entitlement_views
 from apps.attendance import views as attendance_views
 from apps.employees import views as employees_views
 from apps.payroll import views as payroll_views
@@ -56,8 +58,24 @@ urlpatterns = [
     path("disputes/<int:pk>/resolve/", payroll_views.dispute_resolve, name="dispute_resolve"),
     # ---- پیکربندی
     path("components/", config_views.component_list, name="component_list"),
+    path("components/new/", config_views.component_create, name="component_create"),
+    path("components/<int:pk>/edit/", config_views.component_edit, name="component_edit"),
     path("components/<int:pk>/toggle/", config_views.component_toggle, name="component_toggle"),
+    path("components/<int:pk>/scope/add/", config_views.component_scope_add, name="component_scope_add"),
+    path("scopes/<int:pk>/delete/", config_views.component_scope_delete, name="component_scope_delete"),
     path("settings/fiscal/", config_views.fiscal_settings, name="fiscal_settings"),
+    path("settings/params/<int:pk>/edit/", config_views.legal_parameter_edit, name="legal_parameter_edit"),
+    path("settings/brackets/<int:pk>/edit/", config_views.tax_brackets_edit, name="tax_brackets_edit"),
+    # ---- سهمیه مرخصی
+    path("leave/entitlements/", entitlement_views.entitlement_list, name="entitlement_list"),
+    path("leave/entitlements/save/", entitlement_views.entitlement_save, name="entitlement_save"),
+    path("leave/entitlements/fill/", entitlement_views.entitlement_fill_all, name="entitlement_fill_all"),
+    # ---- حساب‌های پرتال
+    path("portal-accounts/", portal_admin.portal_accounts, name="portal_accounts"),
+    path("portal-accounts/create/", portal_admin.portal_accounts_create, name="portal_accounts_create"),
+    path("portal-accounts/export/", portal_admin.portal_accounts_export, name="portal_accounts_export"),
+    path("portal-accounts/<int:pk>/reset/", portal_admin.portal_account_reset, name="portal_account_reset"),
+    path("password/change/", portal_admin.password_change, name="password_change"),
     # ---- گزارش‌ها
     path("reports/", payroll_views.reports, name="reports"),
     path("reports/<int:pk>/insurance/", payroll_views.report_insurance, name="report_insurance"),

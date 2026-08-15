@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% load payroll_extras %}
+{% block title %}حساب‌های پرتال{% endblock %}
+{% block heading %}حساب‌های پرتال کارکنان{% endblock %}
+{% block subheading %}{{ with_count|fanum }} نفر حساب دارند · {{ without_count|fanum }} نفر ندارند{% endblock %}
+
+{% block content %}
+{% if created %}
+<div class="panel" style="border:2px solid var(--red);">
+  <div class="panel-head">
+    <h3 style="color:var(--red);">رمزهای اولیه — فقط همین یک بار نمایش داده می‌شوند</h3>
+    <a class="btn btn-primary btn-sm" href="{% url 'portal_accounts_export' %}">دانلود اکسل</a>
+  </div>
+  <div class="panel-body" style="padding-bottom:0;">
+    <div class="note-box" style="margin-bottom:0;">
+      این فهرست بعد از خروج از صفحه دیگر در دسترس نیست. الان دانلود یا چاپش کنید.
+      هر پرسنل در اولین ورود مجبور است رمزش را عوض کند.
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>کد پرسنلی</th><th>نام</th><th>نام کاربری</th><th>رمز اولیه</th></tr></thead>
+      <tbody>
+        {% for item in created %}
+        <tr>
+          <td class="num">{{ item.code|fadigits }}</td>
+          <td><b>{{ item.name }}</b></td>
+          <td class="num" style="direction:ltr; text-align:right;">{{ item.code }}</td>
+          <td style="direction:ltr; text-align:right; font-family:Consolas,monospace; font-weight:700; font-size:14px;">{{ item.password }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% if without_count and user.can_edit_payroll %}
+<div class="panel">
+  <div class="panel-head">
+    <h3>ساخت حساب برای {{ without_count|fanum }} نفر</h3>
+    <span class="hint">نام کاربری = کد پرسنلی · رمز تصادفی</span>
+  </div>
+  <div class="panel-body">
+    <form method="post" action="{% url 'portal_accounts_create' %}"
+          onsubmit="return confirm('برای {{ without_count }} نفر حساب ساخته می‌شود. رمزها فقط یک بار نمایش داده می‌شوند. ادامه؟');">
+      {% csrf_token %}
+      <button class="btn btn-primary" type="submit">ساخت حساب‌ها</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<div class="panel">
+  <div class="panel-head"><h3>وضعیت پرسنل</h3></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>پرسنل</th><th>نام کاربری</th><th>وضعیت</th><th>آخرین ورود</th><th></th></tr></thead>
+      <tbody>
+        {% for employee in employees %}
+        <tr>
+          <td>
+            <div class="cell-name">
+              <div class="av">{{ employee.initials }}</div>
+              <div><b>{{ employee.full_name }}</b><small>کد {{ employee.personnel_code|fadigits }}</small></div>
+            </div>
+          </td>
+          <td class="num" style="direction:ltr; text-align:right;">{{ employee.user.username|default:"—" }}</td>
+          <td>
+            {% if not employee.user %}
+              <span class="badge muted"><span class="dot"></span>حساب ندارد</span>
+            {% elif employee.user.must_change_password %}
+              <span class="badge wait"><span class="dot"></span>در انتظار تغییر رمز</span>
+            {% else %}
+              <span class="badge ok"><span class="dot"></span>فعال</span>
+            {% endif %}
+          </td>
+          <td class="num" style="color:var(--muted);">{{ employee.user.last_login|jalali|default:"—" }}</td>
+          <td>
+            {% if employee.user and user.can_edit_payroll %}
+            <form method="post" action="{% url 'portal_account_reset' employee.pk %}"
+                  onsubmit="return confirm('رمز {{ employee.full_name }} بازنشانی شود؟');">
+              {% csrf_token %}
+              <button class="btn btn-outline btn-sm" type="submit">بازنشانی رمز</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5"><div class="empty">پرسنل فعالی وجود ندارد.</div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

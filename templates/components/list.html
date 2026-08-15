@@ -5,6 +5,12 @@
 {% block subheading %}{{ total|fanum }} قلم تعریف شده — منطق محاسبه در کد است، اینجا فقط ضریب، ترتیب و شمول تعیین می‌شود{% endblock %}
 
 {% block content %}
+{% if user.can_edit_payroll %}
+<div class="search-bar">
+  <a class="btn btn-primary btn-sm" href="{% url 'component_create' %}">افزودن قلم حقوقی</a>
+</div>
+{% endif %}
+
 <div class="note-box">
   <b>چرا منطق در کد است و نه در دیتابیس؟</b>
   چون باگ در حقوق و دستمزد مسئولیت قانونی دارد. هر قلم به یک قاعده‌ی تست‌شده‌ی پایتون

@@ -11,6 +11,11 @@
     <option value="{{ year.pk }}" {% if fiscal_year.pk == year.pk %}selected{% endif %}>سال مالی {{ year.year|fadigits }}</option>
     {% endfor %}
   </select>
+  {% if user.can_edit_payroll and params %}
+  <a class="btn btn-primary btn-sm" href="{% url 'legal_parameter_edit' params.pk %}">ویرایش پارامترها</a>
+  <a class="btn btn-outline btn-sm" href="{% url 'tax_brackets_edit' fiscal_year.pk %}">ویرایش پلکان مالیات</a>
+  {% endif %}
+  <a class="btn btn-outline btn-sm" href="{% url 'entitlement_list' %}">سهمیه مرخصی</a>
 </div>
 
 {% if params %}
