@@ -743,8 +743,10 @@ REPORT_SPECS = {
 
 @payroll_staff_required
 def report_export(request, pk, kind):
-    """خروجی اکسل. برای دمو فایل مستقیم تولید می‌شود؛ در فاز ۴ رکورد ارسال
-    (کد رهگیری و زمان) هم کنارش ذخیره خواهد شد."""
+    """خروجی اکسل برای مرور و بایگانی داخلی.
+
+    خروجی‌های رسمی با ثبت کد رهگیری، در «مرکز خروجی‌های قانونی» تولید می‌شوند.
+    """
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Font, PatternFill
     from openpyxl.utils import get_column_letter

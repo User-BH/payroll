@@ -15,7 +15,7 @@ from apps.attendance.models import Timesheet
 class TimesheetImportForm(forms.Form):
     file = forms.FileField(
         label="فایل اکسل کارکرد",
-        help_text="ابتدا فایل این دوره را دانلود کنید، اعداد را پر کنید و برگردانید",
+        help_text="ابتدا فایل الگوی این دوره را دانلود کنید، اعداد را پر کنید و برگردانید",
     )
 from apps.employees.models import Employee
 from apps.payroll.models import PayrollPeriod

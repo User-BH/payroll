@@ -151,17 +151,23 @@ class Command(BaseCommand):
         if total == 0:
             self.line(BAD, "هیچ کاربری در دیتابیس نیست")
             self.problems.append(
-                "دیتابیس خالی است، برای همین ورود ممکن نیست. یکی را اجرا کنید:\n"
-                "      python manage.py seed_demo        (داده نمونه + کاربر ali)\n"
-                "      python manage.py createsuperuser  (شروع خالی)"
+                "هیچ کاربری وجود ندارد، برای همین ورود ممکن نیست:\n"
+                "      python manage.py createsuperuser"
             )
             return
 
         self.line(OK, "تعداد کل", str(total))
-        staff = User.objects.exclude(role=User.Role.EMPLOYEE)
+        from django.db.models import Q
+
+        staff = User.objects.filter(
+            Q(is_superuser=True) | ~Q(role=User.Role.EMPLOYEE)
+        ).distinct()
         if staff.exists():
             for user in staff[:10]:
-                self.line(OK, "دسترسی مالی", f"{user.username} ({user.get_role_display()})")
+                label = user.get_role_display()
+                if user.is_superuser and user.role == User.Role.EMPLOYEE:
+                    label += " — نقش نادرست، ولی مدیر ارشد است"
+                self.line(OK, "دسترسی مالی", f"{user.username} ({label})")
         else:
             self.line(BAD, "هیچ کاربری دسترسی بخش مالی ندارد")
             self.problems.append(

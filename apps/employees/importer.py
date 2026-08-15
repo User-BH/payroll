@@ -47,7 +47,7 @@ MARITAL = {"مجرد": "SINGLE", "متأهل": "MARRIED", "متاهل": "MARRIED
 
 
 def build_template() -> bytes:
-    """فایل نمونه با سرستون‌ها و یک سطر راهنما."""
+    """فایل الگو با سرستون‌ها و یک سطر راهنما."""
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Font, PatternFill
 
@@ -76,7 +76,7 @@ def build_template() -> bytes:
         cell.font = Font(italic=True, color="8A8175")
 
     sheet.append([])
-    sheet.append(["سرستون‌های قرمز اجباری‌اند. سطر دوم فقط نمونه است و باید حذف شود."])
+    sheet.append(["سرستون‌های قرمز اجباری‌اند. سطر دوم فقط راهنماست و باید حذف شود."])
     sheet.cell(row=4, column=1).font = Font(bold=True, color="A81812")
 
     buffer = io.BytesIO()

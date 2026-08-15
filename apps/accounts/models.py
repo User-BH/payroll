@@ -1,5 +1,14 @@
 from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import UserManager as DjangoUserManager
 from django.db import models
+
+
+class UserManager(DjangoUserManager):
+    def create_superuser(self, username, email=None, password=None, **extra_fields):
+        # بدون این، createsuperuser کاربری با نقش پیش‌فرض «کارمند» می‌سازد و
+        # همان کاربر نمی‌تواند وارد بخش مالی شود.
+        extra_fields.setdefault("role", self.model.Role.ADMIN)
+        return super().create_superuser(username, email, password, **extra_fields)
 
 
 class User(AbstractUser):
@@ -24,6 +33,8 @@ class User(AbstractUser):
         help_text="رمز اولیه روی کاغذ تحویل می‌شود، پس در اولین ورود باید عوض شود",
     )
 
+    objects = UserManager()
+
     class Meta:
         verbose_name = "کاربر"
         verbose_name_plural = "کاربران"
@@ -43,19 +54,25 @@ class User(AbstractUser):
 
     @property
     def is_payroll_staff(self):
-        """آیا اجازه ورود به بخش مالی سامانه را دارد؟"""
-        return self.role in {self.Role.ADMIN, self.Role.PAYROLL, self.Role.MANAGER}
+        """آیا اجازه ورود به بخش مالی سامانه را دارد؟
+
+        مدیر ارشد همیشه دسترسی دارد، مستقل از نقش — وگرنه اگر نقشش اشتباه ثبت
+        شده باشد، راه ورود به سامانه بسته می‌شود.
+        """
+        return self.is_superuser or self.role in {
+            self.Role.ADMIN, self.Role.PAYROLL, self.Role.MANAGER
+        }
 
     @property
     def can_edit_payroll(self):
         """آیا اجازه تغییر داده و اجرای محاسبه را دارد؟"""
-        return self.role in {self.Role.ADMIN, self.Role.PAYROLL}
+        return self.is_superuser or self.role in {self.Role.ADMIN, self.Role.PAYROLL}
 
 
 class AuditLog(models.Model):
     """لاگ تغییرات موجودیت‌های مالی.
 
-    برای دمو ساده نگه داشته شده؛ در فاز بعد جایش django-simple-history می‌آید.
+    فعلاً ساده نگه داشته شده؛ در فاز بعد جایش django-simple-history می‌آید.
     """
 
     user = models.ForeignKey(

@@ -121,7 +121,7 @@ class SignatureForm(forms.ModelForm):
 class EmployeeImportForm(forms.Form):
     file = forms.FileField(
         label="فایل اکسل پرسنل",
-        help_text="فقط xlsx — ابتدا فایل نمونه را دانلود کنید",
+        help_text="فقط xlsx — ابتدا فایل الگو را دانلود کنید",
     )
     create_contracts = forms.BooleanField(
         label="ساخت قرارداد همزمان با پرسنل", required=False, initial=True

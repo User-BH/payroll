@@ -131,7 +131,9 @@
 <div class="panel">
   <div class="empty">
     هنوز دوره حقوقی تعریف نشده است.<br>
-    <span style="font-size:12px;">برای ساخت داده نمونه دستور <code>python manage.py seed_demo</code> را اجرا کنید.</span>
+    {% if user.can_edit_payroll %}
+    <a class="btn btn-primary btn-sm" style="margin-top:14px;" href="{% url 'period_create' %}">ساخت اولین دوره</a>
+    {% endif %}
   </div>
 </div>
 {% endif %}

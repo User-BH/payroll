@@ -72,6 +72,19 @@ class Command(BaseCommand):
 
     @transaction.atomic
     def handle(self, *args, **options):
+        from django.conf import settings
+
+        # این دستور داده ساختگی می‌سازد و با --reset همه‌چیز را پاک می‌کند.
+        # روی سرور عملیاتی یعنی نابودی داده واقعی حقوق، پس اجرا در حالت
+        # غیر-DEBUG مسدود است.
+        if not settings.DEBUG:
+            self.stdout.write(self.style.ERROR(
+                "این دستور فقط در محیط توسعه (DEBUG=1) اجرا می‌شود.\n"
+                "روی سرور عملیاتی داده ساختگی نباید ساخته شود.\n"
+                "برای راه‌اندازی: python manage.py setup_operational"
+            ))
+            return
+
         random.seed(1405)
 
         if options["reset"]:
