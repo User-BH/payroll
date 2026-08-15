@@ -56,6 +56,18 @@ say "نصب وابستگی‌ها"
 say "بررسی پیکربندی"
 "$VENV/bin/python" manage.py check
 
+# اگر مدلی تغییر کرده ولی مهاجرتش ساخته نشده، migrate آن را بی‌صدا نادیده
+# می‌گیرد و دیتابیس با کد ناهماهنگ می‌ماند. اینجا صریح متوقف می‌شویم.
+if ! "$VENV/bin/python" manage.py makemigrations --check --dry-run >/dev/null 2>&1; then
+  echo
+  echo "    خطا: مدل‌هایی تغییر کرده‌اند که مهاجرتشان ساخته نشده."
+  echo "    این یعنی نسخه‌ای که pull شد ناقص است. جزئیات:"
+  "$VENV/bin/python" manage.py makemigrations --check --dry-run 2>&1 | sed 's/^/      /'
+  echo
+  echo "    دیتابیس دست نخورد. به توسعه‌دهنده اطلاع دهید."
+  exit 1
+fi
+
 # ---------------------------------------------------------------- ۴) دیتابیس
 say "اعمال مهاجرت‌های دیتابیس"
 "$VENV/bin/python" manage.py migrate --noinput
