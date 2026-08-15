@@ -85,7 +85,22 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-به‌روزرسانی بعدی: `git pull && ./.venv/bin/pip install -r requirements.txt && ./.venv/bin/python manage.py migrate && ./.venv/bin/python manage.py collectstatic --noinput && sudo systemctl restart payroll`
+### به‌روزرسانی‌های بعدی
+
+```bash
+sudo bash /srv/payroll/deploy/update.sh
+```
+
+این اسکریپت به ترتیب: **بکاپ دیتابیس و فایل‌های آپلودی** → `git pull` →
+نصب وابستگی‌ها → `migrate` → `collectstatic` → تنظیم دسترسی پوشه `media` →
+ری‌استارت سرویس → `doctor`.
+
+بکاپ اول از همه گرفته می‌شود چون `migrate` برگشت‌پذیر نیست. اگر هر قدم شکست
+بخورد، اسکریپت همان‌جا متوقف می‌شود و مسیر فایل بکاپ را برای بازگردانی چاپ
+می‌کند. ۱۴ بکاپ آخر نگه داشته می‌شوند.
+
+اگر روی سرور فایلی را دستی تغییر داده باشید، اسکریپت قبل از `git pull` متوقف
+می‌شود و تغییرات را نشان می‌دهد تا ناخواسته پاک نشوند.
 
 ### ۴. تنظیم `.env`
 
