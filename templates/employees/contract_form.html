@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block heading %}{{ title }}{% endblock %}
+{% block subheading %}{{ employee.full_name }} — کد {{ employee.personnel_code }}{% endblock %}
+
+{% block content %}
+<div class="note-box">
+  <b>هر تغییر حقوق یا واحد، یک قرارداد جدید است — نه ویرایش قرارداد قبلی.</b>
+  ابتدا تاریخ پایان قرارداد جاری را بگذارید، سپس قرارداد جدید با تاریخ شروع بعدی بسازید.
+  این‌طوری فیش‌های گذشته دست‌نخورده می‌مانند.
+</div>
+
+<form method="post" novalidate>
+  {% csrf_token %}
+
+  {% if form.non_field_errors %}
+  <div class="msg error" style="margin-bottom:16px;">{{ form.non_field_errors|striptags }}</div>
+  {% endif %}
+
+  <div class="panel">
+    <div class="panel-head"><h3>مشخصات قرارداد</h3></div>
+    <div class="panel-body" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:0 18px;">
+      {% for field in form %}
+      <div class="field">
+        <label for="{{ field.id_for_label }}">
+          {{ field.label }}{% if field.field.required %} <span style="color:var(--red);">*</span>{% endif %}
+        </label>
+        {{ field }}
+        {% if field.help_text %}<div class="explain">{{ field.help_text }}</div>{% endif %}
+        {% if field.errors %}<div style="color:var(--red); font-size:11.5px; margin-top:5px; font-weight:600;">{{ field.errors|striptags }}</div>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div style="display:flex; gap:10px; flex-wrap:wrap;">
+    <button class="btn btn-primary" type="submit">ذخیره قرارداد</button>
+    <a class="btn btn-outline" href="{% url 'employee_detail' employee.pk %}">انصراف</a>
+  </div>
+</form>
+{% endblock %}

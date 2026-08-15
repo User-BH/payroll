@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% load payroll_extras %}
+{% block title %}مبالغ دستی {{ period.title }}{% endblock %}
+{% block heading %}مبالغ دستی — {{ period.title }}{% endblock %}
+{% block subheading %}اقلامی که مبلغشان هر ماه دستی وارد می‌شود: مابه التفاوت، حق ماموریت، پورسانت و کسور موردی{% endblock %}
+
+{% block content %}
+{% if period.is_locked %}
+<div class="note-box"><b>دوره قفل است</b> و مبالغ قابل تغییر نیستند.</div>
+{% endif %}
+
+<div class="panel">
+  <div class="panel-head"><h3>انتخاب قلم</h3></div>
+  <div class="panel-body" style="display:flex; flex-wrap:wrap; gap:8px;">
+    {% for item in components %}
+    <a class="btn btn-sm {% if component.code == item.code %}btn-primary{% else %}btn-outline{% endif %}"
+       href="?component={{ item.code }}">
+      <span class="comp-dot" style="background:{{ item.color }};"></span>
+      {{ item.name }}
+    </a>
+    {% empty %}
+    <div class="empty" style="width:100%;">قلم دستی‌ای تعریف نشده است.</div>
+    {% endfor %}
+  </div>
+</div>
+
+{% if component %}
+<div class="search-bar">
+  <input class="input" type="search" name="q" value="{{ q }}" placeholder="جستجوی پرسنل…"
+         hx-get="{% url 'manual_inputs' period.pk %}?component={{ component.code }}"
+         hx-trigger="input changed delay:300ms, search"
+         hx-target="#manual-rows"
+         hx-indicator="#mspin">
+  <span class="spinner" id="mspin"></span>
+  <a class="btn btn-outline btn-sm" href="{% url 'period_detail' period.pk %}">بازگشت به دوره</a>
+</div>
+
+<div class="panel">
+  <div class="panel-head">
+    <h3>{{ component.name }}</h3>
+    <span class="hint">
+      {{ component.tag_label }} ·
+      {% if component.scopes.all %}فقط دامنه تعریف‌شده{% else %}همه پرسنل{% endif %}
+    </span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>پرسنل</th><th>واحد</th><th>سمت</th><th style="width:200px;">مبلغ (ریال)</th></tr>
+      </thead>
+      <tbody id="manual-rows">
+        {% include "payroll/_manual_rows.html" %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

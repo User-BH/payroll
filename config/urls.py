@@ -18,9 +18,24 @@ urlpatterns = [
     # ---- پرسنل
     path("employees/", employees_views.employee_list, name="employee_list"),
     path("employees/rows/", employees_views.employee_rows, name="employee_rows"),
+    path("employees/new/", employees_views.employee_create, name="employee_create"),
+    path("employees/import/", employees_views.employee_import, name="employee_import"),
+    path(
+        "employees/import/template/",
+        employees_views.employee_import_template,
+        name="employee_import_template",
+    ),
     path("employees/<int:pk>/", employees_views.employee_detail, name="employee_detail"),
+    path("employees/<int:pk>/edit/", employees_views.employee_edit, name="employee_edit"),
+    path("employees/<int:pk>/contract/new/", employees_views.contract_create, name="contract_create"),
+    path("employees/<int:pk>/bank/new/", employees_views.bank_account_create, name="bank_account_create"),
+    path("employees/<int:pk>/dependent/new/", employees_views.dependent_create, name="dependent_create"),
+    path("contracts/<int:pk>/edit/", employees_views.contract_edit, name="contract_edit"),
     # ---- دوره‌های حقوقی
     path("periods/", payroll_views.period_list, name="period_list"),
+    path("periods/new/", payroll_views.period_create, name="period_create"),
+    path("periods/<int:pk>/manual/", payroll_views.manual_inputs, name="manual_inputs"),
+    path("periods/<int:pk>/manual/save/", payroll_views.manual_input_save, name="manual_input_save"),
     path("periods/<int:pk>/", payroll_views.period_detail, name="period_detail"),
     path("periods/<int:pk>/calculate/", payroll_views.period_calculate, name="period_calculate"),
     path(

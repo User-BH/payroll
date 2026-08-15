@@ -16,6 +16,7 @@
   </div>
   <div class="status-right">
     <a class="btn btn-ghost" href="{% url 'timesheet_grid' period.pk %}">کارکرد ماهانه</a>
+    <a class="btn btn-ghost" href="{% url 'manual_inputs' period.pk %}">مبالغ دستی</a>
     {% if payslip_count %}<a class="btn btn-ghost" href="{% url 'payslip_list' period.pk %}">فیش‌ها</a>{% endif %}
 
     {% if user.can_edit_payroll %}

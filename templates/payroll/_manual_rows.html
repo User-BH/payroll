@@ -1,0 +1,12 @@
+{% load payroll_extras %}
+{% for row in rows %}
+  {% include "payroll/_manual_row.html" %}
+{% empty %}
+<tr><td colspan="4"><div class="empty">پرسنلی در دامنه این قلم پیدا نشد.</div></td></tr>
+{% endfor %}
+{% if rows %}
+<tr style="background:var(--paper);">
+  <td colspan="3" style="font-weight:800;">جمع {{ component.name }}</td>
+  <td class="num" style="font-weight:800;">{{ total|rial }}</td>
+</tr>
+{% endif %}

@@ -1,0 +1,25 @@
+{% load payroll_extras %}
+<tr id="mi-{{ row.employee.pk }}" class="{% if saved %}saved-flash{% endif %}">
+  <td>
+    <div class="cell-name">
+      <div class="av">{{ row.employee.initials }}</div>
+      <div>
+        <b>{{ row.employee.full_name }}</b>
+        <small>کد {{ row.employee.personnel_code|fadigits }}</small>
+      </div>
+    </div>
+  </td>
+  <td>{{ row.contract.department.name|default:"—" }}</td>
+  <td>{{ row.contract.job_title.name|default:"—" }}</td>
+  <td>
+    <input class="input-cell" style="width:170px; text-align:left; direction:ltr;"
+           name="amount" value="{{ row.amount|default_if_none:'' }}"
+           inputmode="numeric" placeholder="۰"
+           {% if period.is_locked %}readonly{% endif %}
+           hx-post="{% url 'manual_input_save' period.pk %}"
+           hx-trigger="change"
+           hx-target="#mi-{{ row.employee.pk }}"
+           hx-swap="outerHTML"
+           hx-vals='{"employee": "{{ row.employee.pk }}", "component": "{{ component.code }}"}'>
+  </td>
+</tr>

@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% load payroll_extras %}
+{% block title %}ورود پرسنل از اکسل{% endblock %}
+{% block heading %}ورود گروهی پرسنل{% endblock %}
+{% block subheading %}برای ورود اولیه ۱۴۶ نفر، تایپ دستی منطقی نیست{% endblock %}
+
+{% block content %}
+<div class="grid-2">
+  <div>
+    <div class="panel">
+      <div class="panel-head"><h3>بارگذاری فایل</h3></div>
+      <div class="panel-body">
+        <form method="post" enctype="multipart/form-data">
+          {% csrf_token %}
+          {% for field in form %}
+          <div class="field">
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {% if field.help_text %}<div class="explain">{{ field.help_text }}</div>{% endif %}
+            {% if field.errors %}<div style="color:var(--red); font-size:11.5px; margin-top:5px;">{{ field.errors|striptags }}</div>{% endif %}
+          </div>
+          {% endfor %}
+          <button class="btn btn-primary" type="submit">بارگذاری</button>
+        </form>
+      </div>
+    </div>
+
+    {% if result and result.errors %}
+    <div class="panel">
+      <div class="panel-head">
+        <h3 style="color:var(--red);">{{ result.errors|length|fanum }} ایراد — هیچ رکوردی ثبت نشد</h3>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th style="width:80px;">سطر</th><th>ایراد</th></tr></thead>
+          <tbody>
+            {% for error in result.errors %}
+            <tr><td class="num">{{ error.row|fanum }}</td><td>{{ error.message }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>راهنما</h3></div>
+    <div class="panel-body">
+      <a class="btn btn-outline" style="width:100%; justify-content:center; margin-bottom:16px;"
+         href="{% url 'employee_import_template' %}">دانلود فایل نمونه</a>
+
+      <div class="note-box" style="margin-bottom:14px;">
+        <b>یا همه، یا هیچ.</b> اگر حتی یک سطر ایراد داشته باشد، هیچ رکوردی ثبت نمی‌شود.
+        فایل نیمه‌وارد بدتر از وارد نشدن است.
+      </div>
+
+      <div style="font-size:12.5px; color:var(--muted); line-height:2;">
+        <b style="color:var(--ink);">قبل از بارگذاری مطمئن شوید:</b>
+        <ul style="margin:8px 0 0; padding-inline-start:18px;">
+          <li>سطر نمونه (سطر دوم فایل) حذف شده باشد</li>
+          <li>واحد، مرکز هزینه و پست سازمانی دقیقاً با نام‌های تعریف‌شده در سامانه یکی باشند</li>
+          <li>کد ملی ده‌رقمی و معتبر باشد</li>
+          <li>تاریخ‌ها جلالی و به شکل ۱۴۰۲/۰۳/۰۱ باشند</li>
+          <li>حقوق ثابت به <b>ریال</b> باشد، نه تومان</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% load payroll_extras %}
+{% block title %}دوره جدید{% endblock %}
+{% block heading %}ساخت دوره حقوقی{% endblock %}
+{% block subheading %}هر ماه یک دوره — پس از ساخت، کارکرد ثبت و سپس محاسبه اجرا می‌شود{% endblock %}
+
+{% block content %}
+<form method="post" style="max-width:520px;">
+  {% csrf_token %}
+  <div class="panel">
+    <div class="panel-body">
+      <div class="field">
+        <label for="fy">سال مالی</label>
+        <select class="input" id="fy" name="fiscal_year" required>
+          {% for year in years %}
+          <option value="{{ year.pk }}">{{ year.year|fadigits }}</option>
+          {% empty %}
+          <option disabled>سال مالی تعریف نشده است</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="month">ماه</label>
+        <select class="input" id="month" name="month" required>
+          {% for number, name in months %}
+          <option value="{{ number }}">{{ name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+  </div>
+  <div style="display:flex; gap:10px;">
+    <button class="btn btn-primary" type="submit">ساخت دوره</button>
+    <a class="btn btn-outline" href="{% url 'period_list' %}">انصراف</a>
+  </div>
+</form>
+{% endblock %}

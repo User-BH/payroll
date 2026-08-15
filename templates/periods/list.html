@@ -5,6 +5,12 @@
 {% block subheading %}هر دوره یک ماشین حالت است؛ پس از قفل، فقط با فیش اصلاحی تغییر می‌کند{% endblock %}
 
 {% block content %}
+{% if user.can_edit_payroll %}
+<div class="search-bar">
+  <a class="btn btn-primary btn-sm" href="{% url 'period_create' %}">ساخت دوره جدید</a>
+</div>
+{% endif %}
+
 <div class="panel">
   <div class="table-wrap">
     <table>

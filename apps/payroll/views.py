@@ -10,10 +10,10 @@ from django.views.decorators.http import require_POST
 
 from apps.accounts.decorators import can_edit_required, payroll_staff_required
 from apps.attendance.models import Timesheet
-from apps.employees.models import Employee
+from apps.employees.models import Employee, EmploymentContract
 from apps.org.models import CostCenter
 from apps.payroll.engine.runner import CalculationError, calculate_period
-from apps.payroll.models import PayrollPeriod, Payslip
+from apps.payroll.models import PayrollInput, PayrollPeriod, Payslip
 from apps.payroll.utils import fa_money, jalali_str
 from apps.payroll_config.models import SalaryComponent
 
@@ -116,6 +116,167 @@ def period_list(request):
         .order_by("-year", "-month")
     )
     return render(request, "periods/list.html", {"periods": periods})
+
+
+@can_edit_required
+def period_create(request):
+    """ساخت دوره حقوقی جدید."""
+    from apps.payroll.utils import JALALI_MONTHS, jalali_month_range
+    from apps.payroll_config.models import FiscalYear
+
+    company = PayrollPeriod.objects.first().company if PayrollPeriod.objects.exists() else None
+    if company is None:
+        from apps.org.models import Company
+
+        company = Company.objects.first()
+
+    years = FiscalYear.objects.order_by("-year")
+    if request.method == "POST":
+        fiscal_year = get_object_or_404(FiscalYear, pk=request.POST.get("fiscal_year"))
+        month = int(request.POST.get("month") or 0)
+        if not 1 <= month <= 12:
+            messages.error(request, "ماه نامعتبر است.")
+            return redirect("period_create")
+        if PayrollPeriod.objects.filter(
+            company=company, year=fiscal_year.year, month=month
+        ).exists():
+            messages.error(request, "این دوره قبلاً ساخته شده است.")
+            return redirect("period_list")
+
+        start, end = jalali_month_range(fiscal_year.year, month)
+        period = PayrollPeriod.objects.create(
+            company=company,
+            fiscal_year=fiscal_year,
+            year=fiscal_year.year,
+            month=month,
+            start_date=start,
+            end_date=end,
+        )
+        messages.success(
+            request, f"دوره {period.title} ساخته شد. حالا کارکرد ماهانه را ثبت کنید."
+        )
+        return redirect("timesheet_grid", pk=period.pk)
+
+    taken = set(PayrollPeriod.objects.values_list("year", "month"))
+    return render(
+        request,
+        "periods/create.html",
+        {
+            "years": years,
+            "months": list(enumerate(JALALI_MONTHS, start=1)),
+            "taken": [f"{y}-{m}" for y, m in taken],
+        },
+    )
+
+
+@payroll_staff_required
+def manual_inputs(request, pk):
+    """ثبت مبالغ دستی دوره: مابه التفاوت، حق ماموریت، پورسانت و کسور موردی.
+
+    اقلامی که calc_type آن‌ها MANUAL است مبلغشان از اینجا می‌آید، نه از موتور.
+    """
+    period = get_object_or_404(PayrollPeriod.objects.select_related("company"), pk=pk)
+    components = list(
+        SalaryComponent.objects.filter(
+            company=period.company, is_active=True, calc_type=SalaryComponent.CalcType.MANUAL
+        )
+        .prefetch_related("scopes")
+        .order_by("sequence")
+    )
+    selected_code = request.GET.get("component") or (components[0].code if components else None)
+    component = next((c for c in components if c.code == selected_code), None)
+
+    query = request.GET.get("q", "").strip()
+    contracts = (
+        EmploymentContract.objects.filter(
+            status=EmploymentContract.Status.ACTIVE,
+            employee__company=period.company,
+            employee__status=Employee.Status.ACTIVE,
+            effective_from__lte=period.end_date,
+        )
+        .filter(Q(effective_to__isnull=True) | Q(effective_to__gte=period.start_date))
+        .select_related("employee", "department", "cost_center", "job_title")
+        .order_by("employee__personnel_code")
+    )
+    if query:
+        contracts = contracts.filter(
+            Q(employee__first_name__icontains=query)
+            | Q(employee__last_name__icontains=query)
+            | Q(employee__personnel_code__icontains=query)
+        )
+
+    rows = []
+    if component:
+        amounts = {
+            item.employee_id: item.amount
+            for item in PayrollInput.objects.filter(period=period, component=component)
+        }
+        for contract in contracts:
+            # قلم فقط به کسانی تعلق می‌گیرد که در دامنه شمولش هستند
+            if not component.applies_to(contract):
+                continue
+            rows.append(
+                {
+                    "employee": contract.employee,
+                    "contract": contract,
+                    "amount": amounts.get(contract.employee_id),
+                }
+            )
+
+    template = (
+        "payroll/_manual_rows.html" if request.headers.get("HX-Request") else "payroll/manual.html"
+    )
+    return render(
+        request,
+        template,
+        {
+            "period": period,
+            "components": components,
+            "component": component,
+            "rows": rows,
+            "q": query,
+            "total": sum((row["amount"] or 0) for row in rows),
+        },
+    )
+
+
+@can_edit_required
+@require_POST
+def manual_input_save(request, pk):
+    """ذخیره درجای یک مبلغ دستی — پاسخ HTMX فقط همان سطر است."""
+    from apps.payroll.utils import parse_decimal
+
+    period = get_object_or_404(PayrollPeriod, pk=pk)
+    if period.is_locked:
+        return HttpResponse("دوره قفل است", status=409)
+
+    employee = get_object_or_404(Employee, pk=request.POST.get("employee"))
+    component = get_object_or_404(
+        SalaryComponent, code=request.POST.get("component"), company=period.company
+    )
+    amount = parse_decimal(request.POST.get("amount"))
+
+    if amount and amount != 0:
+        PayrollInput.objects.update_or_create(
+            period=period, employee=employee, component=component,
+            defaults={"amount": amount},
+        )
+    else:
+        PayrollInput.objects.filter(
+            period=period, employee=employee, component=component
+        ).delete()
+        amount = None
+
+    return render(
+        request,
+        "payroll/_manual_row.html",
+        {
+            "period": period,
+            "component": component,
+            "row": {"employee": employee, "amount": amount},
+            "saved": True,
+        },
+    )
 
 
 @payroll_staff_required

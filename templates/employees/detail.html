@@ -5,6 +5,22 @@
 {% block subheading %}کد پرسنلی {{ employee.personnel_code|fadigits }} · کد ملی {{ employee.national_id|fadigits }}{% endblock %}
 
 {% block content %}
+{% if user.can_edit_payroll %}
+<div class="search-bar">
+  <a class="btn btn-outline btn-sm" href="{% url 'employee_edit' employee.pk %}">ویرایش اطلاعات</a>
+  <a class="btn btn-outline btn-sm" href="{% url 'contract_create' employee.pk %}">قرارداد جدید</a>
+  <a class="btn btn-outline btn-sm" href="{% url 'bank_account_create' employee.pk %}">افزودن حساب بانکی</a>
+  <a class="btn btn-outline btn-sm" href="{% url 'dependent_create' employee.pk %}">افزودن تحت تکفل</a>
+</div>
+{% endif %}
+
+{% if not current_contract %}
+<div class="note-box">
+  <b>این پرسنل قرارداد فعال ندارد و در محاسبه حقوق لحاظ نمی‌شود.</b>
+  برای ورود به چرخه حقوق، یک قرارداد با تاریخ شروع تعریف کنید.
+</div>
+{% endif %}
+
 <div class="stat-row">
   <div class="stat"><b>واحد سازمانی</b><span style="font-size:14px;">{{ current_contract.department.name|default:"—" }}</span></div>
   <div class="stat"><b>مرکز هزینه</b><span style="font-size:14px;">{{ current_contract.cost_center.name|default:"—" }}</span></div>
@@ -36,6 +52,9 @@
               <td>
                 {% if contract.status == 'ACTIVE' %}<span class="badge ok"><span class="dot"></span>فعال</span>
                 {% else %}<span class="badge muted"><span class="dot"></span>{{ contract.get_status_display }}</span>{% endif %}
+                {% if user.can_edit_payroll %}
+                <a class="link-btn" style="margin-inline-start:8px;" href="{% url 'contract_edit' contract.pk %}">ویرایش</a>
+                {% endif %}
               </td>
             </tr>
             {% empty %}

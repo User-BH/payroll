@@ -23,6 +23,10 @@
     {% endfor %}
   </select>
   <span class="spinner" id="emp-spin"></span>
+  {% if user.can_edit_payroll %}
+  <a class="btn btn-primary btn-sm" href="{% url 'employee_create' %}">افزودن پرسنل</a>
+  <a class="btn btn-outline btn-sm" href="{% url 'employee_import' %}">ورود از اکسل</a>
+  {% endif %}
 </div>
 
 <div class="panel">
