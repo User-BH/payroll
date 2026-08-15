@@ -4,6 +4,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from apps.accounts.decorators import can_edit_required, payroll_staff_required
+from apps.attendance.leave import DEFAULT_DAY_MINUTES, balances_for, compute_balance
 from apps.attendance.models import Timesheet
 from apps.employees.models import Employee
 from apps.payroll.models import PayrollPeriod
@@ -12,12 +13,14 @@ from apps.payroll.utils import parse_decimal
 # فیلدهایی که در جدول قابل ویرایش‌اند
 EDITABLE_FIELDS = [
     "work_days",
-    "paid_leave_days",
     "absence_days",
     "overtime_hours",
     "night_hours",
     "friday_hours",
 ]
+
+# مرخصی جدا هندل می‌شود چون ورودی‌اش سه‌تایی است: روز، ساعت، دقیقه
+LEAVE_FIELDS = ["leave_d", "leave_h", "leave_m"]
 
 
 def _ensure_timesheets(period):
@@ -44,6 +47,12 @@ def _ensure_timesheets(period):
         )
     if new_rows:
         Timesheet.objects.bulk_create(new_rows)
+
+
+def _day_minutes(period):
+    if period.legal_parameter:
+        return period.legal_parameter.leave_day_minutes
+    return DEFAULT_DAY_MINUTES
 
 
 def _rows(request, period):
@@ -75,6 +84,7 @@ def timesheet_grid(request, pk):
             "q": query,
             "approved_count": timesheets.filter(status=Timesheet.Status.APPROVED).count(),
             "total": timesheets.count(),
+            "balances": balances_for(period, _day_minutes(period)),
         },
     )
 
@@ -86,7 +96,12 @@ def timesheet_rows(request, pk):
     return render(
         request,
         "timesheets/_rows.html",
-        {"period": period, "timesheets": timesheets, "q": query},
+        {
+            "period": period,
+            "timesheets": timesheets,
+            "q": query,
+            "balances": balances_for(period, _day_minutes(period)),
+        },
     )
 
 
@@ -115,6 +130,17 @@ def timesheet_save(request, pk):
         if field in request.POST:
             setattr(timesheet, field, parse_decimal(request.POST.get(field)))
 
+    if any(f in request.POST for f in LEAVE_FIELDS):
+        day_minutes = (
+            period.legal_parameter.leave_day_minutes
+            if period.legal_parameter
+            else DEFAULT_DAY_MINUTES
+        )
+        days = int(parse_decimal(request.POST.get("leave_d")))
+        hours = int(parse_decimal(request.POST.get("leave_h")))
+        minutes = int(parse_decimal(request.POST.get("leave_m")))
+        timesheet.leave_minutes = max(days * day_minutes + hours * 60 + minutes, 0)
+
     if request.POST.get("approve") == "1":
         timesheet.status = Timesheet.Status.APPROVED
         timesheet.approved_by = request.user
@@ -130,5 +156,14 @@ def timesheet_save(request, pk):
     return render(
         request,
         "timesheets/_row.html",
-        {"ts": timesheet, "period": period, "saved": True},
+        {
+            "ts": timesheet,
+            "period": period,
+            "saved": True,
+            "balance": compute_balance(
+                timesheet.employee, period,
+                period.legal_parameter.leave_day_minutes
+                if period.legal_parameter else DEFAULT_DAY_MINUTES,
+            ),
+        },
     )

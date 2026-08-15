@@ -19,8 +19,31 @@
 
   <td><input class="input-cell" name="work_days" value="{{ ts.work_days|floatformat:"-2" }}"
              {% if not period.is_editable %}readonly{% endif %} inputmode="decimal"></td>
-  <td><input class="input-cell" name="paid_leave_days" value="{{ ts.paid_leave_days|floatformat:"-2" }}"
-             {% if not period.is_editable %}readonly{% endif %} inputmode="decimal"></td>
+
+  {# مرخصی استحقاقی: روز / ساعت / دقیقه — مبنا دقیقه است، نه روز اعشاری #}
+  <td>
+    <div style="display:flex; gap:2px; align-items:center; justify-content:center;">
+      <input class="input-cell" style="width:40px;" name="leave_d" value="{{ ts.leave_parts.d }}"
+             {% if not period.is_editable %}readonly{% endif %} inputmode="numeric" title="روز">
+      <span style="color:var(--muted); font-size:10px;">:</span>
+      <input class="input-cell" style="width:36px;" name="leave_h" value="{{ ts.leave_parts.h }}"
+             {% if not period.is_editable %}readonly{% endif %} inputmode="numeric" title="ساعت">
+      <span style="color:var(--muted); font-size:10px;">:</span>
+      <input class="input-cell" style="width:36px;" name="leave_m" value="{{ ts.leave_parts.m }}"
+             {% if not period.is_editable %}readonly{% endif %} inputmode="numeric" title="دقیقه">
+    </div>
+  </td>
+
+  <td style="font-size:11.5px; color:var(--muted); font-weight:600; white-space:nowrap;">
+    {% if balance %}
+      {% if balance.remaining < 0 %}
+        <span class="badge wait" title="بیش از سهمیه مرخصی گرفته شده">{{ balance.remaining|dhm }}</span>
+      {% else %}
+        {{ balance.remaining|dhm }}
+      {% endif %}
+    {% else %}—{% endif %}
+  </td>
+
   <td><input class="input-cell" name="absence_days" value="{{ ts.absence_days|floatformat:"-2" }}"
              {% if not period.is_editable %}readonly{% endif %} inputmode="decimal"></td>
   <td><input class="input-cell" name="overtime_hours" value="{{ ts.overtime_hours|floatformat:"-2" }}"

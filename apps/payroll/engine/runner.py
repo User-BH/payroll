@@ -17,6 +17,7 @@ from django.db import transaction
 from django.db.models import Q, Sum
 from django.utils import timezone
 
+from apps.attendance.leave import compute_balance
 from apps.attendance.models import Timesheet
 from apps.employees.models import ContractAllowance, EmploymentContract
 from apps.loans.models import Loan, LoanInstallment
@@ -173,6 +174,9 @@ def calculate_payslip(ctx: PayrollContext, components, run=None) -> Payslip:
         cost_center=ctx.contract.cost_center,
         iban_snapshot=getattr(ctx.employee.default_bank_account, "iban", "") or "",
         params_snapshot=ctx.params.as_snapshot(),
+        leave_snapshot=compute_balance(
+            ctx.employee, ctx.period, ctx.params.leave_day_minutes
+        ).as_snapshot(),
         work_days=ctx.paid_days,
         gross_total=quantize_rial(ctx.gross),
         insurable_base=quantize_rial(ctx.insurable_base),

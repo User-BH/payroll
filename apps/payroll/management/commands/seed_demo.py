@@ -14,7 +14,8 @@ from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from apps.attendance.models import Timesheet
+from apps.attendance.leave import DEFAULT_DAY_MINUTES
+from apps.attendance.models import LeaveEntitlement, Timesheet
 from apps.employees.models import (
     BankAccount,
     ContractAllowance,
@@ -82,7 +83,7 @@ class Command(BaseCommand):
             for model in (
                 LoanInstallment, Loan,
                 PayslipLine, Payslip, PayrollRun,
-                PayrollInput, Timesheet, PayrollPeriod,
+                PayrollInput, Timesheet, LeaveEntitlement, PayrollPeriod,
                 ContractAllowance, Dependent, BankAccount, EmploymentContract,
                 Employee,
                 ComponentScope, SalaryComponent,
@@ -107,6 +108,7 @@ class Command(BaseCommand):
         prev_period = self._create_period(company, years[1404], 1404, 12)
         curr_period = self._create_period(company, years[1405], 1405, 1)
 
+        self._create_leave_entitlements(employees, years)
         self._create_timesheets(prev_period, employees, approve_all=True)
         self._create_timesheets(curr_period, employees, approve_all=False)
         self._create_commissions(prev_period, curr_period, employees, components)
@@ -204,15 +206,18 @@ class Command(BaseCommand):
                     (900_000_000, None, "0.30", False),
                 ],
             },
+            # پلکان ۱۴۰۵ واقعی است و با فیش‌های تیر ۱۴۰۵ ریال‌به‌ریال تطبیق داده شد.
+            # ارقام به ریال؛ هر یک میلیون تومان = ده میلیون ریال.
             1405: {
                 "min_daily_wage": 3_000_000, "housing": 9_000_000, "food": 22_000_000,
                 "child": 9_000_000, "seniority": 400_000,
                 "brackets": [
-                    (0, 200_000_000, 0, True),
-                    (200_000_000, 400_000_000, "0.10", False),
-                    (400_000_000, 600_000_000, "0.15", False),
-                    (600_000_000, 1_000_000_000, "0.20", False),
-                    (1_000_000_000, None, "0.30", False),
+                    (0,             400_000_000,   0,      True),   # تا ۴۰ م.ت — معاف
+                    (400_000_000,   800_000_000,   "0.10", False),  # ۴۰ تا ۸۰ م.ت
+                    (800_000_000,   1_000_000_000, "0.15", False),  # ۸۰ تا ۱۰۰ م.ت
+                    (1_000_000_000, 1_200_000_000, "0.20", False),  # ۱۰۰ تا ۱۲۰ م.ت
+                    (1_200_000_000, 1_400_000_000, "0.25", False),  # ۱۲۰ تا ۱۴۰ م.ت
+                    (1_400_000_000, None,          "0.30", False),  # مازاد بر ۱۴۰ م.ت
                 ],
             },
         }
@@ -235,7 +240,9 @@ class Command(BaseCommand):
                 seniority_daily=Decimal(conf["seniority"]),
                 shift_rates={"MORNING_EVENING": 0.10, "MORNING_NIGHT": 0.225, "ALL": 0.15},
                 rounding_unit=1000,
-                deduct_insurance_from_tax_base=True,
+                # از فیش‌های واقعی تیر ۱۴۰۵ استخراج شد: بیمه سهم کارگر از مبنای
+                # مالیات کسر نمی‌شود. مبنای مالیات = جمع پرداختی‌ها − حق ماموریت.
+                deduct_insurance_from_tax_base=False,
             )
             for index, (low, high, rate, is_exemption) in enumerate(conf["brackets"], start=1):
                 TaxBracket.objects.create(
@@ -263,7 +270,9 @@ class Command(BaseCommand):
             # حق اولاد و حق ماموریت معاف از بیمه‌اند. این از روی سه فیش واقعی تیر
             # ۱۴۰۵ استخراج شده و ریال‌به‌ریال با مبلغ بیمه‌ی همان فیش‌ها خواند:
             #     مبنای بیمه = جمع پرداختی‌ها − حق ماموریت − حق اولاد
-            ("CHILD", "حق اولاد", "EARNING", "child_allowance", 50, False, False, False, False, amber, False),
+            # حق اولاد: معاف از بیمه، ولی مشمول مالیات
+            ("CHILD", "حق اولاد", "EARNING", "child_allowance", 50, False, True, False, False, amber, False),
+            # حق ماموریت: معاف از بیمه و معاف از مالیات
             ("MISSION", "حق ماموریت", "EARNING", "manual_input", 55, False, False, False, False, amber, False),
             ("JOB_ALLOWANCE", "فوق‌العاده شغل", "EARNING", "contract_allowance", 60, True, True, True, True, green, False),
             ("OVERTIME", "اضافه‌کاری", "EARNING", "overtime", 70, True, True, False, False, green, False),
@@ -279,10 +288,6 @@ class Command(BaseCommand):
             ("UNEMPLOYMENT", "بیمه بیکاری", "EMPLOYER_COST", "unemployment_insurance", 310, False, False, False, False, grey, True),
         ]
 
-        # اقلامی که مشمولیت مالیاتشان هنوز از روی فیش واقعی قابل استخراج نبود
-        # (دو فیش از سه فیش نمونه مالیات صفر داشتند، پس داده کافی نیست).
-        TAX_UNCONFIRMED = {"CHILD", "MISSION"}
-
         components = {}
         for code, name, kind, rule, seq, ins, tax, eid, sev, color, system in specs:
             calc_type = "MANUAL" if rule == "manual_input" else ("ENGINE_RULE" if rule else "FIXED")
@@ -293,8 +298,6 @@ class Command(BaseCommand):
                 is_insurable=ins, is_taxable=tax,
                 affects_eid=eid, affects_severance=sev,
                 color=color, is_system=system,
-                description="مشمولیت مالیات نیازمند تأیید با فیش واقعی"
-                if code in TAX_UNCONFIRMED else "",
             )
 
         # پورسانت سه‌سطحی — فقط برای مرکز هزینه فروش، مشمول مالیات و معاف از بیمه
@@ -459,12 +462,14 @@ class Command(BaseCommand):
             if contract is None:
                 continue
             absence = Decimal("0")
-            leave = Decimal("0")
+            leave_minutes = 0
             if index % 11 == 0:
-                leave = Decimal(random.choice([1, 2, 3]))
+                # مرخصی با دقت دقیقه، مثل فیش واقعی شرکت
+                leave_minutes = random.choice([440, 880, 1320, 900, 1005])
             if index % 23 == 0:
                 absence = Decimal(random.choice([1, 2]))
 
+            leave = (Decimal(leave_minutes) / Decimal(DEFAULT_DAY_MINUTES)).quantize(Decimal("0.01"))
             approved = index < (len(employees) - pending)
             rows.append(
                 Timesheet(
@@ -472,6 +477,7 @@ class Command(BaseCommand):
                     employee=employee,
                     contract=contract,
                     work_days=Decimal("30") - absence - leave,
+                    leave_minutes=leave_minutes,
                     paid_leave_days=leave,
                     absence_days=absence,
                     overtime_hours=Decimal(random.randrange(0, 60)),
@@ -482,6 +488,22 @@ class Command(BaseCommand):
                 )
             )
         Timesheet.objects.bulk_create(rows)
+
+    def _create_leave_entitlements(self, employees, years):
+        """سهمیه مرخصی: ۲۶ روز استحقاقی + انتقالی از سال قبل — مثل فیش واقعی."""
+        rows = []
+        for fiscal_year in years.values():
+            for index, employee in enumerate(employees):
+                carried = random.choice([0, 4, 8, 9, 12]) * DEFAULT_DAY_MINUTES
+                rows.append(
+                    LeaveEntitlement(
+                        employee=employee,
+                        fiscal_year=fiscal_year,
+                        carried_over_minutes=carried,
+                        annual_minutes=26 * DEFAULT_DAY_MINUTES,
+                    )
+                )
+        LeaveEntitlement.objects.bulk_create(rows)
 
     def _create_commissions(self, prev_period, curr_period, employees, components):
         """پورسانت فروش — ورودی دستی دوره (در واقعیت از سیستم فروش می‌آید)."""

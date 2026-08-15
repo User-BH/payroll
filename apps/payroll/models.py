@@ -245,6 +245,10 @@ class Payslip(models.Model):
     )
     iban_snapshot = models.CharField("شبا در لحظه پرداخت", max_length=26, blank=True)
     params_snapshot = models.JSONField("تصویر پارامترهای قانونی", default=dict, blank=True)
+    leave_snapshot = models.JSONField(
+        "تصویر مانده مرخصی", default=dict, blank=True,
+        help_text="انتقالی، استحقاقی، مصرفی ماه، مصرفی از اول سال و مانده — در لحظه محاسبه",
+    )
 
     # --- ارقام
     work_days = models.DecimalField("روز کارکرد", max_digits=6, decimal_places=2, default=0)

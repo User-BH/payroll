@@ -83,6 +83,10 @@ class LegalParameter(models.Model):
 
     # --- مبناهای زمانی
     monthly_days = models.DecimalField("روز کارکرد ماه", max_digits=5, decimal_places=2, default=Decimal("30"))
+    leave_day_minutes = models.PositiveSmallIntegerField(
+        "طول یک روز مرخصی (دقیقه)", default=440,
+        help_text="۴۴۰ دقیقه = ۷ ساعت و ۲۰ دقیقه — مطابق فیش فعلی شرکت",
+    )
     daily_work_hours = models.DecimalField(
         "ساعات کار روزانه", max_digits=5, decimal_places=2, default=Decimal("7.33")
     )

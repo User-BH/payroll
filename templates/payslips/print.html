@@ -214,6 +214,26 @@
     </div>
   </div>
 
+  {% if payslip.leave_snapshot %}
+  {% with lv=payslip.leave_snapshot %}
+  <div class="box" style="margin-top:6px;">
+    <h4>مرخصی</h4>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0 14px;">
+      <div class="row"><span>انتقالی از سال قبل</span><b>{{ lv.carried_over|dhm }}</b></div>
+      <div class="row"><span>مصرفی این ماه</span><b>{{ lv.used_period|dhm }}</b></div>
+      <div class="row"><span>استحقاقی امسال</span><b>{{ lv.annual|dhm }}</b></div>
+      <div class="row"><span>مصرفی از اول سال</span><b>{{ lv.used_ytd|dhm }}</b></div>
+      <div class="row" style="border-top:1px dotted var(--line); margin-top:2px; padding-top:2px;">
+        <span>قابل استفاده</span><b>{{ lv.total|dhm }}</b>
+      </div>
+      <div class="row" style="border-top:1px dotted var(--line); margin-top:2px; padding-top:2px;">
+        <span>مانده تا آخر سال</span><b style="color:var(--red-deep);">{{ lv.remaining|dhm }}</b>
+      </div>
+    </div>
+  </div>
+  {% endwith %}
+  {% endif %}
+
   <div class="ack">
     <span>وضعیت تأیید پرسنل</span>
     {% if payslip.ack_status == 'ACCEPTED' %}

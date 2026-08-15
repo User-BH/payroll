@@ -1,5 +1,8 @@
+{% load payroll_extras %}
 {% for ts in timesheets %}
-  {% include "timesheets/_row.html" %}
+  {% with balance=balances|dictget:ts.employee_id %}
+    {% include "timesheets/_row.html" %}
+  {% endwith %}
 {% empty %}
-<tr><td colspan="9"><div class="empty">ردیف کارکردی پیدا نشد.</div></td></tr>
+<tr><td colspan="10"><div class="empty">ردیف کارکردی پیدا نشد.</div></td></tr>
 {% endfor %}

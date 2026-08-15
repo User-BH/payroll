@@ -65,6 +65,22 @@ PARAM_LABELS = {
 }
 
 
+@register.filter(name="dictget")
+def dictget(mapping, key):
+    """خواندن یک کلید از دیکشنری در قالب — برای مانده‌های از پیش محاسبه‌شده."""
+    if not mapping:
+        return None
+    return mapping.get(key)
+
+
+@register.filter(name="dhm")
+def dhm(minutes):
+    """دقیقه → «۲۴ روز و ۷ ساعت و ۱۰ دقیقه»."""
+    from apps.attendance.leave import format_dhm
+
+    return format_dhm(minutes)
+
+
 @register.filter(name="param_label")
 def param_label(key):
     return PARAM_LABELS.get(key, key)
