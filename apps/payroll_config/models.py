@@ -92,7 +92,9 @@ class LegalParameter(models.Model):
     )
 
     rounding_unit = models.PositiveIntegerField(
-        "واحد گرد کردن (ریال)", default=1000, help_text="خالص پرداختی به این واحد گرد می‌شود"
+        "واحد گرد کردن (ریال)", default=1,
+        help_text="۱ یعنی بدون گرد کردن (توصیه‌شده). مقدار بزرگ‌تر یک سطر «تعدیل "
+                  "گرد کردن» به فیش اضافه می‌کند که توضیحش برای پرسنل دشوار است.",
     )
     deduct_insurance_from_tax_base = models.BooleanField(
         "کسر بیمه سهم کارگر از درآمد مشمول مالیات",

@@ -71,6 +71,13 @@ class Employee(models.Model):
     address = models.TextField("نشانی", blank=True)
     postal_code = models.CharField("کد پستی", max_length=10, blank=True)
 
+    # امضای اسکن‌شده پرسنل. فقط پس از تأیید فیش توسط خودش روی فیش چاپ می‌شود،
+    # پس نقش «امضای دریافت‌کننده» را ایفا می‌کند نه یک تصویر تزئینی.
+    signature = models.ImageField(
+        "تصویر امضا", upload_to="signatures/", blank=True, null=True,
+        help_text="تصویر امضا با زمینه روشن — روی فیش تأییدشده چاپ می‌شود",
+    )
+
     hire_date = models.DateField("تاریخ استخدام")
     termination_date = models.DateField("تاریخ خروج", null=True, blank=True)
     termination_reason = models.CharField("علت خروج", max_length=120, blank=True)
@@ -161,13 +168,25 @@ class Dependent(models.Model):
 
 
 class BankAccount(models.Model):
+    """حساب بانکی پرسنل.
+
+    پرداخت این شرکت از طریق بانک رسالت و بر مبنای **شماره حساب** انجام می‌شود،
+    نه شبا. پس شماره حساب اجباری و شبا اختیاری است.
+    """
+
+    DEFAULT_BANK = "رسالت"
+
     employee = models.ForeignKey(
         Employee, on_delete=models.CASCADE, related_name="bank_accounts", verbose_name="پرسنل"
     )
-    bank_name = models.CharField("بانک", max_length=60)
+    bank_name = models.CharField("بانک", max_length=60, default=DEFAULT_BANK)
     bank_code = models.CharField("کد بانک", max_length=10, blank=True)
-    account_number = models.CharField("شماره حساب", max_length=30, blank=True)
-    iban = models.CharField("شماره شبا", max_length=26, validators=[iban_validator])
+    account_number = models.CharField("شماره حساب", max_length=30)
+    card_number = models.CharField("شماره کارت", max_length=20, blank=True)
+    iban = models.CharField(
+        "شماره شبا", max_length=26, blank=True, validators=[iban_validator],
+        help_text="اختیاری — پرداخت بر مبنای شماره حساب انجام می‌شود",
+    )
     is_default = models.BooleanField("حساب پیش‌فرض", default=True)
     is_active = models.BooleanField("فعال", default=True)
 
@@ -176,7 +195,7 @@ class BankAccount(models.Model):
         verbose_name_plural = "حساب‌های بانکی"
 
     def __str__(self):
-        return f"{self.bank_name} — {self.iban}"
+        return f"{self.bank_name} — {self.account_number}"
 
 
 class EmploymentContract(models.Model):

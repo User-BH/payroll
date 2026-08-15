@@ -69,7 +69,9 @@ COMPONENTS = [
     ("MISSION",      "حق ماموریت",      "EARNING", "manual",          80,  False, False, False, False, AMBER, False),
     ("PREV_CLAIM",   "طلب ماه قبل",     "EARNING", "manual",          90,  True,  True,  False, False, GREEN, False),
     ("LEAVE_PAY",    "وجه مرخصی",       "EARNING", "manual",          100, True,  True,  False, False, GREEN, False),
-    ("PHONE",        "هزینه تلفن",      "EARNING", "manual",          110, False, False, False, False, AMBER, False),
+    # هزینه تلفن مشمول بیمه است — از فیش تیر ۱۴۰۵ آقای سعادتی تأیید شد:
+    # بدون احتساب آن، بیمه ۱۵٬۷۴۳٬۵۷۷ می‌شد نه ۱۵٬۸۱۳٬۵۷۷ که در فیش آمده.
+    ("PHONE",        "هزینه تلفن",      "EARNING", "manual",          110, True,  True,  False, False, GREEN, False),
     ("DIFF",         "مابه التفاوت",    "EARNING", "manual",          120, True,  True,  False, False, GREEN, False),
     # ---------- کسورات
     ("ADVANCE",      "علی الحساب واریزی", "DEDUCTION", "manual",           200, False, False, False, False, RED, False),
@@ -175,7 +177,11 @@ class Command(BaseCommand):
             monthly_days=Decimal("30"),
             daily_work_hours=Decimal("7.33"),
             leave_day_minutes=DEFAULT_DAY_MINUTES,
-            rounding_unit=1000,
+            # بدون گرد کردن. در فیش‌های واقعی شرکت خالص پرداختی رقم دقیق ریالی
+            # است (۲۲۳٬۲۲۰٬۲۱۲ و ۲۷۰٬۶۲۴٬۰۰۶ و …) و هیچ‌کدام رُند نیستند.
+            # ضمناً توضیح «۳۶۹ ریال تعدیل شد» برای پرسنل قابل دفاع نیست و در
+            # اداره کار هم محل ایراد است.
+            rounding_unit=1,
             # از فیش‌های واقعی: بیمه سهم کارگر از مبنای مالیات کسر نمی‌شود
             deduct_insurance_from_tax_base=False,
         )

@@ -393,21 +393,112 @@ tfoot td{padding:13px 20px; font-size:12.8px; font-weight:800; border-top:2px so
 .menu-btn{display:none; width:40px; height:40px; border-radius:10px; background:var(--paper-2); border:1px solid var(--line); align-items:center; justify-content:center;}
 .menu-btn svg{width:18px; height:18px;}
 .overlay{display:none;}
-@media (max-width:1100px){
+
+@media (max-width:1200px){
   .kpi-grid{grid-template-columns:repeat(2,1fr);}
   .grid-2, .grid-2-even{grid-template-columns:1fr;}
 }
-@media (max-width:860px){
-  .auth-wrap{grid-template-columns:1fr;}
-  .auth-art{display:none;}
+
+@media (max-width:980px){
+  .main{padding:22px 20px 50px;}
+  .status-card{padding:22px;}
+  .status-card h2{font-size:17px;}
+  .status-right{width:100%;}
+  .status-right .btn, .status-right form{flex:1;}
+  .status-right form .btn{width:100%; justify-content:center;}
 }
+
+@media (max-width:860px){
+  .auth-wrap{grid-template-columns:1fr; min-height:100dvh;}
+  .auth-art{
+    display:flex; padding:26px 22px; min-height:auto;
+    flex-direction:row; align-items:center; gap:14px;
+  }
+  .auth-art h1, .auth-art p, .auth-art > div:last-child{display:none;}
+  .auth-art .brand{margin:0;}
+  .auth-form{padding:26px 20px 44px;}
+}
+
+/* ---- گوشی: جدول‌ها به کارت تبدیل می‌شوند ----
+   جدول‌های این سامانه تا ده ستون دارند و اسکرول افقی روی گوشی عملاً
+   ناخوانا است. هر ردیف به یک کارت تبدیل می‌شود و عنوان هر خانه از
+   data-label می‌آید. */
 @media (max-width:760px){
-  .sidebar{position:fixed; inset-inline-start:0; top:0; transform:translateX(-102%);}
-  .sidebar.open{transform:translateX(0);}
+  .sidebar{
+    position:fixed; inset-inline-start:0; top:0; transform:translateX(-102%);
+    width:min(84vw, 300px);
+  }
+  [dir="rtl"] .sidebar{transform:translateX(102%);}
+  .sidebar.open{transform:translateX(0) !important;}
   .menu-btn{display:flex;}
-  .main{padding:18px 16px 50px;}
-  .kpi-grid{grid-template-columns:1fr 1fr;}
-  .overlay.show{display:block; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:30;}
+  .overlay.show{display:block; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:30;}
+
+  .main{padding:16px 14px 60px;}
+  .topbar{margin-bottom:18px; gap:12px;}
+  .topbar h1{font-size:18px;}
+  .topbar-actions{width:100%; justify-content:space-between;}
+  .period-select{flex:1;}
+
+  .kpi-grid{grid-template-columns:1fr 1fr; gap:10px;}
+  .kpi{padding:15px 14px;}
+  .kpi-value{font-size:19px;}
+  .kpi-label{font-size:11px;}
+
+  .status-card{padding:20px 18px; border-radius:16px;}
+  .status-card::after{display:none;}
+
+  .panel-head{padding:15px 16px;}
+  .panel-body{padding:16px;}
+
+  .search-bar{gap:8px;}
+  .search-bar .input{min-width:0; width:100%;}
+  .search-bar .btn{flex:1; justify-content:center;}
+
+  /* جدول → کارت */
+  .table-wrap{overflow:visible;}
+  table, thead, tbody, tr, td{display:block; width:100%;}
+  thead{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0);}
+  tbody tr{
+    border:1px solid var(--line); border-radius:12px;
+    margin:0 0 10px; padding:6px 0; background:var(--paper-2);
+  }
+  tbody tr:hover{background:var(--paper-2);}
+  tbody td{
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    border-bottom:1px dashed var(--line); padding:9px 14px; text-align:start;
+  }
+  tbody td:last-child{border-bottom:none;}
+  tbody td::before{
+    content:attr(data-label);
+    font-size:11px; font-weight:700; color:var(--muted);
+    flex-shrink:0;
+  }
+  tbody td:not([data-label])::before{content:none;}
+  tbody td .cell-name{flex:1;}
+  tfoot{display:block;}
+  tfoot tr{display:block; border:1px solid var(--line); border-radius:12px; background:var(--paper);}
+  tfoot td{display:flex; justify-content:space-between; border:none; padding:9px 14px;}
+
+  .input-cell{width:100% !important; max-width:130px; text-align:center;}
+
+  .stat-row{grid-template-columns:1fr 1fr;}
+  .pager{flex-wrap:wrap;}
+  .slip-head{grid-template-columns:1fr 1fr;}
+  .slip-total{flex-direction:column; align-items:flex-start; gap:6px;}
+  .slip-total .value{font-size:19px;}
+  .comp-list{padding:6px 6px 12px;}
+  .q{grid-template-columns:1fr;}
+}
+
+@media (max-width:420px){
+  .kpi-grid, .stat-row{grid-template-columns:1fr;}
+  .slip-head{grid-template-columns:1fr;}
+  .btn{padding:10px 16px; font-size:12.5px;}
+}
+
+/* ورودی‌ها روی iOS زیر ۱۶px باعث زوم خودکار می‌شوند */
+@media (max-width:760px){
+  .input, select.input, textarea.input{font-size:16px;}
 }
 @media (prefers-reduced-motion: reduce){
   *{animation-duration:.001s !important; transition-duration:.001s !important;}

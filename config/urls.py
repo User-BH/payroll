@@ -1,3 +1,5 @@
+from django.conf import settings
+from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path
 
@@ -88,4 +90,9 @@ urlpatterns = [
     path("portal/", portal_views.portal_home, name="portal_home"),
     path("portal/payslip/<int:pk>/", portal_views.portal_payslip, name="portal_payslip"),
     path("portal/payslip/<int:pk>/ack/", portal_views.portal_payslip_ack, name="portal_payslip_ack"),
+    path("portal/signature/", portal_views.portal_signature, name="portal_signature"),
 ]
+
+# فایل‌های آپلودی (امضا) در حالت توسعه. روی سرور nginx آن‌ها را سرو می‌کند.
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

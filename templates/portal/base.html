@@ -27,6 +27,8 @@
       <div class="av">{{ employee.initials }}</div>
       <div class="meta"><b>{{ employee.full_name }}</b><span>کد {{ employee.personnel_code|fadigits }}</span></div>
     </div>
+    <a class="btn btn-outline btn-sm no-print" href="{% url 'portal_signature' %}">امضای من</a>
+    <a class="btn btn-outline btn-sm no-print" href="{% url 'password_change' %}">تغییر رمز</a>
     <a class="btn btn-outline btn-sm no-print" href="{% url 'portal_logout' %}">خروج</a>
   </div>
 </div>

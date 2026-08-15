@@ -10,10 +10,10 @@
   <a class="btn btn-outline btn-sm" href="{% url 'reports' %}">همه گزارش‌ها</a>
 </div>
 
-{% if missing_iban %}
+{% if missing_account %}
 <div class="note-box">
-  <b>{{ missing_iban|fanum }} نفر شماره شبا ثبت‌شده ندارند.</b>
-  این افراد در فایل بانک با شبای خالی می‌آیند و پرداختشان انجام نمی‌شود.
+  <b>{{ missing_account|fanum }} نفر شماره حساب ثبت‌شده ندارند.</b>
+  این افراد در فایل بانک با حساب خالی می‌آیند و پرداختشان انجام نمی‌شود.
   قبل از ارسال فایل، حساب بانکی‌شان را در پرونده پرسنلی تکمیل کنید.
 </div>
 {% endif %}
@@ -21,7 +21,7 @@
 <div class="panel">
   <div class="table-wrap">
     <table>
-      <thead><tr><th>ردیف</th><th>پرسنل</th><th>شماره شبا</th><th>مبلغ خالص (ریال)</th></tr></thead>
+      <thead><tr><th>ردیف</th><th>پرسنل</th><th>بانک</th><th>شماره حساب</th><th>مبلغ خالص (ریال)</th></tr></thead>
       <tbody>
         {% for slip in rows %}
         <tr>
@@ -32,18 +32,19 @@
               <div><b>{{ slip.employee.full_name }}</b><small>کد {{ slip.employee.personnel_code|fadigits }}</small></div>
             </div>
           </td>
-          <td class="num" style="direction:ltr; text-align:right;">
-            {% if slip.iban_snapshot %}{{ slip.iban_snapshot }}
+          <td data-label="بانک">{{ slip.bank_snapshot|default:"رسالت" }}</td>
+          <td data-label="شماره حساب" class="num" style="direction:ltr; text-align:right;">
+            {% if slip.account_snapshot %}{{ slip.account_snapshot }}
             {% else %}<span class="badge wait"><span class="dot"></span>ثبت نشده</span>{% endif %}
           </td>
-          <td class="num" style="font-weight:800;">{{ slip.net_payable|rial }}</td>
+          <td data-label="مبلغ خالص" class="num" style="font-weight:800;">{{ slip.net_payable|rial }}</td>
         </tr>
         {% empty %}
-        <tr><td colspan="4"><div class="empty">رکوردی وجود ندارد.</div></td></tr>
+        <tr><td colspan="5"><div class="empty">رکوردی وجود ندارد.</div></td></tr>
         {% endfor %}
       </tbody>
       <tfoot>
-        <tr><td colspan="3">جمع کل</td><td class="num">{{ totals.net|rial }}</td></tr>
+        <tr><td colspan="4">جمع کل</td><td class="num">{{ totals.net|rial }}</td></tr>
       </tfoot>
     </table>
   </div>

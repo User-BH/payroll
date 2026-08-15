@@ -525,7 +525,7 @@ def report_bank(request, pk):
     period = get_object_or_404(PayrollPeriod.objects.select_related("company"), pk=pk)
     rows = _report_rows(period)
     totals = rows.aggregate(net=Sum("net_payable"))
-    missing_iban = rows.filter(iban_snapshot="").count()
+    missing_account = rows.filter(account_snapshot="").count()
     return render(
         request,
         "reports/bank.html",
@@ -534,7 +534,7 @@ def report_bank(request, pk):
             "rows": rows,
             "totals": totals,
             "count": rows.count(),
-            "missing_iban": missing_iban,
+            "missing_account": missing_account,
         },
     )
 
@@ -577,12 +577,14 @@ REPORT_SPECS = {
     },
     "bank": {
         "title": "فایل پرداخت بانک",
-        "headers": ["ردیف", "کد پرسنلی", "نام و نام خانوادگی", "شماره شبا", "مبلغ خالص"],
+        # پرداخت این شرکت از طریق بانک رسالت و بر مبنای شماره حساب است، نه شبا
+        "headers": ["ردیف", "کد پرسنلی", "نام و نام خانوادگی", "بانک", "شماره حساب", "مبلغ خالص"],
         "fields": lambda p, i: [
             i,
             p.employee.personnel_code,
             p.employee.full_name,
-            p.iban_snapshot,
+            p.bank_snapshot or "رسالت",
+            p.account_snapshot,
             p.net_payable,
         ],
     },

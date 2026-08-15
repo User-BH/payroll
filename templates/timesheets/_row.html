@@ -15,13 +15,13 @@
       </div>
     </div>
   </td>
-  <td>{{ ts.contract.department.name|default:"—" }}</td>
+  <td data-label="واحد">{{ ts.contract.department.name|default:"—" }}</td>
 
-  <td><input class="input-cell" name="work_days" value="{{ ts.work_days|floatformat:"-2" }}"
+  <td data-label="روز کارکرد"><input class="input-cell" name="work_days" value="{{ ts.work_days|floatformat:"-2" }}"
              {% if not period.is_editable %}readonly{% endif %} inputmode="decimal"></td>
 
   {# مرخصی استحقاقی: روز / ساعت / دقیقه — مبنا دقیقه است، نه روز اعشاری #}
-  <td>
+  <td data-label="مرخصی این ماه">
     <div style="display:flex; gap:2px; align-items:center; justify-content:center;">
       <input class="input-cell" style="width:40px;" name="leave_d" value="{{ ts.leave_parts.d }}"
              {% if not period.is_editable %}readonly{% endif %} inputmode="numeric" title="روز">
@@ -34,7 +34,7 @@
     </div>
   </td>
 
-  <td style="font-size:11.5px; color:var(--muted); font-weight:600; white-space:nowrap;">
+  <td data-label="مانده مرخصی" style="font-size:11.5px; color:var(--muted); font-weight:600; white-space:nowrap;">
     {% if balance %}
       {% if balance.remaining < 0 %}
         <span class="badge wait" title="بیش از سهمیه مرخصی گرفته شده">{{ balance.remaining|dhm }}</span>
@@ -44,13 +44,13 @@
     {% else %}—{% endif %}
   </td>
 
-  <td><input class="input-cell" name="absence_days" value="{{ ts.absence_days|floatformat:"-2" }}"
+  <td data-label="غیبت"><input class="input-cell" name="absence_days" value="{{ ts.absence_days|floatformat:"-2" }}"
              {% if not period.is_editable %}readonly{% endif %} inputmode="decimal"></td>
-  <td><input class="input-cell" name="overtime_hours" value="{{ ts.overtime_hours|floatformat:"-2" }}"
+  <td data-label="اضافه‌کاری"><input class="input-cell" name="overtime_hours" value="{{ ts.overtime_hours|floatformat:"-2" }}"
              {% if not period.is_editable %}readonly{% endif %} inputmode="decimal"></td>
-  <td><input class="input-cell" name="night_hours" value="{{ ts.night_hours|floatformat:"-2" }}"
+  <td data-label="شب‌کاری"><input class="input-cell" name="night_hours" value="{{ ts.night_hours|floatformat:"-2" }}"
              {% if not period.is_editable %}readonly{% endif %} inputmode="decimal"></td>
-  <td><input class="input-cell" name="friday_hours" value="{{ ts.friday_hours|floatformat:"-2" }}"
+  <td data-label="جمعه‌کاری"><input class="input-cell" name="friday_hours" value="{{ ts.friday_hours|floatformat:"-2" }}"
              {% if not period.is_editable %}readonly{% endif %} inputmode="decimal"></td>
 
   <td>

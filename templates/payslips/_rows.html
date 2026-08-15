@@ -17,14 +17,14 @@
             <div><b>{{ slip.employee.full_name }}</b><small>کد {{ slip.employee.personnel_code|fadigits }}</small></div>
           </div>
         </td>
-        <td>{{ slip.department.name }}</td>
-        <td class="num">{{ slip.work_days|fadec }}</td>
-        <td class="num">{{ slip.gross_total|rial }}</td>
-        <td class="num">{{ slip.insurable_base|rial }}</td>
-        <td class="num">{{ slip.taxable_base|rial }}</td>
-        <td class="num">{{ slip.ins_employee|rial }}</td>
-        <td class="num">{{ slip.tax_amount|rial }}</td>
-        <td class="num" style="font-weight:800;">{{ slip.net_payable|rial }}</td>
+        <td data-label="واحد">{{ slip.department.name }}</td>
+        <td data-label="روز کارکرد" class="num">{{ slip.work_days|fadec }}</td>
+        <td data-label="ناخالص" class="num">{{ slip.gross_total|rial }}</td>
+        <td data-label="مبنای بیمه" class="num">{{ slip.insurable_base|rial }}</td>
+        <td data-label="مبنای مالیات" class="num">{{ slip.taxable_base|rial }}</td>
+        <td data-label="بیمه" class="num">{{ slip.ins_employee|rial }}</td>
+        <td data-label="مالیات" class="num">{{ slip.tax_amount|rial }}</td>
+        <td data-label="خالص پرداختی" class="num" style="font-weight:800;">{{ slip.net_payable|rial }}</td>
       </tr>
       {% endfor %}
     </tbody>

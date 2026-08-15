@@ -22,10 +22,10 @@
         <tr onclick="location.href='{% url 'period_detail' period.pk %}'" style="cursor:pointer;">
           <td><b>{{ period.title }}</b></td>
           <td><span class="badge {{ period.status_tone }}"><span class="dot"></span>{{ period.get_status_display }}</span></td>
-          <td class="num">{{ period.payslip_count|fanum }}</td>
-          <td class="num">{{ period.total_gross|rial }}</td>
-          <td class="num">{{ period.total_net|rial }}</td>
-          <td class="num">{{ period.total_employer_cost|rial }}</td>
+          <td data-label="تعداد فیش" class="num">{{ period.payslip_count|fanum }}</td>
+          <td data-label="ناخالص کل" class="num">{{ period.total_gross|rial }}</td>
+          <td data-label="خالص کل" class="num">{{ period.total_net|rial }}</td>
+          <td data-label="هزینه کارفرما" class="num">{{ period.total_employer_cost|rial }}</td>
           <td class="num" style="color:var(--muted); font-weight:600;">{{ period.calculated_at|jalali }}</td>
         </tr>
         {% empty %}

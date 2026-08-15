@@ -11,23 +11,23 @@
       </div>
     </div>
   </td>
-  <td><span class="num" style="direction:ltr; display:inline-block; font-size:11px; color:var(--muted);">{{ component.code }}</span></td>
-  <td>
+  <td data-label="کد"><span class="num" style="direction:ltr; display:inline-block; font-size:11px; color:var(--muted);">{{ component.code }}</span></td>
+  <td data-label="نحوه محاسبه">
     {{ component.get_calc_type_display }}
     {% if component.engine_rule_key %}
     <div class="explain" style="direction:ltr; text-align:right;">{{ component.engine_rule_key }}</div>
     {% endif %}
   </td>
-  <td class="num">
+  <td data-label="ضریب / مبلغ" class="num">
     {% if component.calc_type == 'FIXED' %}{{ component.fixed_amount|rial }}
     {% elif component.rate %}{{ component.rate|fadec }}
     {% else %}—{% endif %}
   </td>
-  <td>{% if component.is_insurable %}<span class="badge ok"><span class="dot"></span>مشمول</span>{% else %}<span class="badge muted">معاف</span>{% endif %}</td>
-  <td>{% if component.is_taxable %}<span class="badge ok"><span class="dot"></span>مشمول</span>{% else %}<span class="badge muted">معاف</span>{% endif %}</td>
-  <td>{% if component.affects_eid %}<span class="badge info">بله</span>{% else %}<span class="badge muted">خیر</span>{% endif %}</td>
-  <td>{% if component.affects_severance %}<span class="badge info">بله</span>{% else %}<span class="badge muted">خیر</span>{% endif %}</td>
-  <td class="num">{{ component.sequence|fanum }}</td>
+  <td data-label="بیمه">{% if component.is_insurable %}<span class="badge ok"><span class="dot"></span>مشمول</span>{% else %}<span class="badge muted">معاف</span>{% endif %}</td>
+  <td data-label="مالیات">{% if component.is_taxable %}<span class="badge ok"><span class="dot"></span>مشمول</span>{% else %}<span class="badge muted">معاف</span>{% endif %}</td>
+  <td data-label="عیدی">{% if component.affects_eid %}<span class="badge info">بله</span>{% else %}<span class="badge muted">خیر</span>{% endif %}</td>
+  <td data-label="سنوات">{% if component.affects_severance %}<span class="badge info">بله</span>{% else %}<span class="badge muted">خیر</span>{% endif %}</td>
+  <td data-label="ترتیب" class="num">{{ component.sequence|fanum }}</td>
   <td>
     {% if user.can_edit_payroll and not component.is_system %}
     <button type="button" class="badge {% if component.is_active %}ok{% else %}muted{% endif %}" style="border:none;"

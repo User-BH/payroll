@@ -33,12 +33,12 @@
               <div><b>{{ slip.employee.full_name }}</b><small>کد {{ slip.employee.personnel_code|fadigits }}</small></div>
             </div>
           </td>
-          <td class="num">{{ slip.employee.national_id|fadigits }}</td>
-          <td class="num">{{ slip.employee.insurance_number|fadigits|default:"—" }}</td>
-          <td class="num">{{ slip.work_days|fadec }}</td>
-          <td class="num">{{ slip.insurable_base|rial }}</td>
-          <td class="num">{{ slip.ins_employee|rial }}</td>
-          <td class="num">{{ slip.ins_employer|rial }}</td>
+          <td data-label="کد ملی" class="num">{{ slip.employee.national_id|fadigits }}</td>
+          <td data-label="شماره بیمه" class="num">{{ slip.employee.insurance_number|fadigits|default:"—" }}</td>
+          <td data-label="روز کارکرد" class="num">{{ slip.work_days|fadec }}</td>
+          <td data-label="مبنای بیمه" class="num">{{ slip.insurable_base|rial }}</td>
+          <td data-label="سهم کارگر" class="num">{{ slip.ins_employee|rial }}</td>
+          <td data-label="سهم کارفرما" class="num">{{ slip.ins_employer|rial }}</td>
         </tr>
         {% empty %}
         <tr><td colspan="8"><div class="empty">رکوردی وجود ندارد.</div></td></tr>

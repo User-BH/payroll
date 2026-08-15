@@ -77,9 +77,9 @@
         {% for bracket in brackets %}
         <tr>
           <td class="num">{{ bracket.row_order|fanum }}</td>
-          <td class="num">{{ bracket.from_amount|rial }}</td>
-          <td class="num">{% if bracket.to_amount %}{{ bracket.to_amount|rial }}{% else %}به بالا{% endif %}</td>
-          <td class="num" style="font-weight:800;">{{ bracket.rate|percent:0 }}٪</td>
+          <td data-label="از مبلغ" class="num">{{ bracket.from_amount|rial }}</td>
+          <td data-label="تا مبلغ" class="num">{% if bracket.to_amount %}{{ bracket.to_amount|rial }}{% else %}به بالا{% endif %}</td>
+          <td data-label="نرخ" class="num" style="font-weight:800;">{{ bracket.rate|percent:0 }}٪</td>
           <td>{% if bracket.is_exemption %}<span class="badge info">ردیف معافیت</span>{% endif %}</td>
         </tr>
         {% empty %}

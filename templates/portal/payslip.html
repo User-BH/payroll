@@ -18,7 +18,7 @@
     <div class="slip-meta"><b>روز کارکرد</b><span class="num">{{ payslip.work_days|fadec }}</span></div>
     <div class="slip-meta"><b>مبنای بیمه</b><span class="num">{{ payslip.insurable_base|rial }}</span></div>
     <div class="slip-meta"><b>مبنای مالیات</b><span class="num">{{ payslip.taxable_base|rial }}</span></div>
-    <div class="slip-meta"><b>واریز به شبا</b><span class="num" style="direction:ltr; font-size:11.5px;">{{ payslip.iban_snapshot|default:"—" }}</span></div>
+    <div class="slip-meta"><b>واریز به حساب</b><span class="num" style="direction:ltr; font-size:11.5px;">{{ payslip.account_snapshot|default:"—" }}</span></div>
   </div>
 
   <div class="table-wrap">
@@ -102,12 +102,25 @@
         در غیر این صورت علت را بنویسید تا واحد مالی بررسی کند.
       </p>
 
+      {% if not employee.signature %}
+      <div class="note-box" style="margin-bottom:16px;">
+        <b>برای تأیید فیش، ابتدا باید تصویر امضایتان را بارگذاری کنید.</b>
+        این امضا روی فیش تأییدشده چاپ می‌شود و جای امضای دستی را می‌گیرد.
+      </div>
+      {% endif %}
+
       <div style="display:flex; gap:10px; flex-wrap:wrap;" x-show="!showForm">
+        {% if employee.signature %}
         <form method="post" action="{% url 'portal_payslip_ack' payslip.pk %}">
           {% csrf_token %}
           <input type="hidden" name="action" value="accept">
           <button class="btn btn-primary" type="submit">فیش را تأیید می‌کنم</button>
         </form>
+        {% else %}
+        <a class="btn btn-primary" href="{% url 'portal_signature' %}?next={{ request.path }}">
+          بارگذاری امضا و تأیید
+        </a>
+        {% endif %}
         <button class="btn btn-outline" type="button" @click="showForm = true">اعتراض دارم</button>
       </div>
 

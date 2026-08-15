@@ -23,10 +23,10 @@
       <tbody>
         {% for item in created %}
         <tr>
-          <td class="num">{{ item.code|fadigits }}</td>
-          <td><b>{{ item.name }}</b></td>
-          <td class="num" style="direction:ltr; text-align:right;">{{ item.code }}</td>
-          <td style="direction:ltr; text-align:right; font-family:Consolas,monospace; font-weight:700; font-size:14px;">{{ item.password }}</td>
+          <td data-label="کد پرسنلی" class="num">{{ item.code|fadigits }}</td>
+          <td data-label="نام"><b>{{ item.name }}</b></td>
+          <td data-label="نام کاربری" class="num" style="direction:ltr; text-align:right;">{{ item.code }}</td>
+          <td data-label="رمز اولیه" style="direction:ltr; text-align:right; font-family:Consolas,monospace; font-weight:700; font-size:14px;">{{ item.password }}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -65,7 +65,7 @@
               <div><b>{{ employee.full_name }}</b><small>کد {{ employee.personnel_code|fadigits }}</small></div>
             </div>
           </td>
-          <td class="num" style="direction:ltr; text-align:right;">{{ employee.user.username|default:"—" }}</td>
+          <td data-label="نام کاربری" class="num" style="direction:ltr; text-align:right;">{{ employee.user.username|default:"—" }}</td>
           <td>
             {% if not employee.user %}
               <span class="badge muted"><span class="dot"></span>حساب ندارد</span>
@@ -75,7 +75,7 @@
               <span class="badge ok"><span class="dot"></span>فعال</span>
             {% endif %}
           </td>
-          <td class="num" style="color:var(--muted);">{{ employee.user.last_login|jalali|default:"—" }}</td>
+          <td data-label="آخرین ورود" class="num" style="color:var(--muted);">{{ employee.user.last_login|jalali|default:"—" }}</td>
           <td>
             {% if employee.user and user.can_edit_payroll %}
             <form method="post" action="{% url 'portal_account_reset' employee.pk %}"

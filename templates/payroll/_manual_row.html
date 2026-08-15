@@ -9,9 +9,9 @@
       </div>
     </div>
   </td>
-  <td>{{ row.contract.department.name|default:"—" }}</td>
-  <td>{{ row.contract.job_title.name|default:"—" }}</td>
-  <td>
+  <td data-label="واحد">{{ row.contract.department.name|default:"—" }}</td>
+  <td data-label="سمت">{{ row.contract.job_title.name|default:"—" }}</td>
+  <td data-label="مبلغ (ریال)">
     <input class="input-cell" style="width:170px; text-align:left; direction:ltr;"
            name="amount" value="{{ row.amount|default_if_none:'' }}"
            inputmode="numeric" placeholder="۰"

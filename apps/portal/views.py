@@ -4,6 +4,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from apps.employees.forms import SignatureForm
 from apps.employees.models import Employee
 from apps.payroll.models import Payslip, PayslipView
 from apps.payroll_config.models import SalaryComponent
@@ -115,6 +116,27 @@ def portal_payslip(request, pk):
     )
 
 
+def portal_signature(request):
+    """بارگذاری تصویر امضا توسط خود پرسنل."""
+    if not request.user.is_authenticated:
+        return redirect("portal_login")
+    employee = getattr(request.user, "employee", None)
+    if employee is None:
+        return redirect("portal_login")
+
+    form = SignatureForm(request.POST or None, request.FILES or None, instance=employee)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(
+            request, "امضای شما ثبت شد. حالا می‌توانید فیش را تأیید کنید."
+        )
+        return redirect(request.GET.get("next") or "portal_home")
+
+    return render(
+        request, "portal/signature.html", {"form": form, "employee": employee}
+    )
+
+
 @require_POST
 def portal_payslip_ack(request, pk):
     """ثبت تأیید یا اعتراض پرسنل روی فیش خودش."""
@@ -131,10 +153,18 @@ def portal_payslip_ack(request, pk):
     action = request.POST.get("action")
 
     if action == "accept":
+        # تأیید بدون امضا ممکن نیست: امضای بارگذاری‌شده روی فیش تأییدشده چاپ
+        # می‌شود و نقش «امضای دریافت‌کننده» را دارد.
+        if not employee.signature:
+            messages.error(
+                request,
+                "برای تأیید فیش، ابتدا باید تصویر امضای خود را بارگذاری کنید.",
+            )
+            return redirect("portal_signature")
         payslip.ack_status = Payslip.Ack.ACCEPTED
         payslip.acknowledged_at = timezone.now()
         payslip.save_ack(["ack_status", "acknowledged_at"])
-        messages.success(request, "فیش این ماه توسط شما تأیید شد.")
+        messages.success(request, "فیش این ماه توسط شما تأیید شد و امضایتان روی آن نشست.")
 
     elif action == "dispute":
         reason = (request.POST.get("reason") or "").strip()

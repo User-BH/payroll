@@ -173,6 +173,8 @@ def calculate_payslip(ctx: PayrollContext, components, run=None) -> Payslip:
         department=ctx.contract.department,
         cost_center=ctx.contract.cost_center,
         iban_snapshot=getattr(ctx.employee.default_bank_account, "iban", "") or "",
+        account_snapshot=getattr(ctx.employee.default_bank_account, "account_number", "") or "",
+        bank_snapshot=getattr(ctx.employee.default_bank_account, "bank_name", "") or "",
         params_snapshot=ctx.params.as_snapshot(),
         leave_snapshot=compute_balance(
             ctx.employee, ctx.period, ctx.params.leave_day_minutes

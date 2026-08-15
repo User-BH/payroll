@@ -244,6 +244,8 @@ class Payslip(models.Model):
         CostCenter, on_delete=models.PROTECT, related_name="payslips", verbose_name="مرکز هزینه"
     )
     iban_snapshot = models.CharField("شبا در لحظه پرداخت", max_length=26, blank=True)
+    account_snapshot = models.CharField("شماره حساب در لحظه پرداخت", max_length=30, blank=True)
+    bank_snapshot = models.CharField("بانک عامل", max_length=60, blank=True)
     params_snapshot = models.JSONField("تصویر پارامترهای قانونی", default=dict, blank=True)
     leave_snapshot = models.JSONField(
         "تصویر مانده مرخصی", default=dict, blank=True,

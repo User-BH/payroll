@@ -101,6 +101,23 @@ class DependentForm(BootstrapMixin, forms.ModelForm):
         }
 
 
+class SignatureForm(forms.ModelForm):
+    """بارگذاری امضا توسط خود پرسنل در پرتال."""
+
+    MAX_BYTES = 2 * 1024 * 1024
+
+    class Meta:
+        model = Employee
+        fields = ["signature"]
+        labels = {"signature": "تصویر امضا"}
+
+    def clean_signature(self):
+        image = self.cleaned_data.get("signature")
+        if image and getattr(image, "size", 0) > self.MAX_BYTES:
+            raise forms.ValidationError("حجم تصویر باید کمتر از ۲ مگابایت باشد.")
+        return image
+
+
 class EmployeeImportForm(forms.Form):
     file = forms.FileField(
         label="فایل اکسل پرسنل",

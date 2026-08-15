@@ -17,11 +17,11 @@
             <div><b>{{ row.employee.full_name }}</b><small>کد {{ row.employee.personnel_code|fadigits }}</small></div>
           </div>
         </td>
-        <td>{{ row.contract.department.name|default:"—" }}</td>
-        <td>{{ row.contract.job_title.name|default:"—" }}</td>
-        <td>{{ row.contract.get_contract_type_display|default:"—" }}</td>
-        <td class="num">{% if row.contract %}{{ row.contract.base_salary|rial }}{% else %}—{% endif %}</td>
-        <td class="num">{{ row.employee.hire_date|jalali }}</td>
+        <td data-label="واحد">{{ row.contract.department.name|default:"—" }}</td>
+        <td data-label="پست سازمانی">{{ row.contract.job_title.name|default:"—" }}</td>
+        <td data-label="نوع قرارداد">{{ row.contract.get_contract_type_display|default:"—" }}</td>
+        <td data-label="حقوق پایه" class="num">{% if row.contract %}{{ row.contract.base_salary|rial }}{% else %}—{% endif %}</td>
+        <td data-label="تاریخ استخدام" class="num">{{ row.employee.hire_date|jalali }}</td>
         <td>
           {% if row.employee.status == 'ACTIVE' %}
           <span class="badge ok"><span class="dot"></span>فعال</span>

@@ -38,7 +38,8 @@ COLUMNS = [
     ("base_salary", "حقوق ثابت ماهانه (ریال)", True),
     ("seniority_years", "سابقه (سال)", False),
     ("bank_name", "بانک", False),
-    ("iban", "شماره شبا", False),
+    ("account_number", "شماره حساب", False),
+    ("iban", "شماره شبا (اختیاری)", False),
 ]
 
 GENDERS = {"مرد": "M", "زن": "F", "M": "M", "F": "F"}
@@ -69,7 +70,7 @@ def build_template() -> bytes:
     sheet.append([
         "1001", "علی", "محمدی", "حسن", "0012345678", "1370/05/12", "مرد", "متأهل",
         "1234567890", "09121234567", "1402/03/01", "فروش", "فروش", "بازاریاب",
-        "180000000", "3", "ملت", "IR120120000000123456789012",
+        "180000000", "3", "رسالت", "10.8347715.1", "",
     ])
     for cell in sheet[2]:
         cell.font = Font(italic=True, color="8A8175")
@@ -188,11 +189,13 @@ def import_employees(file_obj, company, create_contracts=True) -> dict:
         seen_codes.add(code)
         seen_ids.add(national_id)
 
+        account_number = str(data["account_number"] or "").strip().replace(".0", "")
         iban = str(data["iban"] or "").strip().upper()
-        if iban:
+        if account_number or iban:
             BankAccount.objects.create(
                 employee=employee,
-                bank_name=str(data["bank_name"] or "").strip(),
+                bank_name=str(data["bank_name"] or "").strip() or BankAccount.DEFAULT_BANK,
+                account_number=account_number,
                 iban=iban,
                 is_default=True,
             )

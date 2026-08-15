@@ -87,9 +87,9 @@
                 <div><b>{{ slip.employee.full_name }}</b><small>کد {{ slip.employee.personnel_code|fadigits }}</small></div>
               </div>
             </td>
-            <td>{{ slip.department.name }}</td>
-            <td class="num">{{ slip.gross_total|rial }}</td>
-            <td class="num">{{ slip.net_payable|rial }}</td>
+            <td data-label="واحد">{{ slip.department.name }}</td>
+            <td data-label="ناخالص" class="num">{{ slip.gross_total|rial }}</td>
+            <td data-label="خالص پرداختی" class="num">{{ slip.net_payable|rial }}</td>
             <td><span class="badge ok"><span class="dot"></span>محاسبه‌شده</span></td>
           </tr>
           {% endfor %}

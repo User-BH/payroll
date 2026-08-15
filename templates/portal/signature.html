@@ -1,0 +1,49 @@
+{% extends "portal/base.html" %}
+{% block title %}امضای من{% endblock %}
+
+{% block content %}
+<div class="panel" style="max-width:640px; margin:0 auto;">
+  <div class="panel-head">
+    <h3>تصویر امضای شما</h3>
+    {% if employee.signature %}<span class="badge ok"><span class="dot"></span>ثبت شده</span>{% endif %}
+  </div>
+
+  <div class="panel-body">
+    {% if employee.signature %}
+    <div style="text-align:center; padding:14px; border:1px dashed var(--line); border-radius:11px; margin-bottom:18px; background:#fff;">
+      <img src="{{ employee.signature.url }}" alt="امضای شما" style="max-height:110px; max-width:100%;">
+    </div>
+    <p style="font-size:12.5px; color:var(--muted); margin-bottom:16px;">
+      این امضا روی فیش‌هایی که تأیید می‌کنید چاپ می‌شود. برای تغییر، تصویر جدیدی
+      بارگذاری کنید.
+    </p>
+    {% else %}
+    <div class="note-box">
+      <b>برای تأیید فیش حقوقی، ابتدا باید امضایتان را بارگذاری کنید.</b>
+      این امضا جای امضای دستی پای فیش کاغذی را می‌گیرد و فقط روی فیش‌هایی که
+      خودتان تأیید کرده‌اید چاپ می‌شود.
+    </div>
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div class="field">
+        <label for="{{ form.signature.id_for_label }}">انتخاب تصویر</label>
+        {{ form.signature }}
+        <div class="explain">
+          امضا را روی کاغذ سفید بزنید و عکس بگیرید یا اسکن کنید. حجم کمتر از ۲ مگابایت.
+        </div>
+        {% if form.signature.errors %}
+        <div style="color:var(--red); font-size:12px; margin-top:6px; font-weight:600;">
+          {{ form.signature.errors|striptags }}
+        </div>
+        {% endif %}
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="btn btn-primary" type="submit">ذخیره امضا</button>
+        <a class="btn btn-outline" href="{% url 'portal_home' %}">بازگشت</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
