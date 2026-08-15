@@ -21,6 +21,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         self.problems = []
         self._database()
+        self._data()
         self._users()
         self._config()
         self._static()
@@ -79,6 +80,64 @@ class Command(BaseCommand):
         else:
             self.line(BAD, "جدول‌ها", f"فقط {tables} جدول")
             self.problems.append("مهاجرت‌ها اجرا نشده‌اند: python manage.py migrate")
+
+    def _data(self):
+        """چه داده‌ای در دیتابیس هست و آیا نمونه است یا واقعی.
+
+        بعد از به‌روزرسانی، معمولاً سؤال این است که «داده قبلی را چه کنم؟».
+        این بخش جواب می‌دهد تا تصمیم بدون حدس گرفته شود.
+        """
+        from apps.attendance.models import Timesheet
+        from apps.employees.models import Employee
+        from apps.loans.models import Loan
+        from apps.org.models import Company
+        from apps.payroll.models import PayrollPeriod, Payslip
+
+        self.head("داده‌ها")
+        try:
+            company = Company.objects.first()
+            employees = Employee.objects.count()
+            periods = list(PayrollPeriod.objects.order_by("year", "month"))
+            payslips = Payslip.objects.count()
+        except Exception as exc:
+            self.line(BAD, "خواندن داده", str(exc)[:120])
+            return
+
+        if company is None:
+            self.line(WARN, "شرکتی تعریف نشده", "setup_operational اجرا نشده است")
+            self.problems.append(
+                "راه‌اندازی اولیه انجام نشده: python manage.py setup_operational"
+            )
+            return
+
+        self.line(OK, "شرکت", company.name)
+        self.line(OK, "پرسنل", f"{employees} نفر")
+        self.line(OK, "دوره‌های حقوقی", ", ".join(p.title for p in periods) or "ندارد")
+        self.line(OK, "فیش صادرشده", str(payslips))
+        self.line(OK, "کارکرد ثبت‌شده", str(Timesheet.objects.count()))
+        self.line(OK, "وام", str(Loan.objects.count()))
+
+        # نشانه‌های داده نمونه‌ای که seed_demo می‌سازد
+        markers = []
+        if Employee.objects.filter(last_name="تستی").exists():
+            markers.append("پرسنل با نام خانوادگی «تستی»")
+        if company.national_id == "10861234567":
+            markers.append("شناسه ملی نمونه شرکت")
+        if PayrollPeriod.objects.filter(year=1404, month=12).exists():
+            markers.append("دوره اسفند ۱۴۰۴ (فقط در داده نمونه ساخته می‌شود)")
+        if employees == 146:
+            markers.append("دقیقاً ۱۴۶ پرسنل")
+
+        if markers:
+            self.line(WARN, "به‌نظر داده نمونه است", "، ".join(markers))
+            self.problems.append(
+                "این داده نمونه است، نه واقعی. برای پاک کردنش:\n"
+                "      python manage.py reset_data --scope all --confirm\n"
+                "      python manage.py setup_operational\n"
+                "      (اول بکاپ بگیرید — دستور rest_data خودش یادآوری می‌کند)"
+            )
+        elif employees:
+            self.line(OK, "داده واقعی به‌نظر می‌رسد", "نشانه‌ای از داده نمونه پیدا نشد")
 
     def _users(self):
         self.head("کاربران")
