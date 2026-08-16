@@ -484,18 +484,22 @@ class Command(BaseCommand):
 
             leave = (Decimal(leave_minutes) / Decimal(DEFAULT_DAY_MINUTES)).quantize(Decimal("0.01"))
             approved = index < (len(employees) - pending)
+            overtime_hours = Decimal(random.randrange(0, 60))
             rows.append(
                 Timesheet(
                     period=period,
                     employee=employee,
                     contract=contract,
-                    work_days=Decimal("30") - absence - leave,
+                    work_days=(period.month_days or Decimal("30")) - absence - leave,
                     leave_minutes=leave_minutes,
                     paid_leave_days=leave,
                     absence_days=absence,
-                    overtime_hours=Decimal(random.randrange(0, 60)),
-                    night_hours=Decimal(random.choice([0, 0, 0, 8, 16])),
-                    friday_hours=Decimal(random.choice([0, 0, 8])),
+                    mission_days=Decimal(random.choice([0, 0, 0, 1, 2])),
+                    # اضافه‌کاری به دقیقه ذخیره می‌شود؛ ساعتش در save() ساخته
+                    # می‌شود، ولی bulk_create آن را صدا نمی‌زند پس هر دو را
+                    # اینجا می‌گذاریم.
+                    overtime_minutes=int(overtime_hours * 60),
+                    overtime_hours=overtime_hours,
                     status=Timesheet.Status.APPROVED if approved else Timesheet.Status.DRAFT,
                     source=Timesheet.Source.IMPORT,
                 )

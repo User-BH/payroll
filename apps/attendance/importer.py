@@ -15,28 +15,31 @@ from django.db import transaction
 
 from apps.attendance.leave import DEFAULT_DAY_MINUTES
 from apps.attendance.models import Timesheet, TimesheetImport
+from apps.attendance.services import minutes_from_parts
 from apps.payroll.utils import parse_decimal
 
 COLUMNS = [
     ("personnel_code", "کد پرسنلی", True),
     ("full_name", "نام و نام خانوادگی (فقط برای کنترل)", False),
     ("work_days", "روز کارکرد", True),
-    ("leave_d", "مرخصی — روز", False),
-    ("leave_h", "مرخصی — ساعت", False),
     ("leave_m", "مرخصی — دقیقه", False),
+    ("leave_h", "مرخصی — ساعت", False),
+    ("leave_d", "مرخصی — روز", False),
     ("absence_days", "غیبت (روز)", False),
     ("unpaid_leave_days", "مرخصی بدون حقوق (روز)", False),
     ("sick_leave_days", "استعلاجی (روز)", False),
-    ("mission_days", "مأموریت (روز)", False),
-    ("overtime_hours", "اضافه‌کاری (ساعت)", False),
-    ("night_hours", "شب‌کاری (ساعت)", False),
-    ("friday_hours", "جمعه‌کاری (ساعت)", False),
+    ("mission_days", "حق مأموریت (روز)", False),
+    ("ot_m", "اضافه‌کاری — دقیقه", False),
+    ("ot_h", "اضافه‌کاری — ساعت", False),
+    ("ot_d", "اضافه‌کاری — روز", False),
     ("holiday_hours", "تعطیل‌کاری (ساعت)", False),
 ]
 
+# شب‌کاری و جمعه‌کاری از فایل کارکرد برداشته شده‌اند؛ اضافه‌کاری مثل مرخصی
+# سه‌ستونی (دقیقه/ساعت/روز) است و به دقیقه ذخیره می‌شود.
 DECIMAL_FIELDS = [
     "work_days", "absence_days", "unpaid_leave_days", "sick_leave_days",
-    "mission_days", "overtime_hours", "night_hours", "friday_hours", "holiday_hours",
+    "mission_days", "holiday_hours",
 ]
 
 
@@ -71,19 +74,18 @@ def build_template(period) -> bytes:
         .order_by("employee__personnel_code")
     )
     for timesheet in rows:
-        parts = timesheet.leave_parts
+        leave = timesheet.leave_parts
+        overtime = timesheet.overtime_parts
         sheet.append([
             timesheet.employee.personnel_code,
             timesheet.employee.full_name,
             timesheet.work_days,
-            parts["d"], parts["h"], parts["m"],
+            leave["m"], leave["h"], leave["d"],
             timesheet.absence_days,
             timesheet.unpaid_leave_days,
             timesheet.sick_leave_days,
             timesheet.mission_days,
-            timesheet.overtime_hours,
-            timesheet.night_hours,
-            timesheet.friday_hours,
+            overtime["m"], overtime["h"], overtime["d"],
             timesheet.holiday_hours,
         ])
 
@@ -158,10 +160,8 @@ def import_timesheets(file_obj, period, user=None, file_name="") -> dict:
                 break
             setattr(timesheet, field, value)
         else:
-            days = int(parse_decimal(data["leave_d"]))
-            hours = int(parse_decimal(data["leave_h"]))
-            minutes = int(parse_decimal(data["leave_m"]))
-            timesheet.leave_minutes = max(days * day_minutes + hours * 60 + minutes, 0)
+            timesheet.leave_minutes = minutes_from_parts(data, "leave", day_minutes)
+            timesheet.overtime_minutes = minutes_from_parts(data, "ot", day_minutes)
             timesheet.source = Timesheet.Source.IMPORT
             timesheet.entered_by = user
             timesheet.save()

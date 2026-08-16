@@ -10,6 +10,7 @@ from apps.accounts.decorators import can_edit_required, payroll_staff_required
 from apps.attendance.importer import build_template, import_timesheets
 from apps.attendance.leave import DEFAULT_DAY_MINUTES, balances_for, compute_balance
 from apps.attendance.models import Timesheet
+from apps.attendance.services import default_work_days
 
 
 class TimesheetImportForm(forms.Form):
@@ -21,17 +22,18 @@ from apps.employees.models import Employee
 from apps.payroll.models import PayrollPeriod
 from apps.payroll.utils import parse_decimal
 
-# فیلدهایی که در جدول قابل ویرایش‌اند
+# فیلدهایی که در جدول قابل ویرایش‌اند.
+# شب‌کاری و جمعه‌کاری عمداً نیستند: فیش‌های واقعی شرکت چنین قلمی ندارند.
 EDITABLE_FIELDS = [
     "work_days",
     "absence_days",
-    "overtime_hours",
-    "night_hours",
-    "friday_hours",
+    "mission_days",
 ]
 
-# مرخصی جدا هندل می‌شود چون ورودی‌اش سه‌تایی است: روز، ساعت، دقیقه
+# مرخصی و اضافه‌کاری جدا هندل می‌شوند چون ورودی هرکدام سه‌تایی است:
+# دقیقه، ساعت، روز
 LEAVE_FIELDS = ["leave_d", "leave_h", "leave_m"]
+OVERTIME_FIELDS = ["ot_d", "ot_h", "ot_m"]
 
 
 def _ensure_timesheets(period):
@@ -53,7 +55,7 @@ def _ensure_timesheets(period):
                 period=period,
                 employee=employee,
                 contract=contract,
-                work_days=period.legal_parameter.monthly_days if period.legal_parameter else 30,
+                work_days=default_work_days(period),
             )
         )
     if new_rows:
@@ -68,8 +70,11 @@ def _day_minutes(period):
 
 def _rows(request, period):
     query = request.GET.get("q", "").strip()
+    # period و پارامترش هم لازم‌اند: طول روز کاری برای نمایش مرخصی و
+    # اضافه‌کاری از آن‌ها خوانده می‌شود و بدون select_related هر ردیف دو کوئری
+    # اضافه می‌زند (۱۴۶ ردیف = ۲۹۲ کوئری).
     timesheets = Timesheet.objects.filter(period=period).select_related(
-        "employee", "contract", "contract__department"
+        "employee", "contract", "contract__department", "period", "period__legal_parameter"
     )
     if query:
         timesheets = timesheets.filter(
@@ -232,7 +237,9 @@ def timesheet_save(request, pk):
     ستون عددی.
     """
     timesheet = get_object_or_404(
-        Timesheet.objects.select_related("employee", "period", "contract", "contract__department"),
+        Timesheet.objects.select_related(
+            "employee", "period", "period__legal_parameter", "contract", "contract__department"
+        ),
         pk=pk,
     )
     period = timesheet.period
@@ -244,20 +251,21 @@ def timesheet_save(request, pk):
             {"ts": timesheet, "period": period, "error": "دوره قابل ویرایش نیست."},
         )
 
+    from apps.attendance.services import minutes_from_parts
+
     for field in EDITABLE_FIELDS:
         if field in request.POST:
-            setattr(timesheet, field, parse_decimal(request.POST.get(field)))
+            setattr(timesheet, field, max(parse_decimal(request.POST.get(field)), 0))
 
+    day_minutes = (
+        period.legal_parameter.leave_day_minutes
+        if period.legal_parameter
+        else DEFAULT_DAY_MINUTES
+    )
     if any(f in request.POST for f in LEAVE_FIELDS):
-        day_minutes = (
-            period.legal_parameter.leave_day_minutes
-            if period.legal_parameter
-            else DEFAULT_DAY_MINUTES
-        )
-        days = int(parse_decimal(request.POST.get("leave_d")))
-        hours = int(parse_decimal(request.POST.get("leave_h")))
-        minutes = int(parse_decimal(request.POST.get("leave_m")))
-        timesheet.leave_minutes = max(days * day_minutes + hours * 60 + minutes, 0)
+        timesheet.leave_minutes = minutes_from_parts(request.POST, "leave", day_minutes)
+    if any(f in request.POST for f in OVERTIME_FIELDS):
+        timesheet.overtime_minutes = minutes_from_parts(request.POST, "ot", day_minutes)
 
     if request.POST.get("approve") == "1":
         timesheet.status = Timesheet.Status.APPROVED

@@ -95,6 +95,21 @@ class PayrollPeriod(models.Model):
         return JALALI_MONTHS[self.month - 1] if 1 <= self.month <= 12 else str(self.month)
 
     @property
+    def month_days(self):
+        """روزهای واقعی ماه جلالی این دوره — ۳۱ در شش‌ماههٔ اول، ۳۰ در دوم،
+        و اسفند ۲۹ (در سال کبیسه ۳۰).
+
+        از خودِ بازهٔ دوره خوانده می‌شود، نه از یک عدد ثابت در پارامترهای
+        قانونی: مزد روزانه و تسهیم مزایای ثابت باید بر طول همان ماه تقسیم
+        شوند، وگرنه کارکرد ناقصِ یک ماه ۳۱ روزه با نسبت اشتباه حساب می‌شود.
+        عددِ «روز کارکرد» هر پرسنل جداگانه و دستی وارد می‌شود؛ این فقط مخرج
+        محاسبه و مقدار پیش‌فرض ورودی است.
+        """
+        if self.start_date and self.end_date:
+            return Decimal((self.end_date - self.start_date).days + 1)
+        return None
+
+    @property
     def is_locked(self):
         return self.status in {self.Status.LOCKED, self.Status.PAID}
 

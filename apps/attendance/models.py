@@ -55,7 +55,18 @@ class Timesheet(models.Model):
     sick_leave_days = models.DecimalField("مرخصی استعلاجی", max_digits=6, decimal_places=2, default=0)
     mission_days = models.DecimalField("مأموریت", max_digits=6, decimal_places=2, default=0)
 
-    overtime_hours = models.DecimalField("اضافه‌کاری (ساعت)", max_digits=6, decimal_places=2, default=0)
+    # اضافه‌کاری هم مثل مرخصی به دقیقه نگهداری می‌شود، چون ورودی‌اش سه‌تایی
+    # (روز، ساعت، دقیقه) است و نگهداری اعشاریِ ساعت خطای گرد کردن تولید می‌کند.
+    # overtime_hours همیشه از روی همین مقدار ساخته می‌شود، نه برعکس — موتور
+    # محاسبه با ساعت کار می‌کند.
+    overtime_minutes = models.IntegerField("اضافه‌کاری (دقیقه)", default=0)
+    overtime_hours = models.DecimalField(
+        "اضافه‌کاری (ساعت)", max_digits=6, decimal_places=2, default=0,
+        help_text="خودکار از روی دقیقه محاسبه می‌شود",
+    )
+    # شب‌کاری و جمعه‌کاری از فرم کارکرد ماهانه برداشته شده‌اند (فیش‌های واقعی
+    # شرکت چنین قلمی ندارند). ستون‌ها می‌مانند تا داده و فیش‌های گذشته سالم
+    # بمانند و قاعده‌هایشان در موتور دست‌نخورده باقی می‌ماند.
     night_hours = models.DecimalField("شب‌کاری (ساعت)", max_digits=6, decimal_places=2, default=0)
     friday_hours = models.DecimalField("جمعه‌کاری (ساعت)", max_digits=6, decimal_places=2, default=0)
     holiday_hours = models.DecimalField("تعطیل‌کاری (ساعت)", max_digits=6, decimal_places=2, default=0)
@@ -88,11 +99,26 @@ class Timesheet(models.Model):
     def __str__(self):
         return f"کارکرد {self.employee.full_name} — {self.period.title}"
 
-    def save(self, *args, **kwargs):
+    @property
+    def day_minutes(self) -> int:
+        """طول یک روز کاری بر حسب دقیقه، از پارامتر قانونی همان دوره.
+
+        هم برای مرخصی و هم برای اضافه‌کاری همین عدد مبناست. اگر نمایش با
+        مقدار پیش‌فرض و ذخیره با مقدار پارامتر انجام شود، «۱ روز» واردشده
+        دفعهٔ بعد «۱ روز و ۴۰ دقیقه» خوانده می‌شود.
+        """
         from apps.attendance.leave import DEFAULT_DAY_MINUTES
 
+        parameter = getattr(self.period, "legal_parameter", None) if self.period_id else None
+        return parameter.leave_day_minutes if parameter else DEFAULT_DAY_MINUTES
+
+    def save(self, *args, **kwargs):
+        minutes_per_day = Decimal(self.day_minutes)
         self.paid_leave_days = (
-            Decimal(self.leave_minutes or 0) / Decimal(DEFAULT_DAY_MINUTES)
+            Decimal(self.leave_minutes or 0) / minutes_per_day
+        ).quantize(Decimal("0.01"))
+        self.overtime_hours = (
+            Decimal(self.overtime_minutes or 0) / Decimal("60")
         ).quantize(Decimal("0.01"))
         super().save(*args, **kwargs)
 
@@ -100,15 +126,29 @@ class Timesheet(models.Model):
     def leave_display(self):
         from apps.attendance.leave import format_dhm
 
-        return format_dhm(self.leave_minutes)
+        return format_dhm(self.leave_minutes, self.day_minutes)
 
     @property
     def leave_parts(self):
         """(روز، ساعت، دقیقه) برای سه ورودی جدول کارکرد."""
         from apps.attendance.leave import split_dhm
 
-        _, days, hours, minutes = split_dhm(self.leave_minutes)
+        _, days, hours, minutes = split_dhm(self.leave_minutes, self.day_minutes)
         return {"d": days, "h": hours, "m": minutes}
+
+    @property
+    def overtime_parts(self):
+        """(روز، ساعت، دقیقه) اضافه‌کاری — همان سه ورودیِ مرخصی، برای اضافه‌کاری."""
+        from apps.attendance.leave import split_dhm
+
+        _, days, hours, minutes = split_dhm(self.overtime_minutes, self.day_minutes)
+        return {"d": days, "h": hours, "m": minutes}
+
+    @property
+    def overtime_display(self):
+        from apps.attendance.leave import format_dhm
+
+        return format_dhm(self.overtime_minutes, self.day_minutes)
 
     @property
     def paid_days(self) -> Decimal:

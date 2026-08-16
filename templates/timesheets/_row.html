@@ -1,5 +1,6 @@
 {% load payroll_extras %}
 {# یک سطر کارکرد. ذخیره درجا با HTMX — بدون رفرش صفحه. #}
+{# ترتیب سه ورودی زمان از راست: دقیقه، ساعت، روز. #}
 <tr id="ts-{{ ts.pk }}" class="{% if saved %}saved-flash{% endif %}"
     hx-post="{% url 'timesheet_save' ts.pk %}"
     hx-trigger="change"
@@ -20,17 +21,17 @@
   <td data-label="روز کارکرد"><input class="input-cell" name="work_days" value="{{ ts.work_days|floatformat:"-2" }}"
              {% if not period.is_editable %}readonly{% endif %} inputmode="decimal"></td>
 
-  {# مرخصی استحقاقی: روز / ساعت / دقیقه — مبنا دقیقه است، نه روز اعشاری #}
+  {# مرخصی استحقاقی: دقیقه / ساعت / روز — مبنا دقیقه است، نه روز اعشاری #}
   <td data-label="مرخصی این ماه">
     <div style="display:flex; gap:2px; align-items:center; justify-content:center;">
-      <input class="input-cell" style="width:40px;" name="leave_d" value="{{ ts.leave_parts.d }}"
-             {% if not period.is_editable %}readonly{% endif %} inputmode="numeric" title="روز">
+      <input class="input-cell" style="width:36px;" name="leave_m" value="{{ ts.leave_parts.m }}"
+             {% if not period.is_editable %}readonly{% endif %} inputmode="numeric" title="دقیقه">
       <span style="color:var(--muted); font-size:10px;">:</span>
       <input class="input-cell" style="width:36px;" name="leave_h" value="{{ ts.leave_parts.h }}"
              {% if not period.is_editable %}readonly{% endif %} inputmode="numeric" title="ساعت">
       <span style="color:var(--muted); font-size:10px;">:</span>
-      <input class="input-cell" style="width:36px;" name="leave_m" value="{{ ts.leave_parts.m }}"
-             {% if not period.is_editable %}readonly{% endif %} inputmode="numeric" title="دقیقه">
+      <input class="input-cell" style="width:40px;" name="leave_d" value="{{ ts.leave_parts.d }}"
+             {% if not period.is_editable %}readonly{% endif %} inputmode="numeric" title="روز">
     </div>
   </td>
 
@@ -46,12 +47,23 @@
 
   <td data-label="غیبت"><input class="input-cell" name="absence_days" value="{{ ts.absence_days|floatformat:"-2" }}"
              {% if not period.is_editable %}readonly{% endif %} inputmode="decimal"></td>
-  <td data-label="اضافه‌کاری"><input class="input-cell" name="overtime_hours" value="{{ ts.overtime_hours|floatformat:"-2" }}"
+
+  <td data-label="حق مأموریت"><input class="input-cell" name="mission_days" value="{{ ts.mission_days|floatformat:"-2" }}"
              {% if not period.is_editable %}readonly{% endif %} inputmode="decimal"></td>
-  <td data-label="شب‌کاری"><input class="input-cell" name="night_hours" value="{{ ts.night_hours|floatformat:"-2" }}"
-             {% if not period.is_editable %}readonly{% endif %} inputmode="decimal"></td>
-  <td data-label="جمعه‌کاری"><input class="input-cell" name="friday_hours" value="{{ ts.friday_hours|floatformat:"-2" }}"
-             {% if not period.is_editable %}readonly{% endif %} inputmode="decimal"></td>
+
+  {# اضافه‌کاری هم مثل مرخصی سه‌تایی است و به دقیقه ذخیره می‌شود #}
+  <td data-label="اضافه‌کاری">
+    <div style="display:flex; gap:2px; align-items:center; justify-content:center;">
+      <input class="input-cell" style="width:36px;" name="ot_m" value="{{ ts.overtime_parts.m }}"
+             {% if not period.is_editable %}readonly{% endif %} inputmode="numeric" title="دقیقه">
+      <span style="color:var(--muted); font-size:10px;">:</span>
+      <input class="input-cell" style="width:36px;" name="ot_h" value="{{ ts.overtime_parts.h }}"
+             {% if not period.is_editable %}readonly{% endif %} inputmode="numeric" title="ساعت">
+      <span style="color:var(--muted); font-size:10px;">:</span>
+      <input class="input-cell" style="width:40px;" name="ot_d" value="{{ ts.overtime_parts.d }}"
+             {% if not period.is_editable %}readonly{% endif %} inputmode="numeric" title="روز">
+    </div>
+  </td>
 
   <td>
     {% if error %}

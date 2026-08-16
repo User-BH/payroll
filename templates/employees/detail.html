@@ -126,7 +126,7 @@
       <div class="panel-head">
         <h3>کارکرد ماهانه</h3>
         <span class="hint">
-          {% if open_period %}دورهٔ {{ open_period.title }} — ورود دستی{% else %}دورهٔ بازی وجود ندارد{% endif %}
+          {% if open_period %}دورهٔ {{ open_period.title }} — ورود دستی · ماه کامل {{ open_period.month_days|fanum }} روز{% else %}دورهٔ بازی وجود ندارد{% endif %}
         </span>
       </div>
       {% if not open_period %}
@@ -166,24 +166,9 @@
                      value="{{ timesheet.unpaid_leave_days|floatformat:"-2" }}">
             </div>
             <div class="field">
-              <label for="ts-mission">مأموریت (روز)</label>
+              <label for="ts-mission">حق مأموریت (روز)</label>
               <input class="input num" id="ts-mission" name="mission_days" inputmode="decimal"
                      value="{{ timesheet.mission_days|floatformat:"-2" }}">
-            </div>
-            <div class="field">
-              <label for="ts-ot">اضافه‌کاری (ساعت)</label>
-              <input class="input num" id="ts-ot" name="overtime_hours" inputmode="decimal"
-                     value="{{ timesheet.overtime_hours|floatformat:"-2" }}">
-            </div>
-            <div class="field">
-              <label for="ts-night">شب‌کاری (ساعت)</label>
-              <input class="input num" id="ts-night" name="night_hours" inputmode="decimal"
-                     value="{{ timesheet.night_hours|floatformat:"-2" }}">
-            </div>
-            <div class="field">
-              <label for="ts-fri">جمعه‌کاری (ساعت)</label>
-              <input class="input num" id="ts-fri" name="friday_hours" inputmode="decimal"
-                     value="{{ timesheet.friday_hours|floatformat:"-2" }}">
             </div>
             <div class="field">
               <label for="ts-holiday">تعطیل‌کاری (ساعت)</label>
@@ -192,18 +177,37 @@
             </div>
           </div>
 
+          {# سه ورودی زمان، از راست: دقیقه، ساعت، روز #}
           <div class="field">
             <label>مرخصی استحقاقی</label>
-            <div style="display:flex; gap:8px; align-items:center;">
-              <input class="input num" name="leave_d" inputmode="numeric" style="max-width:90px;"
-                     value="{{ timesheet.leave_parts.d }}" aria-label="روز">
-              <small>روز</small>
-              <input class="input num" name="leave_h" inputmode="numeric" style="max-width:90px;"
-                     value="{{ timesheet.leave_parts.h }}" aria-label="ساعت">
-              <small>ساعت</small>
-              <input class="input num" name="leave_m" inputmode="numeric" style="max-width:90px;"
-                     value="{{ timesheet.leave_parts.m }}" aria-label="دقیقه">
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
               <small>دقیقه</small>
+              <input class="input num" name="leave_m" inputmode="numeric" style="max-width:80px;"
+                     value="{{ timesheet.leave_parts.m }}" aria-label="دقیقه">
+              <small>ساعت</small>
+              <input class="input num" name="leave_h" inputmode="numeric" style="max-width:80px;"
+                     value="{{ timesheet.leave_parts.h }}" aria-label="ساعت">
+              <small>روز</small>
+              <input class="input num" name="leave_d" inputmode="numeric" style="max-width:80px;"
+                     value="{{ timesheet.leave_parts.d }}" aria-label="روز">
+            </div>
+          </div>
+
+          <div class="field">
+            <label>اضافه‌کاری</label>
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+              <small>دقیقه</small>
+              <input class="input num" name="ot_m" inputmode="numeric" style="max-width:80px;"
+                     value="{{ timesheet.overtime_parts.m }}" aria-label="دقیقه">
+              <small>ساعت</small>
+              <input class="input num" name="ot_h" inputmode="numeric" style="max-width:80px;"
+                     value="{{ timesheet.overtime_parts.h }}" aria-label="ساعت">
+              <small>روز</small>
+              <input class="input num" name="ot_d" inputmode="numeric" style="max-width:80px;"
+                     value="{{ timesheet.overtime_parts.d }}" aria-label="روز">
+            </div>
+            <div class="explain">
+              یک روز اضافه‌کاری = {{ timesheet.day_minutes|fanum }} دقیقه (از تنظیمات سال مالی)
             </div>
           </div>
 

@@ -15,18 +15,32 @@ from apps.attendance.models import Timesheet
 from apps.payroll.models import PayrollPeriod
 from apps.payroll.utils import parse_decimal
 
-# فیلدهای عددی قابل ست کردن دستی
+# فیلدهای عددی قابل ست کردن دستی.
+# اضافه‌کاری اینجا نیست چون ورودی‌اش سه‌تایی (دقیقه/ساعت/روز) است، و شب‌کاری و
+# جمعه‌کاری هم از فرم کارکرد ماهانه برداشته شده‌اند.
 NUMERIC_FIELDS = [
     "work_days",
     "absence_days",
     "unpaid_leave_days",
     "sick_leave_days",
     "mission_days",
-    "overtime_hours",
-    "night_hours",
-    "friday_hours",
     "holiday_hours",
 ]
+
+
+def minutes_from_parts(data, prefix, day_minutes) -> int:
+    """«۱ روز و ۲ ساعت و ۳۰ دقیقه» از سه ورودی → دقیقه.
+
+    prefix نام سه کلید را می‌سازد: `leave_d/h/m` یا `ot_d/h/m`.
+    """
+    days = int(parse_decimal(data.get(f"{prefix}_d")))
+    hours = int(parse_decimal(data.get(f"{prefix}_h")))
+    minutes = int(parse_decimal(data.get(f"{prefix}_m")))
+    return max(days * day_minutes + hours * 60 + minutes, 0)
+
+
+def has_parts(data, prefix) -> bool:
+    return any(f"{prefix}_{part}" in data for part in ("d", "h", "m"))
 
 
 def open_period_for(company):
@@ -48,7 +62,15 @@ def day_minutes_of(period):
 
 
 def default_work_days(period):
-    """روز کارکرد پیش‌فرض — از پارامتر قانونی همان دوره، وگرنه ۳۰."""
+    """روز کارکرد پیش‌فرض — طول واقعی ماه جلالی دوره.
+
+    شش‌ماههٔ اول ۳۱ روز، شش‌ماههٔ دوم ۳۰ و اسفند ۲۹ (کبیسه ۳۰). فقط مقدار
+    اولیهٔ ورودی است؛ روز کارکرد هر پرسنل دستی وارد و اصلاح می‌شود.
+    """
+    if period is not None:
+        days = period.month_days
+        if days:
+            return Decimal(days)
     if period and period.legal_parameter:
         return Decimal(period.legal_parameter.monthly_days)
     return Decimal("30")
@@ -82,12 +104,11 @@ def apply_manual_timesheet(timesheet, data, user=None, approve=None):
             value = parse_decimal(data.get(field))
             setattr(timesheet, field, max(value, Decimal("0")))
 
-    if any(key in data for key in ("leave_d", "leave_h", "leave_m")):
-        minutes_per_day = day_minutes_of(timesheet.period)
-        days = int(parse_decimal(data.get("leave_d")))
-        hours = int(parse_decimal(data.get("leave_h")))
-        minutes = int(parse_decimal(data.get("leave_m")))
-        timesheet.leave_minutes = max(days * minutes_per_day + hours * 60 + minutes, 0)
+    minutes_per_day = day_minutes_of(timesheet.period)
+    if has_parts(data, "leave"):
+        timesheet.leave_minutes = minutes_from_parts(data, "leave", minutes_per_day)
+    if has_parts(data, "ot"):
+        timesheet.overtime_minutes = minutes_from_parts(data, "ot", minutes_per_day)
 
     if "shift_type" in data and data.get("shift_type"):
         timesheet.shift_type = data.get("shift_type")

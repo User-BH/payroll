@@ -56,12 +56,19 @@ class PayrollContext:
     def paid_days(self) -> Decimal:
         """روزهای مشمول پرداخت."""
         if not self.timesheet:
-            return self.params.monthly_days
+            return self.month_days
         return self.timesheet.paid_days
 
     @property
     def month_days(self) -> Decimal:
-        return self.params.monthly_days or Decimal("30")
+        """طول ماه دوره: ۳۱ روز در شش‌ماههٔ اول، ۳۰ در شش‌ماههٔ دوم، اسفند ۲۹/۳۰.
+
+        مخرج مزد روزانه و تسهیم مزایای ثابت است. از تقویم خودِ دوره می‌آید نه
+        از عدد ثابت `LegalParameter.monthly_days` — آن فقط وقتی به کار می‌آید
+        که دوره بازهٔ تاریخی نداشته باشد.
+        """
+        days = self.period.month_days if self.period is not None else None
+        return days or self.params.monthly_days or Decimal("30")
 
     @property
     def day_ratio(self) -> Decimal:
