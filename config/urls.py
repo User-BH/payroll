@@ -36,6 +36,11 @@ urlpatterns = [
     path("employees/<int:pk>/contract/new/", employees_views.contract_create, name="contract_create"),
     path("employees/<int:pk>/bank/new/", employees_views.bank_account_create, name="bank_account_create"),
     path("employees/<int:pk>/dependent/new/", employees_views.dependent_create, name="dependent_create"),
+    path(
+        "employees/<int:pk>/timesheet/",
+        attendance_views.employee_timesheet_save,
+        name="employee_timesheet_save",
+    ),
     path("employees/<int:pk>/terminate/", employees_views.employee_terminate, name="employee_terminate"),
     path("employees/<int:pk>/reactivate/", employees_views.employee_reactivate, name="employee_reactivate"),
     path("contracts/<int:pk>/edit/", employees_views.contract_edit, name="contract_edit"),

@@ -6,8 +6,12 @@
 
 {% block content %}
 {% if user.can_edit_payroll %}
+<div x-data="{ showTerm: false }">
 <div class="search-bar">
   <a class="btn btn-outline btn-sm" href="{% url 'employee_edit' employee.pk %}">ویرایش اطلاعات</a>
+  {% if current_contract %}
+  <a class="btn btn-outline btn-sm" href="{% url 'contract_edit' current_contract.pk %}">ویرایش قرارداد</a>
+  {% endif %}
   <a class="btn btn-outline btn-sm" href="{% url 'contract_create' employee.pk %}">قرارداد جدید</a>
   <a class="btn btn-outline btn-sm" href="{% url 'bank_account_create' employee.pk %}">افزودن حساب بانکی</a>
   <a class="btn btn-outline btn-sm" href="{% url 'dependent_create' employee.pk %}">افزودن تحت تکفل</a>
@@ -18,12 +22,12 @@
     <button class="btn btn-outline btn-sm" type="submit">بازگرداندن به کار</button>
   </form>
   {% else %}
-  <button class="btn btn-outline btn-sm" type="button" x-data @click="$refs.term.hidden = !$refs.term.hidden">ثبت خروج</button>
+  <button class="btn btn-outline btn-sm" type="button" @click="showTerm = !showTerm">اتمام همکاری (ثبت خروج)</button>
   {% endif %}
 </div>
 
 {% if employee.status != 'TERMINATED' %}
-<div class="panel" x-ref="term" hidden>
+<div class="panel" x-show="showTerm" x-cloak>
   <div class="panel-head"><h3>ثبت خروج از شرکت</h3></div>
   <div class="panel-body">
     <div class="note-box">
@@ -56,12 +60,20 @@
   در محاسبه دوره‌های جدید نمی‌آید.
 </div>
 {% endif %}
+</div>
 {% endif %}
 
 {% if not current_contract %}
 <div class="note-box">
   <b>این پرسنل قرارداد فعال ندارد و در محاسبه حقوق لحاظ نمی‌شود.</b>
   برای ورود به چرخه حقوق، یک قرارداد با تاریخ شروع تعریف کنید.
+</div>
+{% elif not current_contract.base_salary %}
+<div class="note-box">
+  <b>حقوق پایه این قرارداد صفر است.</b>
+  قرارداد هنگام افزودن پرسنل با مقادیر پیش‌فرض ساخته شده است. پیش از محاسبهٔ حقوق،
+  حقوق پایه، واحد سازمانی و پست را
+  <a href="{% url 'contract_edit' current_contract.pk %}">در ویرایش قرارداد</a> تکمیل کنید.
 </div>
 {% endif %}
 
@@ -108,6 +120,109 @@
         </table>
       </div>
     </div>
+
+    {% if user.can_edit_payroll %}
+    <div class="panel">
+      <div class="panel-head">
+        <h3>کارکرد ماهانه</h3>
+        <span class="hint">
+          {% if open_period %}دورهٔ {{ open_period.title }} — ورود دستی{% else %}دورهٔ بازی وجود ندارد{% endif %}
+        </span>
+      </div>
+      {% if not open_period %}
+      <div class="panel-body">
+        <div class="empty">
+          هیچ دورهٔ پیش‌نویسی باز نیست. ابتدا از «دوره‌های حقوقی» دورهٔ ماه را بسازید،
+          سپس کارکرد این پرسنل را همین‌جا ثبت کنید.
+        </div>
+      </div>
+      {% elif not current_contract %}
+      <div class="panel-body">
+        <div class="empty">تا وقتی قرارداد فعالی نباشد، کارکرد در محاسبه لحاظ نمی‌شود.</div>
+      </div>
+      {% elif employee.status != 'ACTIVE' %}
+      <div class="panel-body">
+        <div class="empty">پرسنل غیرفعال است و کارکرد جدیدی برایش ثبت نمی‌شود.</div>
+      </div>
+      {% else %}
+      <div class="panel-body">
+        <form method="post" action="{% url 'employee_timesheet_save' employee.pk %}">
+          {% csrf_token %}
+          <input type="hidden" name="period" value="{{ open_period.pk }}">
+          <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:0 14px;">
+            <div class="field">
+              <label for="ts-work">روز کارکرد</label>
+              <input class="input num" id="ts-work" name="work_days" inputmode="decimal"
+                     value="{{ timesheet.work_days|floatformat:"-2" }}">
+            </div>
+            <div class="field">
+              <label for="ts-abs">غیبت (روز)</label>
+              <input class="input num" id="ts-abs" name="absence_days" inputmode="decimal"
+                     value="{{ timesheet.absence_days|floatformat:"-2" }}">
+            </div>
+            <div class="field">
+              <label for="ts-unpaid">مرخصی بدون حقوق (روز)</label>
+              <input class="input num" id="ts-unpaid" name="unpaid_leave_days" inputmode="decimal"
+                     value="{{ timesheet.unpaid_leave_days|floatformat:"-2" }}">
+            </div>
+            <div class="field">
+              <label for="ts-mission">مأموریت (روز)</label>
+              <input class="input num" id="ts-mission" name="mission_days" inputmode="decimal"
+                     value="{{ timesheet.mission_days|floatformat:"-2" }}">
+            </div>
+            <div class="field">
+              <label for="ts-ot">اضافه‌کاری (ساعت)</label>
+              <input class="input num" id="ts-ot" name="overtime_hours" inputmode="decimal"
+                     value="{{ timesheet.overtime_hours|floatformat:"-2" }}">
+            </div>
+            <div class="field">
+              <label for="ts-night">شب‌کاری (ساعت)</label>
+              <input class="input num" id="ts-night" name="night_hours" inputmode="decimal"
+                     value="{{ timesheet.night_hours|floatformat:"-2" }}">
+            </div>
+            <div class="field">
+              <label for="ts-fri">جمعه‌کاری (ساعت)</label>
+              <input class="input num" id="ts-fri" name="friday_hours" inputmode="decimal"
+                     value="{{ timesheet.friday_hours|floatformat:"-2" }}">
+            </div>
+            <div class="field">
+              <label for="ts-holiday">تعطیل‌کاری (ساعت)</label>
+              <input class="input num" id="ts-holiday" name="holiday_hours" inputmode="decimal"
+                     value="{{ timesheet.holiday_hours|floatformat:"-2" }}">
+            </div>
+          </div>
+
+          <div class="field">
+            <label>مرخصی استحقاقی</label>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <input class="input num" name="leave_d" inputmode="numeric" style="max-width:90px;"
+                     value="{{ timesheet.leave_parts.d }}" aria-label="روز">
+              <small>روز</small>
+              <input class="input num" name="leave_h" inputmode="numeric" style="max-width:90px;"
+                     value="{{ timesheet.leave_parts.h }}" aria-label="ساعت">
+              <small>ساعت</small>
+              <input class="input num" name="leave_m" inputmode="numeric" style="max-width:90px;"
+                     value="{{ timesheet.leave_parts.m }}" aria-label="دقیقه">
+              <small>دقیقه</small>
+            </div>
+          </div>
+
+          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:6px;">
+            <button class="btn btn-primary btn-sm" type="submit" name="approve" value="">ذخیره</button>
+            {% if timesheet.status == 'APPROVED' %}
+            <button class="btn btn-outline btn-sm" type="submit" name="approve" value="0">ذخیره و برگشت به پیش‌نویس</button>
+            <span class="badge ok"><span class="dot"></span>تأییدشده</span>
+            {% else %}
+            <button class="btn btn-outline btn-sm" type="submit" name="approve" value="1">ذخیره و تأیید</button>
+            <span class="badge muted"><span class="dot"></span>{{ timesheet.get_status_display|default:"ثبت‌نشده" }}</span>
+            {% endif %}
+            <a class="link-btn" href="{% url 'timesheet_grid' open_period.pk %}">جدول کارکرد دوره</a>
+          </div>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
 
     <div class="panel">
       <div class="panel-head"><h3>فیش‌های صادرشده</h3></div>

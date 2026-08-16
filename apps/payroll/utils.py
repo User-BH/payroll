@@ -23,20 +23,42 @@ def _localize(text: str) -> str:
     return fa_digits(text).replace(",", "٬").replace(".", "٫")
 
 
+def _to_decimal(value):
+    """تبدیل امن به Decimal.
+
+    در قالب‌ها ممکن است مقدار «رشتهٔ خالی» برسد — مثلاً وقتی پرسنل هنوز قرارداد
+    فعالی ندارد و جنگو `current_contract.base_salary` را به "" تبدیل می‌کند.
+    بدون این محافظ، `Decimal("")` استثنا می‌دهد و کل صفحه با خطای ۵۰۰ می‌خوابد.
+    """
+    if value is None:
+        return None
+    if isinstance(value, Decimal):
+        return value
+    text = str(value).strip()
+    if not text:
+        return None
+    text = text.translate(ARABIC_INDIC).replace("٬", "").replace(",", "")
+    try:
+        return Decimal(text)
+    except Exception:
+        return None
+
+
 def fa_money(value, persian=True) -> str:
     """مبلغ ریالی با جداکننده هزارگان."""
-    if value is None:
+    amount = _to_decimal(value)
+    if amount is None:
         return "—"
-    amount = Decimal(value).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+    amount = amount.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
     text = f"{amount:,}"
     return _localize(text) if persian else text
 
 
 def fa_number(value, decimals=0, persian=True) -> str:
     """عدد معمولی؛ اعشار صفر حذف می‌شود تا «۳۰» به‌جای «۳۰٫۰۰» نمایش داده شود."""
-    if value is None:
+    number = _to_decimal(value)
+    if number is None:
         return "—"
-    number = Decimal(value)
     if decimals == 0 or number == number.to_integral_value():
         text = f"{number.to_integral_value():,}"
     else:
@@ -46,9 +68,10 @@ def fa_number(value, decimals=0, persian=True) -> str:
 
 def rial_to_milliard(value) -> str:
     """نمایش خلاصه برای کارت‌های داشبورد: میلیارد ریال با یک رقم اعشار."""
-    if not value:
+    number = _to_decimal(value)
+    if not number:
         return fa_digits("0")
-    number = Decimal(value) / Decimal("1000000000")
+    number = number / Decimal("1000000000")
     return _localize(f"{number:,.1f}")
 
 

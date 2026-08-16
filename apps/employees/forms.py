@@ -38,6 +38,15 @@ class EmployeeForm(BootstrapMixin, forms.ModelForm):
     birth_date = JalaliDateField(label="تاریخ تولد", required=False)
     hire_date = JalaliDateField(label="تاریخ استخدام")
 
+    # فیلدهایی که در قالب، پنل جداگانه دارند (در فرم ویرایش هیچ‌کدام)
+    EXTRA_FIELDS = []
+
+    def identity_fields(self):
+        return [field for field in self if field.name not in self.EXTRA_FIELDS]
+
+    def contract_fields(self):
+        return [self[name] for name in self.EXTRA_FIELDS]
+
     def clean_national_id(self):
         value = (self.cleaned_data.get("national_id") or "").strip()
         if value and not is_valid_national_id(value):
@@ -52,6 +61,38 @@ class EmployeeForm(BootstrapMixin, forms.ModelForm):
         if qs.exists():
             raise forms.ValidationError("این کد پرسنلی قبلاً ثبت شده است.")
         return code
+
+
+class EmployeeCreateForm(EmployeeForm):
+    """فرم افزودن پرسنل.
+
+    عمداً فقط **نوع قرارداد** را می‌پرسد، نه ریز جزئیات قرارداد را: پرسنل باید
+    با یک بار پر کردن همین صفحه فعال شود تا بشود رویش کلیک کرد، ویرایشش کرد و
+    خروجش را ثبت کرد. بقیهٔ فیلدهای قرارداد (واحد، حقوق پایه، …) پیش‌فرض
+    می‌گیرند و در «ویرایش قرارداد» تکمیل می‌شوند.
+    """
+
+    contract_type = forms.ChoiceField(
+        label="نوع قرارداد",
+        choices=EmploymentContract.ContractType.choices,
+        initial=EmploymentContract.ContractType.PERMANENT,
+        help_text="قرارداد فعال با همین نوع و از تاریخ استخدام ساخته می‌شود",
+    )
+    monthly_work_days = forms.DecimalField(
+        label="کارکرد ماهانه (روز)",
+        required=False,
+        min_value=0,
+        max_value=31,
+        max_digits=6,
+        decimal_places=2,
+        help_text="اختیاری — اگر دورهٔ بازی وجود داشته باشد، کارکرد این ماه با همین عدد ثبت می‌شود",
+    )
+
+    # این دو فیلد در قالب، پنل جداگانهٔ خودشان را دارند
+    EXTRA_FIELDS = ["contract_type", "monthly_work_days"]
+
+    class Meta(EmployeeForm.Meta):
+        pass
 
 
 class ContractForm(BootstrapMixin, forms.ModelForm):
@@ -70,15 +111,12 @@ class ContractForm(BootstrapMixin, forms.ModelForm):
 
     def __init__(self, *args, employee=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.employee = employee
-
-    def clean(self):
-        cleaned = super().clean()
+        self.employee = employee or (self.instance.employee if self.instance.pk else None)
+        # پرسنل باید **پیش از** اعتبارسنجی روی instance بنشیند، نه در clean().
+        # جنگو خودش در _post_clean متد full_clean مدل را صدا می‌زند؛ اگر آن‌جا
+        # employee_id خالی باشد، کنترل همپوشانی قراردادها بی‌صدا رد می‌شود.
         if self.employee and not self.instance.employee_id:
             self.instance.employee = self.employee
-        # همپوشانی قراردادهای فعال در clean() مدل کنترل می‌شود
-        self.instance.full_clean(exclude=["employee"])
-        return cleaned
 
 
 class BankAccountForm(BootstrapMixin, forms.ModelForm):

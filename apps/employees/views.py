@@ -1,4 +1,5 @@
 from django.contrib import messages
+from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.http import HttpResponse
@@ -10,11 +11,17 @@ from apps.employees.forms import (
     BankAccountForm,
     ContractForm,
     DependentForm,
+    EmployeeCreateForm,
     EmployeeForm,
     EmployeeImportForm,
 )
 from apps.employees.importer import build_template, import_employees
 from apps.employees.models import Employee
+from apps.employees.services import (
+    create_initial_contract,
+    missing_org_labels,
+    org_defaults,
+)
 from apps.org.models import Company
 from apps.payroll.models import Payslip
 
@@ -88,18 +95,87 @@ def employee_rows(request):
 
 @can_edit_required
 def employee_create(request):
-    form = EmployeeForm(request.POST or None)
+    """افزودن پرسنل — یک صفحه، یک بار ذخیره، پرسنلِ فعال.
+
+    قبلاً بعد از ثبتِ اطلاعات هویتی، کاربر به فرم کاملِ قرارداد پرت می‌شد و تا
+    پر نکردنِ آن، پرسنل «بدون قرارداد» می‌ماند. حالا فقط نوع قرارداد در همین
+    صفحه پرسیده می‌شود و قرارداد فعال خودکار ساخته می‌شود.
+    """
+    from apps.attendance.services import default_work_days, open_period_for, set_initial_timesheet
+
+    company = Company.objects.first()
+    if company is None:
+        messages.error(
+            request,
+            "هنوز هیچ شرکتی تعریف نشده است. ابتدا از «ساختار سازمانی» شرکت را بسازید "
+            "(یا روی سرور دستور setup_operational را اجرا کنید).",
+        )
+        return redirect("employee_list")
+
+    period = open_period_for(company)
+    initial = {}
+    if period is not None:
+        initial["monthly_work_days"] = default_work_days(period)
+
+    form = EmployeeCreateForm(request.POST or None, initial=initial)
+
     if request.method == "POST" and form.is_valid():
         employee = form.save(commit=False)
-        employee.company = Company.objects.first()
+        employee.company = company
         employee.save()
-        messages.success(
-            request,
-            f"{employee.full_name} ثبت شد. حالا قرارداد او را تعریف کنید تا در محاسبه لحاظ شود.",
-        )
-        return redirect("contract_create", pk=employee.pk)
+
+        try:
+            contract = create_initial_contract(
+                employee, form.cleaned_data.get("contract_type")
+            )
+        except ValidationError as exc:
+            contract = None
+            messages.error(
+                request,
+                f"{employee.full_name} ثبت شد ولی قرارداد ساخته نشد: "
+                f"{'؛ '.join(exc.messages)} — قرارداد را دستی تعریف کنید.",
+            )
+        else:
+            if contract is None:
+                missing = "، ".join(missing_org_labels(company)) if company else "شرکت"
+                messages.warning(
+                    request,
+                    f"{employee.full_name} ثبت شد ولی قرارداد ساخته نشد چون {missing} "
+                    "هنوز تعریف نشده است. ابتدا آن را در «ساختار سازمانی» بسازید، "
+                    "سپس برای این پرسنل قرارداد تعریف کنید.",
+                )
+
+        # کارکرد بدون قرارداد در محاسبه معنایی ندارد، پس فقط وقتی ثبت می‌شود
+        # که قرارداد ساخته شده باشد.
+        timesheet = None
+        if contract is not None:
+            timesheet = set_initial_timesheet(
+                employee, form.cleaned_data.get("monthly_work_days"), user=request.user
+            )
+
+        if contract is not None:
+            note = (
+                f" کارکرد {period.title} هم ثبت شد."
+                if timesheet is not None and period is not None
+                else ""
+            )
+            messages.success(
+                request,
+                f"{employee.full_name} با قرارداد {contract.get_contract_type_display()} "
+                f"ثبت و فعال شد.{note} "
+                "حقوق پایه هنوز صفر است — از دکمهٔ «ویرایش قرارداد» تکمیلش کنید.",
+            )
+        return redirect("employee_detail", pk=employee.pk)
+
     return render(
-        request, "employees/form.html", {"form": form, "title": "افزودن پرسنل"}
+        request,
+        "employees/form.html",
+        {
+            "form": form,
+            "title": "افزودن پرسنل",
+            "open_period": period,
+            "missing_org": missing_org_labels(company) if company else ["شرکت"],
+        },
     )
 
 
@@ -121,7 +197,17 @@ def employee_edit(request, pk):
 @can_edit_required
 def contract_create(request, pk):
     employee = get_object_or_404(Employee, pk=pk)
-    form = ContractForm(request.POST or None, employee=employee)
+    department, cost_center, job_title = org_defaults(employee.company)
+    form = ContractForm(
+        request.POST or None,
+        employee=employee,
+        initial={
+            "effective_from": employee.hire_date,
+            "department": department,
+            "cost_center": cost_center,
+            "job_title": job_title,
+        },
+    )
     if request.method == "POST" and form.is_valid():
         contract = form.save(commit=False)
         contract.employee = employee
@@ -283,6 +369,8 @@ def employee_import(request):
 
 @payroll_staff_required
 def employee_detail(request, pk):
+    from apps.attendance.services import get_or_create_timesheet, open_period_for
+
     employee = get_object_or_404(
         Employee.objects.select_related("company"), pk=pk
     )
@@ -294,6 +382,14 @@ def employee_detail(request, pk):
         .select_related("period")
         .order_by("-period__year", "-period__month")[:12]
     )
+
+    # کارکرد ماهانهٔ دورهٔ باز — همان رکوردی که در جدول کارکرد دوره هم دیده
+    # می‌شود؛ اینجا فقط برای همین یک نفر قابل ویرایش است.
+    open_period = open_period_for(employee.company)
+    timesheet = None
+    if open_period is not None and employee.status == Employee.Status.ACTIVE:
+        timesheet = get_or_create_timesheet(employee, open_period)
+
     return render(
         request,
         "employees/detail.html",
@@ -305,5 +401,7 @@ def employee_detail(request, pk):
             "bank_accounts": employee.bank_accounts.all(),
             "payslips": payslips,
             "loans": employee.loans.all(),
+            "open_period": open_period,
+            "timesheet": timesheet,
         },
     )

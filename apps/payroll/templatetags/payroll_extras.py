@@ -112,8 +112,7 @@ def snapshot_value(value):
 @register.filter(name="percent")
 def percent(value, decimals=2):
     """نرخ اعشاری (۰٫۰۷) را به درصد (۷٪) تبدیل می‌کند."""
-    if value is None:
+    number = utils._to_decimal(value)
+    if number is None:
         return "—"
-    from decimal import Decimal
-
-    return utils.fa_number(Decimal(value) * 100, decimals=int(decimals))
+    return utils.fa_number(number * 100, decimals=int(decimals))

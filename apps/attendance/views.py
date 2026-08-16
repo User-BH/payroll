@@ -164,6 +164,47 @@ def timesheet_import(request, pk):
 
 @can_edit_required
 @require_POST
+def employee_timesheet_save(request, pk):
+    """ست کردن دستی کارکرد ماهانهٔ یک پرسنل از صفحهٔ خودش.
+
+    برای پرسنلِ تازه‌افزوده‌شده لازم است: کاربر نمی‌خواهد برای یک نفر، جدول
+    کارکرد کل دوره را باز کند. رکورد مقصد همان Timesheet دوره است.
+    """
+    from apps.attendance.services import apply_manual_timesheet, get_or_create_timesheet
+    from apps.employees.models import Employee
+
+    employee = get_object_or_404(Employee, pk=pk)
+    period = get_object_or_404(
+        PayrollPeriod.objects.select_related("legal_parameter"),
+        pk=request.POST.get("period") or 0,
+    )
+
+    if not period.is_editable:
+        messages.error(request, "کارکرد این دوره دیگر قابل ویرایش نیست.")
+        return redirect("employee_detail", pk=employee.pk)
+
+    if employee.contract_on(period.end_date) is None:
+        messages.error(
+            request,
+            "این پرسنل در این دوره قرارداد فعال ندارد؛ کارکردش در محاسبه لحاظ نمی‌شود.",
+        )
+        return redirect("employee_detail", pk=employee.pk)
+
+    approve = None
+    if request.POST.get("approve") == "1":
+        approve = True
+    elif request.POST.get("approve") == "0":
+        approve = False
+
+    timesheet = get_or_create_timesheet(employee, period)
+    apply_manual_timesheet(timesheet, request.POST, user=request.user, approve=approve)
+
+    messages.success(request, f"کارکرد {employee.full_name} در {period.title} ثبت شد.")
+    return redirect("employee_detail", pk=employee.pk)
+
+
+@can_edit_required
+@require_POST
 def timesheet_approve_all(request, pk):
     """تأیید یکجای همه کارکردهای دوره."""
     period = get_object_or_404(PayrollPeriod, pk=pk)

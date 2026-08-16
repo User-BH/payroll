@@ -282,6 +282,12 @@ class EmploymentContract(models.Model):
         if self.effective_to and self.effective_from and self.effective_to < self.effective_from:
             raise ValidationError({"effective_to": "پایان اعتبار نمی‌تواند قبل از شروع باشد."})
 
+        # بدون تاریخ شروع، پرس‌وجوی همپوشانی معنا ندارد و با None در فیلتر،
+        # جنگو ValueError می‌دهد و صفحه با خطای ۵۰۰ می‌خوابد. نبودِ این تاریخ را
+        # اعتبارسنجی خودِ فیلد گزارش می‌کند.
+        if not self.effective_from:
+            return
+
         if not self.employee_id or self.status != self.Status.ACTIVE:
             return
 
