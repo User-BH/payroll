@@ -71,6 +71,9 @@
       <h4>اطلاعات پرداخت</h4>
       <div class="row"><span>بانک عامل</span><b>{{ payslip.bank_snapshot|default:"رسالت" }}</b></div>
       <div class="row"><span>شماره حساب</span><b class="num" style="direction:ltr;">{{ payslip.account_snapshot|default:"—" }}</b></div>
+      {% if payslip.iban_snapshot %}
+      <div class="row"><span>شماره شبا</span><b class="num" style="direction:ltr; font-size:9px;">{{ payslip.iban_snapshot }}</b></div>
+      {% endif %}
       <div class="row"><span>مبلغ واریزی</span><b class="num">{{ payslip.net_payable|rial }}</b></div>
     </div>
     <div class="box">

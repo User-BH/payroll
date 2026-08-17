@@ -68,6 +68,27 @@
   </div>
   {% endif %}
 
+  {% if form.bank_fields %}
+  <div class="panel">
+    <div class="panel-head">
+      <h3>حساب بانکی</h3>
+      <span class="hint">اختیاری — ولی بدون شماره حساب، پرسنل در فایل پرداخت بانک نمی‌آید</span>
+    </div>
+    <div class="panel-body" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:0 18px;">
+      {% for field in form.bank_fields %}
+      <div class="field">
+        <label for="{{ field.id_for_label }}">
+          {{ field.label }}{% if field.field.required %} <span style="color:var(--red);">*</span>{% endif %}
+        </label>
+        {{ field }}
+        {% if field.help_text %}<div class="explain">{{ field.help_text }}</div>{% endif %}
+        {% if field.errors %}<div style="color:var(--red); font-size:11.5px; margin-top:5px; font-weight:600;">{{ field.errors|striptags }}</div>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
   <div style="display:flex; gap:10px; flex-wrap:wrap;">
     <button class="btn btn-primary" type="submit">ذخیره</button>
     <a class="btn btn-outline" href="{% if employee %}{% url 'employee_detail' employee.pk %}{% else %}{% url 'employee_list' %}{% endif %}">انصراف</a>

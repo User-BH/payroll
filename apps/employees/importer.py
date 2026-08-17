@@ -11,6 +11,7 @@ from decimal import Decimal
 
 from django.db import transaction
 
+from apps.employees.banks import BANK_CODES, iban_checksum_ok, normalize_iban
 from apps.employees.models import (
     BankAccount,
     Employee,
@@ -190,11 +191,29 @@ def import_employees(file_obj, company, create_contracts=True) -> dict:
         seen_ids.add(national_id)
 
         account_number = str(data["account_number"] or "").strip().replace(".0", "")
-        iban = str(data["iban"] or "").strip().upper()
+        iban = normalize_iban(str(data["iban"] or ""))
+        bank_name = str(data["bank_name"] or "").strip() or BankAccount.DEFAULT_BANK
+
+        # نام بانک باید یکی از همان‌هایی باشد که در فرم انتخاب می‌شود، وگرنه
+        # فایل پرداخت و گزارش‌ها یک بانک را دو اسم می‌بینند.
+        if bank_name not in BANK_CODES:
+            errors.append({
+                "row": row_number,
+                "message": f"بانک «{bank_name}» در فهرست بانک‌ها نیست. "
+                           f"یکی از این‌ها را بنویسید: {'، '.join(list(BANK_CODES)[:6])} …",
+            })
+            continue
+        if iban and not iban_checksum_ok(iban):
+            errors.append({
+                "row": row_number,
+                "message": f"شماره شبا «{data['iban']}» معتبر نیست (رقم کنترلی نمی‌خواند)",
+            })
+            continue
+
         if account_number or iban:
             BankAccount.objects.create(
                 employee=employee,
-                bank_name=str(data["bank_name"] or "").strip() or BankAccount.DEFAULT_BANK,
+                bank_name=bank_name,
                 account_number=account_number,
                 iban=iban,
                 is_default=True,

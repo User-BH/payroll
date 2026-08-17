@@ -123,6 +123,7 @@ def employee_create(request):
         employee = form.save(commit=False)
         employee.company = company
         employee.save()
+        account = form.save_bank_account(employee)
 
         try:
             contract = create_initial_contract(
@@ -159,6 +160,10 @@ def employee_create(request):
                 if timesheet is not None and period is not None
                 else ""
             )
+            if account is not None:
+                note += f" حساب {account.bank_name} ثبت شد."
+            else:
+                note += " حساب بانکی ثبت نشد — بدون آن، پرسنل در فایل پرداخت بانک نمی‌آید."
             messages.success(
                 request,
                 f"{employee.full_name} با قرارداد {contract.get_contract_type_display()} "

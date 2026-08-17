@@ -2,6 +2,7 @@ from django import forms
 
 from apps.payroll.form_fields import JalaliDateField
 
+from apps.employees.banks import BANK_CHOICES, iban_checksum_ok, normalize_iban
 from apps.employees.models import (
     BankAccount,
     Dependent,
@@ -40,12 +41,16 @@ class EmployeeForm(BootstrapMixin, forms.ModelForm):
 
     # فیلدهایی که در قالب، پنل جداگانه دارند (در فرم ویرایش هیچ‌کدام)
     EXTRA_FIELDS = []
+    BANK_FIELDS = []
 
     def identity_fields(self):
         return [field for field in self if field.name not in self.EXTRA_FIELDS]
 
     def contract_fields(self):
         return [self[name] for name in self.EXTRA_FIELDS]
+
+    def bank_fields(self):
+        return [self[name] for name in self.BANK_FIELDS]
 
     def clean_national_id(self):
         value = (self.cleaned_data.get("national_id") or "").strip()
@@ -88,11 +93,65 @@ class EmployeeCreateForm(EmployeeForm):
         help_text="اختیاری — اگر دورهٔ بازی وجود داشته باشد، کارکرد این ماه با همین عدد ثبت می‌شود",
     )
 
-    # این دو فیلد در قالب، پنل جداگانهٔ خودشان را دارند
+    # حساب بانکی همین‌جا پرسیده می‌شود، نه در یک صفحهٔ جداگانه: رفتن به بخش
+    # دیگر برای دو فیلد، کار ساده را چندمرحله‌ای می‌کند.
+    bank_name = forms.ChoiceField(
+        label="بانک",
+        choices=BANK_CHOICES,
+        initial=BankAccount.DEFAULT_BANK,
+        required=False,
+    )
+    account_number = forms.CharField(
+        label="شماره حساب",
+        max_length=30,
+        required=False,
+        help_text="پرداخت بر مبنای شماره حساب انجام می‌شود",
+    )
+    iban = forms.CharField(
+        label="شماره شبا",
+        max_length=40,
+        required=False,
+        help_text="اختیاری — اگر پر شود، روی فیش حقوقی چاپ می‌شود",
+    )
+
+    # این فیلدها در قالب، پنل جداگانهٔ خودشان را دارند
     EXTRA_FIELDS = ["contract_type", "monthly_work_days"]
+    BANK_FIELDS = ["bank_name", "account_number", "iban"]
 
     class Meta(EmployeeForm.Meta):
         pass
+
+    def identity_fields(self):
+        skip = set(self.EXTRA_FIELDS) | set(self.BANK_FIELDS)
+        return [field for field in self if field.name not in skip]
+
+    def bank_fields(self):
+        return [self[name] for name in self.BANK_FIELDS]
+
+    def clean_iban(self):
+        return clean_iban_value(self.cleaned_data.get("iban"))
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get("iban") and not cleaned.get("account_number"):
+            self.add_error(
+                "account_number",
+                "برای ثبت شبا، شماره حساب هم لازم است — پرداخت بر مبنای شماره حساب انجام می‌شود.",
+            )
+        return cleaned
+
+    def save_bank_account(self, employee):
+        """حساب بانکی را از همین فرم می‌سازد. بدون شماره حساب، حسابی ساخته نمی‌شود."""
+        account_number = (self.cleaned_data.get("account_number") or "").strip()
+        if not account_number:
+            return None
+        return BankAccount.objects.create(
+            employee=employee,
+            bank_name=self.cleaned_data.get("bank_name") or BankAccount.DEFAULT_BANK,
+            account_number=account_number,
+            iban=self.cleaned_data.get("iban") or "",
+            is_default=True,
+        )
 
 
 class ContractForm(BootstrapMixin, forms.ModelForm):
@@ -119,10 +178,31 @@ class ContractForm(BootstrapMixin, forms.ModelForm):
             self.instance.employee = self.employee
 
 
+def clean_iban_value(value):
+    """شبا را تمیز و کنترل می‌کند. خالی مجاز است."""
+    iban = normalize_iban(value)
+    if not iban:
+        return ""
+    if len(iban) != 26 or not iban.startswith("IR"):
+        raise forms.ValidationError(
+            "شماره شبا باید IR به‌همراه ۲۴ رقم باشد (فاصله و خط تیره اشکالی ندارد)."
+        )
+    if not iban_checksum_ok(iban):
+        raise forms.ValidationError(
+            "شماره شبا معتبر نیست (رقم کنترلی نمی‌خواند) — دوباره از روی کارت یا اپ بانک بررسی کنید."
+        )
+    return iban
+
+
 class BankAccountForm(BootstrapMixin, forms.ModelForm):
+    """کد بانک عمداً در فرم نیست — از روی نام بانک پر می‌شود."""
+
     class Meta:
         model = BankAccount
-        fields = ["bank_name", "bank_code", "account_number", "iban", "is_default", "is_active"]
+        fields = ["bank_name", "account_number", "iban", "is_default", "is_active"]
+
+    def clean_iban(self):
+        return clean_iban_value(self.cleaned_data.get("iban"))
 
 
 class DependentForm(BootstrapMixin, forms.ModelForm):

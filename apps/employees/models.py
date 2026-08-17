@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from django.db import models
 
+from apps.employees.banks import BANK_CHOICES, code_for as bank_code_for, normalize_iban
 from apps.org.models import Company, CostCenter, Department, JobTitle
 
 national_id_validator = RegexValidator(r"^\d{10}$", "کد ملی باید دقیقاً ۱۰ رقم باشد.")
@@ -179,8 +180,16 @@ class BankAccount(models.Model):
     employee = models.ForeignKey(
         Employee, on_delete=models.CASCADE, related_name="bank_accounts", verbose_name="پرسنل"
     )
-    bank_name = models.CharField("بانک", max_length=60, default=DEFAULT_BANK)
-    bank_code = models.CharField("کد بانک", max_length=10, blank=True)
+    # انتخاب از فهرست، نه متن آزاد: نام‌های متفاوت برای یک بانک («ملی» و
+    # «بانک ملی ایران») فایل پرداخت و گزارش‌ها را دوتکه می‌کند. مقدار ذخیره‌شده
+    # همان نام کوتاه است تا دادهٔ قبلی سر جایش بماند.
+    bank_name = models.CharField(
+        "بانک", max_length=60, default=DEFAULT_BANK, choices=BANK_CHOICES
+    )
+    bank_code = models.CharField(
+        "کد بانک", max_length=10, blank=True,
+        help_text="خودکار از روی نام بانک پر می‌شود",
+    )
     account_number = models.CharField("شماره حساب", max_length=30)
     card_number = models.CharField("شماره کارت", max_length=20, blank=True)
     iban = models.CharField(
@@ -196,6 +205,12 @@ class BankAccount(models.Model):
 
     def __str__(self):
         return f"{self.bank_name} — {self.account_number}"
+
+    def save(self, *args, **kwargs):
+        self.iban = normalize_iban(self.iban)
+        if not self.bank_code:
+            self.bank_code = bank_code_for(self.bank_name)
+        super().save(*args, **kwargs)
 
 
 class EmploymentContract(models.Model):

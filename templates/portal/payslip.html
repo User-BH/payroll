@@ -19,6 +19,9 @@
     <div class="slip-meta"><b>مبنای بیمه</b><span class="num">{{ payslip.insurable_base|rial }}</span></div>
     <div class="slip-meta"><b>مبنای مالیات</b><span class="num">{{ payslip.taxable_base|rial }}</span></div>
     <div class="slip-meta"><b>واریز به حساب</b><span class="num" style="direction:ltr; font-size:11.5px;">{{ payslip.account_snapshot|default:"—" }}</span></div>
+    {% if payslip.iban_snapshot %}
+    <div class="slip-meta"><b>شماره شبا</b><span class="num" style="direction:ltr; font-size:11px;">{{ payslip.iban_snapshot }}</span></div>
+    {% endif %}
   </div>
 
   <div class="table-wrap">
