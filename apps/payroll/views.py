@@ -537,8 +537,16 @@ def _report_rows(period):
 
 @payroll_staff_required
 def report_insurance(request, pk):
+    """لیست بیمه — فقط پرسنل مشمول.
+
+    پرسنل بازنشسته و قرارداد غیرمشمول اینجا نمی‌آیند و در تعداد نفرات هم شمرده
+    نمی‌شوند، دقیقاً مثل فایل خروجی تأمین اجتماعی. تعدادشان جداگانه گزارش
+    می‌شود تا «چرا ۱۴۵ نفر شد نه ۱۴۶؟» بی‌جواب نماند.
+    """
     period = get_object_or_404(PayrollPeriod.objects.select_related("company"), pk=pk)
-    rows = _report_rows(period)
+    all_rows = _report_rows(period)
+    rows = all_rows.filter(insurance_applies=True)
+    excluded = all_rows.filter(insurance_applies=False)
     totals = rows.aggregate(
         insurable=Sum("insurable_base"),
         employee=Sum("ins_employee"),
@@ -547,7 +555,14 @@ def report_insurance(request, pk):
     return render(
         request,
         "reports/insurance.html",
-        {"period": period, "rows": rows, "totals": totals, "count": rows.count()},
+        {
+            "period": period,
+            "rows": rows,
+            "totals": totals,
+            "count": rows.count(),
+            "excluded": excluded,
+            "excluded_count": excluded.count(),
+        },
     )
 
 

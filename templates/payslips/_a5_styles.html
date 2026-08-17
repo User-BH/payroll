@@ -97,7 +97,14 @@
   .chip.wait{background:rgba(226,35,26,.1); color:var(--red);}
   .chip.muted{background:#EFEBE3; color:var(--muted);}
 
-  .sign{margin-top:auto; padding-top:9px; display:flex; justify-content:space-between; font-size:7pt; color:var(--muted);}
+  /* متن تأیید، چسبیده به محل امضا. margin-top:auto اینجاست نه روی .sign،
+     وگرنه فضای خالی صفحه بین متن و امضا پخش می‌شود و از هم جدا می‌افتند. */
+  .ack-note{
+    margin-top:auto; padding-top:8px; font-size:7pt; line-height:1.7; color:var(--ink);
+    text-align:justify;
+  }
+
+  .sign{margin-top:2px; padding-top:9px; display:flex; justify-content:space-between; font-size:7pt; color:var(--muted);}
   .sign div{text-align:center;}
   .sign i{display:block; font-style:normal; border-top:1px dotted var(--line); margin-top:20px; padding-top:3px; width:42mm;}
 

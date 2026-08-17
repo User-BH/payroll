@@ -97,8 +97,9 @@ def calculate_payslip(ctx: PayrollContext, components, run=None) -> Payslip:
         if component.kind in by_kind and component.applies_to(ctx.contract):
             by_kind[component.kind].append(component)
 
-    # قرارداد بدون بیمه: نه کسر سهم کارگر، نه هزینه بیمه کارفرما
-    if not ctx.contract.is_insured:
+    # بدون بیمه (قرارداد غیرمشمول، یا پرسنل بازنشسته):
+    # نه کسر سهم کارگر، نه هزینه بیمه کارفرما
+    if not ctx.insurance_applies:
         by_kind[SalaryComponent.Kind.DEDUCTION] = [
             c
             for c in by_kind[SalaryComponent.Kind.DEDUCTION]
@@ -175,6 +176,7 @@ def calculate_payslip(ctx: PayrollContext, components, run=None) -> Payslip:
         iban_snapshot=getattr(ctx.employee.default_bank_account, "iban", "") or "",
         account_snapshot=getattr(ctx.employee.default_bank_account, "account_number", "") or "",
         bank_snapshot=getattr(ctx.employee.default_bank_account, "bank_name", "") or "",
+        insurance_applies=ctx.insurance_applies,
         # طول ماه از تقویم دوره می‌آید نه از پارامتر ثابت، پس باید داخل
         # snapshot ثبت شود وگرنه فیش قفل‌شده مخرج محاسبه‌اش را از دست می‌دهد.
         params_snapshot={**ctx.params.as_snapshot(), "month_days": str(ctx.month_days)},

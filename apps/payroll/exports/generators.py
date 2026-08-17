@@ -77,8 +77,12 @@ def generate_insurance(period, company):
     """فایل DSK تأمین اجتماعی — دو فایل متنی DSKKAR و DSKWOR داخل یک zip.
 
     کدگذاری cp1256 است چون سامانه‌های قدیمی تأمین اجتماعی UTF-8 نمی‌خوانند.
+
+    فقط پرسنل مشمول بیمه در فایل می‌آیند. بازنشسته‌ای که هنوز کار می‌کند و
+    قرارداد غیرمشمول، نه در سطرهای فایل هستند، نه در جمع‌ها و نه در تعداد
+    نفرات — وگرنه لیست ارسالی با واقعیت نمی‌خواند.
     """
-    rows = list(_payslips(period))
+    rows = [p for p in _payslips(period) if p.insurance_applies]
 
     total_insurable = sum((p.insurable_base for p in rows), Decimal("0"))
     total_employee = sum((p.ins_employee for p in rows), Decimal("0"))

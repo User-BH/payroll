@@ -88,6 +88,23 @@ class PayrollContext:
         hours = self.params.daily_work_hours or Decimal("7.33")
         return self.daily_base / hours
 
+    # ---------------------------------------------------------------- بیمه
+
+    @property
+    def insurance_applies(self) -> bool:
+        """آیا برای این پرسنل در این دوره حق بیمه محاسبه می‌شود؟
+
+        **تنها جای تصمیم دربارهٔ بیمه.** سه قاعدهٔ بیمه، اجرای دوره، گزارش بیمه،
+        جمع بیمهٔ ماه و فایل خروجی تأمین اجتماعی همگی از همین‌جا می‌آیند —
+        وگرنه یکی از پنج مسیر جا می‌ماند و مغایرت با تأمین اجتماعی همان‌جا
+        ساخته می‌شود.
+
+        دو شرط: قرارداد مشمول بیمه باشد، و پرسنل بازنشسته نباشد.
+        """
+        if not getattr(self.contract, "is_insured", True):
+            return False
+        return not getattr(self.employee, "is_retired", False)
+
     # ---------------------------------------------------------------- کمکی
 
     def amount_of(self, code: str) -> Decimal:

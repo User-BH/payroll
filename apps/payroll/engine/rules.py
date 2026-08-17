@@ -252,6 +252,8 @@ def fixed_amount(ctx: PayrollContext, component):
 
 @rule("insurance_employee", "بیمه سهم کارگر")
 def insurance_employee(ctx: PayrollContext, component):
+    if not ctx.insurance_applies:
+        return None
     base = ctx.capped_insurable
     rate = ctx.params.ins_employee_rate
     ceiling = ctx.params.insurance_ceiling
@@ -371,6 +373,8 @@ def deduction_manual(ctx: PayrollContext, component):
 
 @rule("insurance_employer", "بیمه سهم کارفرما")
 def insurance_employer(ctx: PayrollContext, component):
+    if not ctx.insurance_applies:
+        return None
     base = ctx.capped_insurable
     rate = ctx.params.ins_employer_rate
     return LineResult(
@@ -386,6 +390,8 @@ def insurance_employer(ctx: PayrollContext, component):
 
 @rule("unemployment_insurance", "بیمه بیکاری")
 def unemployment_insurance(ctx: PayrollContext, component):
+    if not ctx.insurance_applies:
+        return None
     base = ctx.capped_insurable
     rate = ctx.params.unemployment_rate
     return LineResult(

@@ -79,8 +79,6 @@
     <div class="box">
       <h4>مبنای محاسبه</h4>
       <div class="row"><span>روز کارکرد</span><b class="num">{{ payslip.work_days|fadec }}</b></div>
-      <div class="row"><span>مبنای بیمه</span><b class="num">{{ payslip.insurable_base|rial }}</b></div>
-      <div class="row"><span>مبنای مالیات</span><b class="num">{{ payslip.taxable_base|rial }}</b></div>
     </div>
   </div>
 
@@ -117,6 +115,11 @@
     {% else %}
       <span class="chip muted">هنوز مشاهده نشده</span>
     {% endif %}
+  </div>
+
+  <div class="ack-note">
+    موارد محاسباتی حقوق و مزایای مندرج در این فیش به‌صورت الکترونیکی رؤیت گردید و
+    واریز خالص پرداخت به حساب شماره مندرج در فیش مورد تأیید قرار گرفت.
   </div>
 
   <div class="sign">

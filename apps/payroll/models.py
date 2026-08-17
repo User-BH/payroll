@@ -261,6 +261,13 @@ class Payslip(models.Model):
     iban_snapshot = models.CharField("شبا در لحظه پرداخت", max_length=26, blank=True)
     account_snapshot = models.CharField("شماره حساب در لحظه پرداخت", max_length=30, blank=True)
     bank_snapshot = models.CharField("بانک عامل", max_length=60, blank=True)
+    # وضعیت بیمه هم مثل بقیهٔ مبناها در لحظهٔ محاسبه عکس‌برداری می‌شود: اگر
+    # بعداً تیک «بازنشسته» یک پرسنل عوض شود، لیست بیمه‌ای که قبلاً به تأمین
+    # اجتماعی فرستاده شده نباید با آن تغییر کند.
+    insurance_applies = models.BooleanField(
+        "مشمول بیمه", default=True,
+        help_text="در لحظه محاسبه ثبت می‌شود؛ پرسنل بازنشسته و قرارداد غیرمشمول، False",
+    )
     params_snapshot = models.JSONField("تصویر پارامترهای قانونی", default=dict, blank=True)
     leave_snapshot = models.JSONField(
         "تصویر مانده مرخصی", default=dict, blank=True,

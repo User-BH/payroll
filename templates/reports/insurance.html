@@ -10,6 +10,17 @@
   <a class="btn btn-outline btn-sm" href="{% url 'reports' %}">همه گزارش‌ها</a>
 </div>
 
+{% if excluded_count %}
+<div class="note-box">
+  <b>{{ excluded_count|fanum }} نفر در این لیست نیستند</b> چون بازنشسته‌اند یا قراردادشان
+  مشمول بیمه نیست. برای این افراد نه حق بیمه محاسبه شده و نه در فایل خروجی
+  تأمین اجتماعی می‌آیند:
+  <span style="font-weight:700;">
+    {% for slip in excluded %}{{ slip.employee.full_name }}{% if not forloop.last %} · {% endif %}{% endfor %}
+  </span>
+</div>
+{% endif %}
+
 <div class="stat-row">
   <div class="stat"><b>تعداد بیمه‌شده</b><span>{{ count|fanum }}</span></div>
   <div class="stat"><b>جمع مبنای بیمه</b><span>{{ totals.insurable|rial }}</span></div>

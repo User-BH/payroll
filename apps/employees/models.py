@@ -79,6 +79,15 @@ class Employee(models.Model):
         help_text="تصویر امضا با زمینه روشن — روی فیش تأییدشده چاپ می‌شود",
     )
 
+    # بازنشسته‌ای که هنوز در شرکت کار می‌کند بیمهٔ تأمین اجتماعی ندارد. این
+    # یک آیتم کنترلی در موتور محاسبه است، نه یک یادداشت در پرونده: تصمیمش در
+    # PayrollContext.insurance_applies گرفته می‌شود و همهٔ مسیرها (سه قاعدهٔ
+    # بیمه، گزارش بیمه، جمع ماه، خروجی تأمین اجتماعی) از همان یک نقطه می‌آیند.
+    is_retired = models.BooleanField(
+        "بازنشسته", default=False,
+        help_text="برای پرسنل بازنشسته حق بیمه محاسبه نمی‌شود و در لیست تأمین اجتماعی نمی‌آید",
+    )
+
     hire_date = models.DateField("تاریخ استخدام")
     termination_date = models.DateField("تاریخ خروج", null=True, blank=True)
     termination_reason = models.CharField("علت خروج", max_length=120, blank=True)
