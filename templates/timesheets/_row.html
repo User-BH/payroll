@@ -18,7 +18,7 @@
   </td>
   <td data-label="واحد">{{ ts.contract.department.name|default:"—" }}</td>
 
-  <td data-label="روز کارکرد"><input class="input-cell" name="work_days" value="{{ ts.work_days|floatformat:"-2" }}"
+  <td data-label="کارکرد اولیه"><input class="input-cell" name="work_days" value="{{ ts.work_days|floatformat:"-2" }}"
              {% if not period.is_editable %}readonly{% endif %} inputmode="decimal"></td>
 
   {# مرخصی استحقاقی: دقیقه / ساعت / روز — مبنا دقیقه است، نه روز اعشاری #}
@@ -47,6 +47,14 @@
 
   <td data-label="غیبت"><input class="input-cell" name="absence_days" value="{{ ts.absence_days|floatformat:"-2" }}"
              {% if not period.is_editable %}readonly{% endif %} inputmode="decimal"></td>
+
+  <td data-label="بیماری"><input class="input-cell" name="sick_leave_days" value="{{ ts.sick_leave_days|floatformat:"-2" }}"
+             {% if not period.is_editable %}readonly{% endif %} inputmode="decimal"></td>
+
+  <td data-label="مرخصی بدون حقوق"><input class="input-cell" name="unpaid_leave_days" value="{{ ts.unpaid_leave_days|floatformat:"-2" }}"
+             {% if not period.is_editable %}readonly{% endif %} inputmode="decimal"></td>
+
+  <td data-label="کارکرد قابل پرداخت" class="num" style="font-weight:800;">{{ ts.paid_days|fadec }}</td>
 
   <td data-label="حق مأموریت"><input class="input-cell" name="mission_days" value="{{ ts.mission_days|floatformat:"-2" }}"
              {% if not period.is_editable %}readonly{% endif %} inputmode="decimal"></td>

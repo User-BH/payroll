@@ -61,17 +61,28 @@ def day_minutes_of(period):
     return DEFAULT_DAY_MINUTES
 
 
-def default_work_days(period):
-    """روز کارکرد پیش‌فرض — طول واقعی ماه جلالی دوره.
+def default_work_days(period, employee=None):
+    """کارکرد اولیهٔ پیش‌فرض یک پرسنل در یک دوره.
 
-    شش‌ماههٔ اول ۳۱ روز، شش‌ماههٔ دوم ۳۰ و اسفند ۲۹ (کبیسه ۳۰). فقط مقدار
-    اولیهٔ ورودی است؛ روز کارکرد هر پرسنل دستی وارد و اصلاح می‌شود.
+    اگر پرسنل داده شود، از **بازهٔ اشتغال** او حساب می‌شود: تاریخ استخدام،
+    تاریخ خاتمه کار و تاریخ شروع به کار مجدد. کسی که وسط ماه رفته یا آمده،
+    نباید کارکرد کاملِ ماه بگیرد — خاتمهٔ ۱۶ مرداد یعنی ۱۵ روز، نه ۳۱.
+
+    بدون پرسنل، طول خود ماه برمی‌گردد (شش‌ماههٔ اول ۳۱، دوم ۳۰، اسفند ۲۹/۳۰).
+    در هر حال فقط مقدار اولیهٔ ورودی است و دستی قابل اصلاح.
     """
-    if period is not None:
-        days = period.month_days
-        if days:
-            return Decimal(days)
-    if period and period.legal_parameter:
+    if period is None:
+        return Decimal("30")
+
+    if employee is not None:
+        return Decimal(
+            employee.employed_days_in(period.start_date, period.end_date)
+        )
+
+    days = period.month_days
+    if days:
+        return Decimal(days)
+    if period.legal_parameter:
         return Decimal(period.legal_parameter.monthly_days)
     return Decimal("30")
 
@@ -89,7 +100,7 @@ def get_or_create_timesheet(employee, period):
         period=period,
         employee=employee,
         contract=employee.contract_on(period.end_date),
-        work_days=default_work_days(period),
+        work_days=default_work_days(period, employee),
     )
 
 
@@ -136,17 +147,20 @@ def apply_manual_timesheet(timesheet, data, user=None, approve=None):
 def set_initial_timesheet(employee, work_days, user=None):
     """کارکرد ماهانهٔ پرسنل تازه‌افزوده‌شده در دورهٔ باز.
 
-    اگر دورهٔ بازی نباشد یا پرسنل قرارداد نداشته باشد، بی‌صدا کاری نمی‌کند و
-    None برمی‌گرداند؛ صدا زدنش نباید ثبت پرسنل را شکست بدهد.
+    `work_days` خالی یعنی «خودت حساب کن» — آن وقت از بازهٔ اشتغال همان پرسنل
+    گرفته می‌شود، نه از طول کامل ماه.
+
+    اگر دورهٔ بازی نباشد بی‌صدا کاری نمی‌کند و None برمی‌گرداند؛ صدا زدنش نباید
+    ثبت پرسنل را شکست بدهد.
     """
-    if work_days is None:
-        return None
     period = open_period_for(employee.company)
     if period is None:
         return None
     timesheet = get_or_create_timesheet(employee, period)
     if timesheet.pk:
         return timesheet
+    if work_days is None:
+        work_days = default_work_days(period, employee)
     timesheet.work_days = max(Decimal(work_days), Decimal("0"))
     if user is not None and getattr(user, "pk", None):
         timesheet.entered_by = user

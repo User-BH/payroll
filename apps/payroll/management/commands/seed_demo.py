@@ -53,6 +53,9 @@ LAST_NAMES = [
 ]
 BANKS = [("ملت", "012"), ("صادرات", "019"), ("تجارت", "018"), ("ملی", "017"), ("سپه", "015")]
 
+# اقلامی که روی فیش فقط تعداد روز نشان می‌دهند، نه مبلغ ریالی
+DAY_UNIT_CODES = {"ABSENCE_DED", "SICK", "UNPAID_LEAVE"}
+
 
 def make_national_id(seed: int) -> str:
     """کد ملی با چک‌سام معتبر."""
@@ -296,6 +299,11 @@ class Command(BaseCommand):
             ("INSURANCE_EMP", "بیمه سهم کارگر", "DEDUCTION", "insurance_employee", 200, False, False, False, False, red, True),
             ("INCOME_TAX", "مالیات بر درآمد حقوق", "DEDUCTION", "income_tax", 210, False, False, False, False, red, True),
             ("LOAN", "اقساط وام و مساعده", "DEDUCTION", "loan_installment", 220, False, False, False, False, red, False),
+            # سه قلم روزی: مبلغ ریالی ندارند و روی فیش فقط تعداد روز نشان
+            # می‌دهند. اثر مالی‌شان قبلاً با کم شدن از روز کارکرد اعمال شده.
+            ("ABSENCE_DED", "غیبت", "DEDUCTION", "absence_days", 230, False, False, False, False, red, False),
+            ("SICK", "بیماری", "DEDUCTION", "sick_days", 240, False, False, False, False, red, False),
+            ("UNPAID_LEAVE", "مرخصی بدون حقوق", "DEDUCTION", "unpaid_leave_days", 250, False, False, False, False, red, False),
             ("ROUNDING_ADJ", "تعدیل گرد کردن", "DEDUCTION", "", 290, False, False, False, False, grey, True),
             ("INSURANCE_EMPLOYER", "بیمه سهم کارفرما", "EMPLOYER_COST", "insurance_employer", 300, False, False, False, False, grey, True),
             ("UNEMPLOYMENT", "بیمه بیکاری", "EMPLOYER_COST", "unemployment_insurance", 310, False, False, False, False, grey, True),
@@ -308,6 +316,7 @@ class Command(BaseCommand):
                 company=company, code=code, name=name, kind=kind,
                 calc_type=calc_type,
                 engine_rule_key=rule, sequence=seq,
+                display_unit="DAY" if code in DAY_UNIT_CODES else "RIAL",
                 is_insurable=ins, is_taxable=tax,
                 affects_eid=eid, affects_severance=sev,
                 color=color, is_system=system,

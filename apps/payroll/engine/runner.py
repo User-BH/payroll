@@ -122,7 +122,14 @@ def calculate_payslip(ctx: PayrollContext, components, run=None) -> Payslip:
             if func is None:
                 continue
             result = func(ctx, component)
-            if result is None or result.amount == ZERO:
+            if result is None:
+                continue
+            # سطر با مبلغ صفر معمولاً حذف می‌شود، ولی اقلامی که واحد نمایششان
+            # «روز» یا «ساعت» است عمداً مبلغ ندارند و باید روی فیش بمانند.
+            if result.amount == ZERO and (
+                component.display_unit == SalaryComponent.DisplayUnit.RIAL
+                or not result.quantity
+            ):
                 continue
             ctx.register(component, result)
             if component.engine_rule_key == "loan_installment":
@@ -204,6 +211,7 @@ def calculate_payslip(ctx: PayrollContext, components, run=None) -> Payslip:
                 component_code=component.code,
                 component_name=component.name,
                 kind=component.kind,
+                display_unit=component.display_unit,
                 sequence=component.sequence,
                 base_amount=result.base_amount,
                 quantity=result.quantity,

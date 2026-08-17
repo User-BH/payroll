@@ -426,6 +426,13 @@ class PayslipLine(models.Model):
     component_code = models.CharField("کد قلم", max_length=40)
     component_name = models.CharField("نام قلم", max_length=80)
     kind = models.CharField("نوع", max_length=16, choices=SalaryComponent.Kind.choices)
+    # واحد نمایش هم کپی می‌شود: اگر بعداً واحد قلم عوض شود، فیش قدیمی باید
+    # همان چیزی را نشان دهد که آن روز چاپ شد.
+    display_unit = models.CharField(
+        "واحد نمایش", max_length=6,
+        choices=SalaryComponent.DisplayUnit.choices,
+        default=SalaryComponent.DisplayUnit.RIAL,
+    )
     sequence = models.PositiveSmallIntegerField("ترتیب", default=100)
 
     base_amount = models.DecimalField("مبنا", max_digits=18, decimal_places=0, default=0)

@@ -2,7 +2,7 @@
 {% load payroll_extras %}
 {% block title %}کارکرد {{ period.title }}{% endblock %}
 {% block heading %}کارکرد ماهانه — {{ period.title }}{% endblock %}
-{% block subheading %}{{ approved_count|fanum }} از {{ total|fanum }} ردیف تأیید شده · روز کارکرد کامل این ماه {{ period.month_days|fanum }} روز است · تغییرات با خروج از هر خانه ذخیره می‌شوند{% endblock %}
+{% block subheading %}{{ approved_count|fanum }} از {{ total|fanum }} ردیف تأیید شده · ماه کامل {{ period.month_days|fanum }} روز · کارکرد قابل پرداخت = کارکرد اولیه − غیبت − بیماری − مرخصی بدون حقوق · تغییرات با خروج از هر خانه ذخیره می‌شوند{% endblock %}
 
 {% block content %}
 {% if not period.is_editable %}
@@ -40,10 +40,13 @@
       <thead>
         <tr>
           <th>پرسنل</th><th>واحد</th>
-          <th>روز کارکرد</th>
+          <th>کارکرد اولیه</th>
           <th style="text-align:center;">مرخصی این ماه<br><span style="font-weight:500; opacity:.7;">دقیقه : ساعت : روز</span></th>
           <th>مانده مرخصی</th>
           <th>غیبت</th>
+          <th>بیماری</th>
+          <th>مرخصی بدون حقوق</th>
+          <th>کارکرد قابل پرداخت</th>
           <th>حق مأموریت (روز)</th>
           <th style="text-align:center;">اضافه‌کاری<br><span style="font-weight:500; opacity:.7;">دقیقه : ساعت : روز</span></th>
           <th>وضعیت</th>

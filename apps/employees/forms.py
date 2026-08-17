@@ -32,12 +32,32 @@ class EmployeeForm(BootstrapMixin, forms.ModelForm):
             "personnel_code", "first_name", "last_name", "father_name",
             "national_id", "id_number", "birth_date", "gender", "marital_status",
             "insurance_number", "mobile", "email", "address", "postal_code",
-            "hire_date", "status", "is_retired",
+            "hire_date", "termination_date", "rehire_date", "status", "is_retired",
         ]
         widgets = {"address": forms.Textarea(attrs={"rows": 2})}
 
     birth_date = JalaliDateField(label="تاریخ تولد", required=False)
     hire_date = JalaliDateField(label="تاریخ استخدام")
+    # این دو تاریخ فقط ثبت اطلاعات نیستند: کارکرد اولیهٔ هر ماه از روی همین‌ها
+    # حساب می‌شود، پس در فرم ویرایش پرسنل در دسترس‌اند.
+    termination_date = JalaliDateField(label="تاریخ خاتمه کار", required=False)
+    rehire_date = JalaliDateField(label="تاریخ شروع به کار مجدد", required=False)
+
+    def clean(self):
+        cleaned = super().clean()
+        hire = cleaned.get("hire_date")
+        termination = cleaned.get("termination_date")
+        rehire = cleaned.get("rehire_date")
+        if termination and hire and termination <= hire:
+            self.add_error("termination_date", "تاریخ خاتمه کار باید بعد از تاریخ استخدام باشد.")
+        if rehire and not termination:
+            self.add_error(
+                "rehire_date",
+                "شروع به کار مجدد بدون تاریخ خاتمه کار معنا ندارد.",
+            )
+        if rehire and termination and rehire < termination:
+            self.add_error("rehire_date", "شروع به کار مجدد باید بعد از خاتمه کار باشد.")
+        return cleaned
 
     # فیلدهایی که در قالب، پنل جداگانه دارند (در فرم ویرایش هیچ‌کدام)
     EXTRA_FIELDS = []
@@ -90,7 +110,7 @@ class EmployeeCreateForm(EmployeeForm):
         max_value=31,
         max_digits=6,
         decimal_places=2,
-        help_text="اختیاری — اگر دورهٔ بازی وجود داشته باشد، کارکرد این ماه با همین عدد ثبت می‌شود",
+        help_text="خالی بگذارید تا از تاریخ استخدام حساب شود — برای استخدام وسط ماه همین درست است",
     )
 
     # حساب بانکی همین‌جا پرسیده می‌شود، نه در یک صفحهٔ جداگانه: رفتن به بخش

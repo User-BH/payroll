@@ -1,3 +1,4 @@
+from datetime import timedelta
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
@@ -88,8 +89,17 @@ class Employee(models.Model):
         help_text="برای پرسنل بازنشسته حق بیمه محاسبه نمی‌شود و در لیست تأمین اجتماعی نمی‌آید",
     )
 
+    # این سه تاریخ با هم «بازهٔ اشتغال» را می‌سازند و کارکرد اولیهٔ هر ماه از
+    # روی همان حساب می‌شود — نه از روی طول کامل ماه.
     hire_date = models.DateField("تاریخ استخدام")
-    termination_date = models.DateField("تاریخ خروج", null=True, blank=True)
+    termination_date = models.DateField(
+        "تاریخ خاتمه کار", null=True, blank=True,
+        help_text="از این تاریخ به بعد کارکرد ندارد؛ خودِ این روز جزو کارکرد نیست",
+    )
+    rehire_date = models.DateField(
+        "تاریخ شروع به کار مجدد", null=True, blank=True,
+        help_text="اگر پس از خاتمه دوباره مشغول به کار شده — از این تاریخ دوباره کارکرد دارد",
+    )
     termination_reason = models.CharField("علت خروج", max_length=120, blank=True)
     status = models.CharField("وضعیت", max_length=12, choices=Status.choices, default=Status.ACTIVE)
 
@@ -117,6 +127,48 @@ class Employee(models.Model):
     @property
     def initials(self):
         return f"{self.first_name[:1]}.{self.last_name[:1]}"
+
+    def employment_spans(self):
+        """بازه‌های اشتغال به شکل (شروع، پایانِ ناشمول).
+
+        پایان `None` یعنی هنوز ادامه دارد. «تاریخ خاتمه کار» خودش جزو کارکرد
+        نیست — سند صریح است: «از آن تاریخ به بعد شخص دیگر کارکرد ندارد». پس
+        خاتمهٔ ۱۶ مرداد یعنی آخرین روز کارکرد ۱۵ مرداد.
+        """
+        if not self.hire_date:
+            return []
+        spans = []
+        if self.termination_date:
+            if self.termination_date > self.hire_date:
+                spans.append((self.hire_date, self.termination_date))
+            if self.rehire_date:
+                spans.append((max(self.rehire_date, self.termination_date), None))
+        else:
+            spans.append((self.hire_date, None))
+        return spans
+
+    def employed_days_in(self, start, end) -> int:
+        """تعداد روزهای اشتغال در بازهٔ [start, end] — کارکرد اولیهٔ آن دوره.
+
+        مبنای «روز کارکرد» هر ماه است: کسی که وسط ماه آمده یا رفته، کارکرد
+        اولیه‌اش کمتر از طول ماه است و نباید ۳۰ یا ۳۱ روز پیش‌فرض بگیرد.
+        """
+        if not (start and end) or end < start:
+            return 0
+        total = 0
+        for span_start, span_end in self.employment_spans():
+            first = max(span_start, start)
+            # span_end ناشمول است، پس یک روز عقب می‌آید
+            last = end if span_end is None else min(span_end - timedelta(days=1), end)
+            if last >= first:
+                total += (last - first).days + 1
+        return total
+
+    def is_employed_on(self, on_date) -> bool:
+        return any(
+            span_start <= on_date and (span_end is None or on_date < span_end)
+            for span_start, span_end in self.employment_spans()
+        )
 
     def contract_on(self, on_date):
         """قرارداد معتبر در یک تاریخ مشخص. قلب اصلِ «همه‌چیز تاریخ‌دار»."""

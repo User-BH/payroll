@@ -186,6 +186,19 @@ class SalaryComponent(models.Model):
         PERCENTAGE = "PERCENTAGE", "درصدی از قلم دیگر"
         MANUAL = "MANUAL", "ورود دستی در هر دوره"
 
+    class DisplayUnit(models.TextChoices):
+        """واحد نمایش سطر در فیش.
+
+        غیبت، بیماری و مرخصی بدون حقوق مبلغ ریالی ندارند — اثرشان قبلاً با کم
+        شدن از روز کارکرد اعمال شده و درج دوبارهٔ مبلغ، کسر مضاعف است. پس فقط
+        تعداد روزشان روی فیش می‌آید. این رفتار باید دادهٔ قلم باشد، نه شرطِ
+        کدنویسی‌شده روی کد قلم.
+        """
+
+        RIAL = "RIAL", "ریال"
+        DAY = "DAY", "روز"
+        HOUR = "HOUR", "ساعت"
+
     company = models.ForeignKey(
         Company, on_delete=models.PROTECT, related_name="salary_components", verbose_name="شرکت"
     )
@@ -206,6 +219,12 @@ class SalaryComponent(models.Model):
     rate = models.DecimalField("نرخ / ضریب", max_digits=9, decimal_places=4, default=Decimal("0"))
     fixed_amount = models.DecimalField(
         "مبلغ ثابت", max_digits=18, decimal_places=0, default=Decimal("0")
+    )
+
+    display_unit = models.CharField(
+        "واحد نمایش در فیش", max_length=6,
+        choices=DisplayUnit.choices, default=DisplayUnit.RIAL,
+        help_text="«روز» یعنی در فیش فقط تعداد روز چاپ می‌شود و مبلغ ریالی ندارد",
     )
 
     is_insurable = models.BooleanField("مشمول بیمه", default=True)

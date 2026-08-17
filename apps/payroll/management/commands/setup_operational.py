@@ -84,9 +84,9 @@ COMPONENTS = [
     ("SUPP_INS",     "بیمه تکمیلی",       "DEDUCTION", "manual",           270, False, False, False, False, RED, False),
     ("MEDICAL",      "آزمایش و طب کار",   "DEDUCTION", "manual",           280, False, False, False, False, RED, False),
     ("LATE",         "کسر کار و تاخیر ورود", "DEDUCTION", "manual",        290, False, False, False, False, RED, False),
-    ("ABSENCE_DED",  "غیبت",              "DEDUCTION", "manual",           300, False, False, False, False, RED, False),
-    ("UNPAID_LEAVE", "مرخصی بدون حقوق",   "DEDUCTION", "manual",           310, False, False, False, False, RED, False),
-    ("SICK",         "بیماری",            "DEDUCTION", "manual",           320, False, False, False, False, RED, False),
+    ("ABSENCE_DED",  "غیبت",              "DEDUCTION", "absence_days",           300, False, False, False, False, RED, False),
+    ("UNPAID_LEAVE", "مرخصی بدون حقوق",   "DEDUCTION", "unpaid_leave_days",           310, False, False, False, False, RED, False),
+    ("SICK",         "بیماری",            "DEDUCTION", "sick_days",           320, False, False, False, False, RED, False),
     ("ROUNDING_ADJ", "تعدیل گرد کردن",    "DEDUCTION", "",                 390, False, False, False, False, GREY, True),
     # ---------- هزینه کارفرما
     ("INSURANCE_EMPLOYER", "بیمه سهم کارفرما", "EMPLOYER_COST", "insurance_employer",     400, False, False, False, False, GREY, True),
@@ -99,6 +99,10 @@ SCOPED = [
     ("COMM_2", "پورسانت دو (دورتو)", 140, "COST_CENTER", "فروش"),
     ("COMM_3", "پورسانت سه",         150, "COST_CENTER", "فروش"),
 ]
+# اقلامی که روی فیش فقط تعداد روز نشان می‌دهند، نه مبلغ ریالی: اثر مالی‌شان
+# قبلاً با کم شدن از روز کارکرد اعمال شده و مبلغ ریالی یعنی کسر مضاعف.
+DAY_UNIT_CODES = {"ABSENCE_DED", "SICK", "UNPAID_LEAVE"}
+
 DRIVER_ONLY = ("VEHICLE_FINE", "جرائم و خلافی خودرو", 330, "راننده")
 
 
@@ -212,6 +216,7 @@ class Command(BaseCommand):
             SalaryComponent.objects.create(
                 company=company, code=code, name=name, kind=kind,
                 calc_type=calc_type, engine_rule_key=engine_key, sequence=seq,
+                display_unit="DAY" if code in DAY_UNIT_CODES else "RIAL",
                 is_insurable=ins, is_taxable=tax,
                 affects_eid=eid, affects_severance=sev,
                 color=color, is_system=system,

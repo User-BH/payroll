@@ -47,7 +47,7 @@
             {% if line.explanation %}<div class="explain">{{ line.explanation }}</div>{% endif %}
           </td>
           <td class="num">{{ line.quantity|fadec }}</td>
-          <td class="num" style="font-weight:800; color:var(--red);">{{ line.amount|rial }}</td>
+          <td class="num" style="font-weight:800; color:var(--red);">{% if line.display_unit == 'DAY' %}{{ line.quantity|fadec }} روز{% elif line.display_unit == 'HOUR' %}{{ line.quantity|fadec }} ساعت{% else %}{{ line.amount|rial }}{% endif %}</td>
         </tr>
         {% empty %}
         <tr><td colspan="3" style="color:var(--muted);">کسوری ثبت نشده است.</td></tr>

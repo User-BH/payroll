@@ -113,11 +113,10 @@ def employee_create(request):
         return redirect("employee_list")
 
     period = open_period_for(company)
-    initial = {}
-    if period is not None:
-        initial["monthly_work_days"] = default_work_days(period)
-
-    form = EmployeeCreateForm(request.POST or None, initial=initial)
+    # کارکرد ماهانه عمداً پیش‌فرض ندارد: تاریخ استخدام هنوز وارد نشده، پس
+    # عددِ «کل ماه» برای کسی که وسط ماه استخدام می‌شود غلط است. خالی بماند تا
+    # بعد از ذخیره از روی همان تاریخ حساب شود.
+    form = EmployeeCreateForm(request.POST or None)
 
     if request.method == "POST" and form.is_valid():
         employee = form.save(commit=False)
@@ -168,7 +167,8 @@ def employee_create(request):
                 request,
                 f"{employee.full_name} با قرارداد {contract.get_contract_type_display()} "
                 f"ثبت و فعال شد.{note} "
-                "حقوق پایه هنوز صفر است — از دکمهٔ «ویرایش قرارداد» تکمیلش کنید.",
+                "حقوق پایه خالی است، پس فعلاً با حداقل دستمزد سال حساب می‌شود — "
+                "اگر دستمزد توافقی دارد، از دکمهٔ «ویرایش قرارداد» ثبتش کنید.",
             )
         return redirect("employee_detail", pk=employee.pk)
 
@@ -395,6 +395,11 @@ def employee_detail(request, pk):
     if open_period is not None and employee.status == Employee.Status.ACTIVE:
         timesheet = get_or_create_timesheet(employee, open_period)
 
+    # حقوق پایهٔ خالی یعنی «با حداقل دستمزد حساب کن» — پس باید بدانیم آن عدد
+    # اصلاً پر شده است یا نه، وگرنه حقوق ثابت بی‌صدا صفر می‌شود.
+    parameter = getattr(open_period, "legal_parameter", None) if open_period else None
+    min_daily_wage = parameter.min_daily_wage if parameter else None
+
     return render(
         request,
         "employees/detail.html",
@@ -408,5 +413,6 @@ def employee_detail(request, pk):
             "loans": employee.loans.all(),
             "open_period": open_period,
             "timesheet": timesheet,
+            "min_daily_wage": min_daily_wage,
         },
     )

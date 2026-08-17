@@ -53,10 +53,26 @@ class PayrollContext:
     # ---------------------------------------------------------------- زمان
 
     @property
-    def paid_days(self) -> Decimal:
-        """روزهای مشمول پرداخت."""
+    def initial_days(self) -> Decimal:
+        """کارکرد اولیهٔ ماه — پیش از کسر روزهای بدون حقوق."""
         if not self.timesheet:
-            return self.month_days
+            return Decimal(self.employee.employed_days_in(
+                self.period.start_date, self.period.end_date
+            ))
+        return self.timesheet.work_days
+
+    @property
+    def unpaid_days(self) -> Decimal:
+        """غیبت + بیماری + مرخصی بدون حقوق."""
+        if not self.timesheet:
+            return ZERO
+        return self.timesheet.unpaid_days
+
+    @property
+    def paid_days(self) -> Decimal:
+        """روزهای مشمول پرداخت = کارکرد اولیه − روزهای بدون حقوق."""
+        if not self.timesheet:
+            return self.initial_days
         return self.timesheet.paid_days
 
     @property
@@ -80,8 +96,28 @@ class PayrollContext:
     # ---------------------------------------------------------------- مزد
 
     @property
+    def uses_minimum_wage(self) -> bool:
+        """آیا مبنای مزد این پرسنل «حداقل دستمزد» است؟
+
+        حقوق پایهٔ خالیِ قرارداد (صفر) یعنی «دستمزد واقعی ندارد، از حداقل
+        دستمزد همان سال استفاده کن». هر که عدد اختصاصی دارد، همان ملاک است.
+        """
+        return not self.contract.base_salary
+
+    @property
     def daily_base(self) -> Decimal:
+        """مزد روزانهٔ این پرسنل — مبنای حقوق ثابت و هر قلمی که به «دستمزد فرد» بسته است.
+
+        `min_daily_wage` خودش روزانه است، پس تقسیمی در کار نیست؛ دستمزد واقعی
+        ماهانه است و بر طول همان ماه تقسیم می‌شود.
+        """
+        if self.uses_minimum_wage:
+            return self.params.min_daily_wage or ZERO
         return self.contract.base_salary / self.month_days
+
+    @property
+    def wage_basis_label(self) -> str:
+        return "حداقل دستمزد" if self.uses_minimum_wage else "دستمزد قرارداد"
 
     @property
     def hourly_base(self) -> Decimal:

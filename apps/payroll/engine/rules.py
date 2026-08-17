@@ -35,16 +35,29 @@ def get_rule(key: str):
 
 @rule("base_salary", "حقوق پایه")
 def base_salary(ctx: PayrollContext, component):
+    """حقوق ثابت = روز کارکرد قابل پرداخت × مزد روزانه.
+
+    مزد روزانه یا از دستمزد واقعیِ قرارداد می‌آید یا — اگر قرارداد عددی
+    نداشته باشد — از حداقل دستمزد همان سال. توضیح سطر می‌گوید کدام، تا روی
+    فیش پیدا باشد با کدام مبنا حساب شده است.
+    """
     days = ctx.paid_days
     daily = ctx.daily_base
-    amount = daily * days
+    unpaid = ctx.unpaid_days
+    unpaid_note = (
+        f" (کارکرد اولیه {fa_number(ctx.initial_days)} روز − "
+        f"{fa_number(unpaid)} روز بدون حقوق)"
+        if unpaid
+        else ""
+    )
     return LineResult(
-        amount=amount,
+        amount=daily * days,
         base_amount=ctx.contract.base_salary,
         quantity=days,
         rate=Decimal("1"),
         explanation=(
-            f"حقوق پایه: {fa_number(days)} روز × {fa_money(daily)} ریال مزد روزانه"
+            f"حقوق ثابت: {fa_number(days)} روز × {fa_money(daily)} ریال مزد روزانه "
+            f"بر مبنای {ctx.wage_basis_label}{unpaid_note}"
         ),
     ).rounded()
 
@@ -366,6 +379,48 @@ def deduction_manual(ctx: PayrollContext, component):
         rate=Decimal("1"),
         explanation=f"{component.name}: مبلغ ثبت‌شده برای دوره {ctx.period.title}",
     ).rounded()
+
+
+# ================================================== کسورات کارکردی (فقط روز)
+
+
+def _day_only_rule(days: Decimal, label: str):
+    """سطر «فقط روز» — بدون مبلغ ریالی.
+
+    اثر مالی این اقلام قبلاً با کم شدن از روز کارکرد اعمال شده است؛ اگر مبلغ
+    ریالی هم می‌گذاشتیم، دو بار کسر می‌شد. سطر می‌ماند چون روی فیش باید دیده
+    شود که چند روز غیبت یا بیماری بوده است.
+    """
+    if not days or days <= 0:
+        return None
+    return LineResult(
+        amount=ZERO,
+        base_amount=ZERO,
+        quantity=days,
+        rate=ZERO,
+        explanation=f"{label}: {fa_number(days, 2)} روز — از روز کارکرد کسر شده است",
+    )
+
+
+@rule("absence_days", "غیبت (روز)")
+def absence_days(ctx: PayrollContext, component):
+    if not ctx.timesheet:
+        return None
+    return _day_only_rule(ctx.timesheet.absence_days, "غیبت")
+
+
+@rule("sick_days", "بیماری (روز)")
+def sick_days(ctx: PayrollContext, component):
+    if not ctx.timesheet:
+        return None
+    return _day_only_rule(ctx.timesheet.sick_leave_days, "بیماری")
+
+
+@rule("unpaid_leave_days", "مرخصی بدون حقوق (روز)")
+def unpaid_leave_days(ctx: PayrollContext, component):
+    if not ctx.timesheet:
+        return None
+    return _day_only_rule(ctx.timesheet.unpaid_leave_days, "مرخصی بدون حقوق")
 
 
 # ============================================================ هزینه کارفرما

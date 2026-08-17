@@ -150,13 +150,30 @@ class Timesheet(models.Model):
 
         return format_dhm(self.overtime_minutes, self.day_minutes)
 
+    # کسورات کارکردی — سه موردی که واحدشان «روز» است و از کارکرد کم می‌شوند
+    UNPAID_DAY_FIELDS = ["absence_days", "sick_leave_days", "unpaid_leave_days"]
+
+    @property
+    def unpaid_days(self) -> Decimal:
+        """جمع روزهای بدون حقوق: غیبت + بیماری + مرخصی بدون حقوق."""
+        return sum(
+            (getattr(self, field) or Decimal("0") for field in self.UNPAID_DAY_FIELDS),
+            Decimal("0"),
+        )
+
     @property
     def paid_days(self) -> Decimal:
-        """روزهای مشمول پرداخت = کارکرد + مرخصی استحقاقی + مأموریت.
+        """روز کارکرد قابل پرداخت = کارکرد اولیه − غیبت − بیماری − مرخصی بدون حقوق.
 
-        غیبت و مرخصی بدون حقوق کسر می‌شوند و در work_days لحاظ نشده‌اند.
+        `work_days` **کارکرد اولیه** است: کل روزهای اشتغال آن پرسنل در آن ماه،
+        که از تاریخ استخدام/خاتمه/شروع مجدد پیش‌فرض می‌گیرد و دستی هم قابل
+        اصلاح است. مرخصی استحقاقی و مأموریت داخل همین عدد هستند و کم نمی‌شوند
+        چون پرداخت دارند؛ فقط سه قلم بی‌حقوق کسر می‌شوند.
+
+        مثال سند: خاتمه ۱۶ مرداد ۱۴۰۵ → کارکرد اولیه ۱۵ روز؛ با ۱ روز غیبت،
+        ۱ روز بیماری و ۱ روز مرخصی بدون حقوق → ۱۵ − ۳ = ۱۲ روز.
         """
-        return self.work_days + self.paid_leave_days + self.mission_days
+        return max(self.work_days - self.unpaid_days, Decimal("0"))
 
     @property
     def is_complete(self):

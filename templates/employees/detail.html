@@ -34,13 +34,14 @@
       با ثبت خروج، وضعیت پرسنل «خاتمه‌یافته» می‌شود و قرارداد فعالش بسته می‌شود،
       پس از دوره‌های بعدی در محاسبه نمی‌آید. فیش‌های گذشته دست‌نخورده می‌مانند.
       <b>تسویه‌حساب پایان کار هنوز در سامانه نیست و باید دستی انجام شود.</b>
+      <br>خودِ تاریخ خاتمه جزو کارکرد نیست: خاتمهٔ ۱۶ مرداد یعنی آخرین روز کارکرد ۱۵ مرداد.
     </div>
     <form method="post" action="{% url 'employee_terminate' employee.pk %}"
           style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;"
           onsubmit="return confirm('خروج {{ employee.full_name }} ثبت شود؟');">
       {% csrf_token %}
       <div class="field" style="margin:0;">
-        <label for="tdate">تاریخ خروج (جلالی)</label>
+        <label for="tdate">تاریخ خاتمه کار (جلالی)</label>
         <input class="input" id="tdate" name="termination_date" placeholder="۱۴۰۵/۰۵/۳۱" style="width:180px;" required>
       </div>
       <div class="field" style="margin:0; flex:1; min-width:220px;">
@@ -78,10 +79,17 @@
 </div>
 {% elif not current_contract.base_salary %}
 <div class="note-box">
-  <b>حقوق پایه این قرارداد صفر است.</b>
-  قرارداد هنگام افزودن پرسنل با مقادیر پیش‌فرض ساخته شده است. پیش از محاسبهٔ حقوق،
-  حقوق پایه، واحد سازمانی و پست را
-  <a href="{% url 'contract_edit' current_contract.pk %}">در ویرایش قرارداد</a> تکمیل کنید.
+  {% if min_daily_wage %}
+  <b>این پرسنل دستمزد واقعی ندارد و با «حداقل دستمزد» حساب می‌شود</b>
+  ({{ min_daily_wage|rial }} ریال در روز). اگر دستمزد توافقی متفاوتی دارد،
+  آن را <a href="{% url 'contract_edit' current_contract.pk %}">در ویرایش قرارداد</a>
+  به‌عنوان حقوق پایه ماهانه ثبت کنید.
+  {% else %}
+  <b>نه حقوق پایهٔ قرارداد پر است و نه حداقل دستمزد سال.</b>
+  با این وضع حقوق ثابت این پرسنل صفر محاسبه می‌شود. یا حقوق پایه را
+  <a href="{% url 'contract_edit' current_contract.pk %}">در قرارداد</a> بگذارید،
+  یا حداقل دستمزد روزانه را در «تنظیمات سال مالی» ثبت کنید.
+  {% endif %}
 </div>
 {% endif %}
 
@@ -159,14 +167,27 @@
           <input type="hidden" name="period" value="{{ open_period.pk }}">
           <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:0 14px;">
             <div class="field">
-              <label for="ts-work">روز کارکرد</label>
+              <label for="ts-work">کارکرد اولیه (روز)</label>
               <input class="input num" id="ts-work" name="work_days" inputmode="decimal"
                      value="{{ timesheet.work_days|floatformat:"-2" }}">
+              <div class="explain">از تاریخ استخدام/خاتمه حساب شده — دستی قابل اصلاح است</div>
+            </div>
+            <div class="field">
+              <label>کارکرد قابل پرداخت</label>
+              <div class="input num" style="background:var(--paper); font-weight:800;">
+                {{ timesheet.paid_days|fadec }}
+              </div>
+              <div class="explain">کارکرد اولیه منهای غیبت، بیماری و مرخصی بدون حقوق</div>
             </div>
             <div class="field">
               <label for="ts-abs">غیبت (روز)</label>
               <input class="input num" id="ts-abs" name="absence_days" inputmode="decimal"
                      value="{{ timesheet.absence_days|floatformat:"-2" }}">
+            </div>
+            <div class="field">
+              <label for="ts-sick">بیماری (روز)</label>
+              <input class="input num" id="ts-sick" name="sick_leave_days" inputmode="decimal"
+                     value="{{ timesheet.sick_leave_days|floatformat:"-2" }}">
             </div>
             <div class="field">
               <label for="ts-unpaid">مرخصی بدون حقوق (روز)</label>

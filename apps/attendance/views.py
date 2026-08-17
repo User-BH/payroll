@@ -27,6 +27,8 @@ from apps.payroll.utils import parse_decimal
 EDITABLE_FIELDS = [
     "work_days",
     "absence_days",
+    "sick_leave_days",
+    "unpaid_leave_days",
     "mission_days",
 ]
 
@@ -50,12 +52,17 @@ def _ensure_timesheets(period):
         contract = employee.contract_on(period.end_date)
         if contract is None:
             continue
+        # کارکرد اولیه از بازهٔ اشتغال همان پرسنل می‌آید. صفر یعنی در این ماه
+        # اصلاً شاغل نبوده، پس ردیف کارکرد هم لازم ندارد.
+        initial_days = default_work_days(period, employee)
+        if initial_days <= 0:
+            continue
         new_rows.append(
             Timesheet(
                 period=period,
                 employee=employee,
                 contract=contract,
-                work_days=default_work_days(period),
+                work_days=initial_days,
             )
         )
     if new_rows:
