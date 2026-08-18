@@ -6,9 +6,11 @@
 
 {% block content %}
 <div class="search-bar no-print">
-  <a class="btn btn-primary btn-sm" href="{% url 'report_export' period.pk 'bank' %}">دانلود اکسل</a>
+  <a class="btn btn-primary btn-sm" href="{% url 'report_export' period.pk 'bank' %}{% if node_key %}?node={{ node_key }}{% endif %}">دانلود اکسل</a>
   <a class="btn btn-outline btn-sm" href="{% url 'reports' %}">همه گزارش‌ها</a>
 </div>
+
+{% include "reports/_node_filter.html" %}
 
 {% if missing_account %}
 <div class="note-box">

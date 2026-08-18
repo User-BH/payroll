@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% load payroll_extras %}
+{% block title %}گزارش سازمانی {{ period.title }}{% endblock %}
+{% block heading %}تجمیع سازمانی — {{ period.title }}{% endblock %}
+{% block subheading %}هزینهٔ حقوق روی چارت: سازمان › مرکز هزینه › واحد{% endblock %}
+
+{% block content %}
+<div class="search-bar no-print">
+  <a class="btn btn-outline btn-sm" href="{% url 'payslip_batch_print' period.pk %}">چاپ فیش‌ها به تفکیک گره</a>
+  <a class="btn btn-outline btn-sm" href="{% url 'reports' %}">همه گزارش‌ها</a>
+  <a class="btn btn-outline btn-sm" href="{% url 'org_settings' %}">ویرایش چارت</a>
+</div>
+
+<div class="note-box">
+  عدد هر سطر <b>جمع خودش و همهٔ زیرمجموعه‌هایش</b> است، پس جمع سطرهای سطح اول
+  دقیقاً برابر جمع کل دوره می‌شود. مبنای تجمیع، واحدِ ثبت‌شده روی خود فیش است —
+  عکسی از لحظهٔ محاسبه — پس جابه‌جایی بعدیِ چارت، گزارش ماه‌های گذشته را عوض نمی‌کند.
+</div>
+
+{% if unassigned %}
+<div class="note-box" style="border-color:var(--amber);">
+  <b>{{ unassigned|length|fanum }} واحد هنوز مرکز هزینه ندارند</b> و در سطح اول درخت
+  آمده‌اند:
+  <span style="font-weight:700;">{% for item in unassigned %}{{ item.name }}{% if not forloop.last %} · {% endif %}{% endfor %}</span>.
+  تا وقتی وصل نشوند، هزینه‌شان در هیچ مرکز هزینه‌ای جمع نمی‌شود.
+</div>
+{% endif %}
+
+<div class="stat-row">
+  <div class="stat"><b>تعداد فیش</b><span>{{ grand.count|fanum }}</span></div>
+  <div class="stat"><b>ناخالص کل</b><span>{{ grand.gross|rial }}</span></div>
+  <div class="stat"><b>خالص پرداختی</b><span>{{ grand.net|rial }}</span></div>
+  <div class="stat"><b>کل هزینه کارفرما</b><span>{{ grand.cost|rial }}</span></div>
+</div>
+
+<div class="panel">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>گره سازمانی</th><th>کد</th><th>نفر</th>
+          <th>ناخالص</th><th>کسور</th><th>خالص</th>
+          <th>بیمه سهم کارفرما</th><th>کل هزینه کارفرما</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr {% if row.is_cost_center %}style="background:var(--paper);"{% endif %}>
+          <td>
+            <div style="padding-inline-start:{{ row.indent_px }}px; {% if row.is_cost_center %}font-weight:800;{% endif %}">
+              {% if row.depth %}<span style="color:var(--muted);">└</span> {% endif %}{{ row.node.name }}
+              <small style="color:var(--muted); font-weight:600;">{{ row.kind }}</small>
+            </div>
+          </td>
+          <td data-label="کد" class="num">{{ row.node.full_code|fadigits }}</td>
+          <td data-label="نفر" class="num">{{ row.count|fanum }}</td>
+          <td data-label="ناخالص" class="num">{{ row.gross|rial }}</td>
+          <td data-label="کسور" class="num">{{ row.deductions|rial }}</td>
+          <td data-label="خالص" class="num" style="font-weight:700;">{{ row.net|rial }}</td>
+          <td data-label="بیمه سهم کارفرما" class="num">{{ row.insurance|rial }}</td>
+          <td data-label="کل هزینه کارفرما" class="num">{{ row.cost|rial }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8"><div class="empty">چارتی تعریف نشده است.</div></td></tr>
+        {% endfor %}
+
+        {% if orphan.count %}
+        <tr>
+          <td><b>خارج از چارت فعلی</b>
+            <small style="color:var(--muted);">واحدی که دیگر در چارت نیست</small></td>
+          <td class="num">—</td>
+          <td class="num">{{ orphan.count|fanum }}</td>
+          <td class="num">{{ orphan.gross|rial }}</td>
+          <td class="num">{{ orphan.deductions|rial }}</td>
+          <td class="num">{{ orphan.net|rial }}</td>
+          <td class="num">{{ orphan.insurance|rial }}</td>
+          <td class="num">{{ orphan.cost|rial }}</td>
+        </tr>
+        {% endif %}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="2">جمع کل دوره</td>
+          <td class="num">{{ grand.count|fanum }}</td>
+          <td class="num">{{ grand.gross|rial }}</td>
+          <td class="num">{{ grand.deductions|rial }}</td>
+          <td class="num">{{ grand.net|rial }}</td>
+          <td class="num">{{ grand.insurance|rial }}</td>
+          <td class="num">{{ grand.cost|rial }}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+{% endblock %}

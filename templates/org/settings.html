@@ -45,57 +45,73 @@
   {% endif %}
 </div>
 
-<div class="grid-2-even">
-  {% for group in groups %}{% endfor %}
-
-  <div class="panel">
-    <div class="panel-head">
-      <h3>واحدهای سازمانی</h3>
-      {% if user.can_edit_payroll %}<a class="link-btn" href="{% url 'org_item_create' 'department' %}">افزودن</a>{% endif %}
+<div class="panel">
+  <div class="panel-head">
+    <h3>چارت سازمانی</h3>
+    {% if user.can_edit_payroll %}
+    <div style="display:flex; gap:8px;">
+      <a class="btn btn-outline btn-sm" href="{% url 'org_item_create' 'cost-center' %}">افزودن مرکز هزینه</a>
+      <a class="btn btn-outline btn-sm" href="{% url 'org_item_create' 'department' %}">افزودن واحد</a>
     </div>
-    <div class="comp-list">
-      {% for item in departments %}
-      <div class="comp-item">
-        <div class="comp-item-l">
-          <span class="comp-dot" style="background:{% if item.is_active %}var(--green){% else %}var(--muted){% endif %}"></span>
-          <div><b>{{ item.name }}</b><small>{% if not item.is_active %}غیرفعال{% else %}{{ item.code|default:"" }}{% endif %}</small></div>
-        </div>
-        {% if user.can_edit_payroll %}
-        <div style="display:flex; gap:6px;">
-          <a class="btn btn-outline btn-sm" href="{% url 'org_item_edit' 'department' item.pk %}">ویرایش</a>
-          <form method="post" action="{% url 'org_item_delete' 'department' item.pk %}" onsubmit="return confirm('حذف «{{ item.name }}»؟');">
-            {% csrf_token %}<button class="btn btn-outline btn-sm" type="submit">حذف</button>
-          </form>
-        </div>
-        {% endif %}
-      </div>
-      {% empty %}<div class="empty">تعریف نشده است.</div>{% endfor %}
+    {% endif %}
+  </div>
+  <div class="panel-body" style="padding-bottom:0;">
+    <div class="note-box" style="margin:0;">
+      سطوح: <b>سازمان › مرکز هزینه › واحد › پرسنل</b>. هر گره کد خودش را دارد و کد
+      کامل از زنجیرهٔ پدرانش ساخته می‌شود. گزارش‌ها و چاپ فیش روی هر گره تجمیع
+      می‌شوند، یعنی انتخاب یک مرکز هزینه همهٔ واحدهای زیرش را هم می‌آورد.
     </div>
   </div>
 
-  <div class="panel">
-    <div class="panel-head">
-      <h3>مراکز هزینه</h3>
-      {% if user.can_edit_payroll %}<a class="link-btn" href="{% url 'org_item_create' 'cost-center' %}">افزودن</a>{% endif %}
+  {% if unassigned %}
+  <div class="panel-body" style="padding-bottom:0;">
+    <div class="note-box" style="margin:0; border-color:var(--amber);">
+      <b>{{ unassigned|length|fanum }} واحد مرکز هزینه ندارند</b> و در ریشهٔ درخت نشسته‌اند:
+      {% for item in unassigned %}{{ item.name }}{% if not forloop.last %} · {% endif %}{% endfor %}.
+      تا وصل نشوند، هزینه‌شان در هیچ مرکز هزینه‌ای جمع نمی‌شود.
     </div>
-    <div class="comp-list">
-      {% for item in cost_centers %}
-      <div class="comp-item">
-        <div class="comp-item-l">
-          <span class="comp-dot" style="background:{% if item.is_active %}var(--red){% else %}var(--muted){% endif %}"></span>
-          <div><b>{{ item.name }}</b><small>{% if not item.is_active %}غیرفعال{% else %}{{ item.gl_account|default:"" }}{% endif %}</small></div>
-        </div>
-        {% if user.can_edit_payroll %}
-        <div style="display:flex; gap:6px;">
-          <a class="btn btn-outline btn-sm" href="{% url 'org_item_edit' 'cost-center' item.pk %}">ویرایش</a>
-          <form method="post" action="{% url 'org_item_delete' 'cost-center' item.pk %}" onsubmit="return confirm('حذف «{{ item.name }}»؟');">
-            {% csrf_token %}<button class="btn btn-outline btn-sm" type="submit">حذف</button>
-          </form>
-        </div>
-        {% endif %}
-      </div>
-      {% empty %}<div class="empty">تعریف نشده است.</div>{% endfor %}
-    </div>
+  </div>
+  {% endif %}
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>گره</th><th>کد کامل</th><th>پرسنل</th><th>وضعیت</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for row in tree %}
+        <tr>
+          <td>
+            <div style="padding-inline-start:{{ row.indent_px }}px; display:flex; align-items:center; gap:8px;">
+              <span class="comp-dot" style="background:{% if not row.node.is_active %}var(--muted){% elif row.is_cost_center %}var(--red){% else %}var(--green){% endif %}"></span>
+              <div>
+                <b {% if row.is_cost_center %}style="font-weight:800;"{% endif %}>{{ row.node.name }}</b>
+                <small>{% if row.is_cost_center %}مرکز هزینه{% else %}واحد{% endif %}{% if row.node.gl_account %} · دفتر کل {{ row.node.gl_account|fadigits }}{% endif %}</small>
+              </div>
+            </div>
+          </td>
+          <td data-label="کد" class="num">{{ row.node.full_code|fadigits }}</td>
+          <td data-label="پرسنل" class="num">{{ row.people|fanum }}</td>
+          <td data-label="وضعیت">
+            {% if row.node.is_active %}<span class="badge ok"><span class="dot"></span>فعال</span>
+            {% else %}<span class="badge muted"><span class="dot"></span>غیرفعال</span>{% endif %}
+          </td>
+          <td>
+            {% if user.can_edit_payroll %}
+            <div style="display:flex; gap:6px; justify-content:flex-end;">
+              <a class="btn btn-outline btn-sm" href="{% url 'org_item_edit' row.kind row.node.pk %}">ویرایش</a>
+              <form method="post" action="{% url 'org_item_delete' row.kind row.node.pk %}" onsubmit="return confirm('حذف «{{ row.node.name }}»؟');">
+                {% csrf_token %}<button class="btn btn-outline btn-sm" type="submit">حذف</button>
+              </form>
+            </div>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5"><div class="empty">هنوز مرکز هزینه یا واحدی تعریف نشده است.</div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
 </div>
 

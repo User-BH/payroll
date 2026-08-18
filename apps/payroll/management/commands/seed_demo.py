@@ -167,10 +167,20 @@ class Command(BaseCommand):
             address="کرمانشاه، بلوار شهید بهشتی",
             phone="083-38200000",
         )
-        for name in ["اداری", "فروش", "انبار", "توزیع", "مالی", "فنی"]:
-            Department.objects.create(company=company, name=name)
-        for name in ["اداری", "فروش", "انبار", "توزیع"]:
-            CostCenter.objects.create(company=company, name=name)
+        # چارت نمونه دو سطحی است: مرکز هزینه، و واحدهایی که زیرش می‌نشینند.
+        # «مالی» و «فنی» زیر مرکز هزینهٔ اداری‌اند تا تجمیع چندسطحی روی دادهٔ
+        # نمونه هم دیده شود، نه فقط روی چارت یک‌به‌یک.
+        centers = {
+            name: CostCenter.objects.create(company=company, name=name)
+            for name in ["اداری", "فروش", "انبار", "توزیع"]
+        }
+        for name, center in [
+            ("اداری", "اداری"), ("فروش", "فروش"), ("انبار", "انبار"),
+            ("توزیع", "توزیع"), ("مالی", "اداری"), ("فنی", "اداری"),
+        ]:
+            Department.objects.create(
+                company=company, name=name, cost_center=centers[center]
+            )
         for name, group in [
             ("کارشناس فروش", 8), ("سرپرست فروش", 12), ("انباردار", 6),
             ("راننده توزیع", 5), ("کارشناس اداری", 9), ("حسابدار", 11),

@@ -152,6 +152,7 @@ urlpatterns = [
     path("reports/<int:pk>/insurance/", payroll_views.report_insurance, name="report_insurance"),
     path("reports/<int:pk>/tax/", payroll_views.report_tax, name="report_tax"),
     path("reports/<int:pk>/bank/", payroll_views.report_bank, name="report_bank"),
+    path("reports/<int:pk>/org/", payroll_views.report_org, name="report_org"),
     path("reports/<int:pk>/export/<str:kind>/", payroll_views.report_export, name="report_export"),
     # ---- خروجی‌های قانونی
     path("periods/<int:pk>/exports/", payroll_views.export_center, name="export_center"),

@@ -27,12 +27,12 @@
 <body>
 
 <div class="bar">
-  <span class="count">{{ count|fanum }} فیش · {{ period.title }}</span>
-  <select onchange="location.href='?department='+this.value">
+  <span class="count">{{ count|fanum }} فیش · {{ period.title }}{% if node %} · {{ node.full_path }}{% endif %}</span>
+  <select onchange="location.href='?node='+this.value">
     <option value="">همه واحدها</option>
-    {% for department in departments %}
-    <option value="{{ department.pk }}" {% if selected_department == department.pk|stringformat:"s" %}selected{% endif %}>
-      {{ department.name }}
+    {% for item in nodes %}
+    <option value="{{ item.key }}" {% if selected_node == item.key %}selected{% endif %}>
+      {{ item.indent }}{{ item.name }}{% if item.is_cost_center %} (مرکز هزینه){% endif %}
     </option>
     {% endfor %}
   </select>

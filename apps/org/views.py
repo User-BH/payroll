@@ -8,7 +8,9 @@ from django.views.decorators.http import require_POST
 
 from apps.accounts.decorators import can_edit_required, payroll_staff_required
 from apps.employees.forms import BootstrapMixin
+from apps.employees.models import EmploymentContract
 from apps.org.models import Company, CostCenter, Department, JobTitle
+from apps.org.tree import walk
 
 
 class CompanyForm(BootstrapMixin, forms.ModelForm):
@@ -58,20 +60,86 @@ class CompanyForm(BootstrapMixin, forms.ModelForm):
 
 
 class _OrgFormBase(BootstrapMixin, forms.ModelForm):
-    """پایه مشترک فرم‌های ساختار سازمانی."""
+    """پایه مشترک فرم‌های ساختار سازمانی.
+
+    «شرکت» فیلد فرم نیست، ولی یکتایی روی «شرکت + نام» و «شرکت + کد» بسته شده
+    است. Django هر قید یکتایی را که یکی از فیلدهایش در فرم نباشد کنار می‌گذارد،
+    و نتیجه‌اش این است که نام یا کد تکراری به‌جای پیام خطا، `IntegrityError`
+    می‌دهد — یعنی صفحهٔ ۵۰۰ به‌جای «این کد قبلاً ثبت شده». پس شرکت را همین‌جا
+    روی نمونه می‌گذاریم و از فهرست کنارگذاشته‌ها بیرونش می‌آوریم.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.instance.company_id:
+            self.instance.company = Company.objects.first()
+
+    def validate_unique(self):
+        exclude = self._get_validation_exclusions()
+        exclude.discard("company")
+        try:
+            self.instance.validate_unique(exclude=exclude)
+        except forms.ValidationError as error:
+            self._update_errors(error)
+
+    def clean_code(self):
+        """پیام روشن به‌جای پیام عمومیِ «شرکت و کد تکراری است»."""
+        code = (self.cleaned_data.get("code") or "").strip()
+        if not code:
+            return code
+        clash = (
+            self.instance.code_owner(self.instance.company_id, code, exclude=self.instance)
+            if hasattr(self.instance, "code_owner")
+            else type(self.instance).objects
+            .filter(company=self.instance.company_id, code=code)
+            .exclude(pk=self.instance.pk)
+            .first()
+        )
+        if clash is not None:
+            raise forms.ValidationError(f"این کد قبلاً برای «{clash.name}» ثبت شده است.")
+        return code
 
 
-def _simple_form(model, extra_fields=()):
+class _TreeFormMixin:
+    """گزینه‌های بالادست را به همان شرکت محدود می‌کند و خودِ گره را حذف می‌کند.
+
+    اگر گره در فهرست بالادستِ خودش بماند، اولین کلیکِ اشتباه یک حلقه می‌سازد که
+    بعداً باید در گزارش‌ها کشفش کرد. جلوگیری در فرم ارزان‌تر از کشف بعدی است.
+    حلقه‌های عمیق‌تر (الف زیر ب، ب زیر الف) را `OrgNode.clean()` می‌گیرد که
+    خودِ `ModelForm` موقع اعتبارسنجی صدایش می‌زند.
+    """
+
+    TREE_FIELDS = ()
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        company = Company.objects.first()
+        for name in self.TREE_FIELDS:
+            field = self.fields.get(name)
+            if field is None:
+                continue
+            queryset = field.queryset.filter(company=company)
+            if self.instance.pk and name == "parent":
+                queryset = queryset.exclude(pk=self.instance.pk)
+            field.queryset = queryset.order_by("name")
+
+
+def _simple_form(model, extra_fields=(), tree_fields=()):
     # ساخت با modelform_factory، نه با ست کردن Meta.model بعد از تعریف کلاس:
     # متاکلاس ModelForm در لحظه تعریف کلاس اجرا می‌شود و تغییر بعدی Meta
     # نادیده گرفته می‌شود (خطای «ModelForm has no model class specified»).
+    base = type(
+        f"{model.__name__}TreeForm", (_TreeFormMixin, _OrgFormBase),
+        {"TREE_FIELDS": tuple(tree_fields)},
+    )
     return forms.models.modelform_factory(
-        model, form=_OrgFormBase, fields=["name", "code", *extra_fields, "is_active"]
+        model, form=base,
+        fields=["name", "code", *tree_fields, *extra_fields, "is_active"],
     )
 
 
-DepartmentForm = _simple_form(Department)
-CostCenterForm = _simple_form(CostCenter, ["gl_account"])
+DepartmentForm = _simple_form(Department, tree_fields=["cost_center", "parent"])
+CostCenterForm = _simple_form(CostCenter, ["gl_account"], tree_fields=["parent"])
 JobTitleForm = _simple_form(JobTitle, ["job_group"])
 
 KINDS = {
@@ -84,13 +152,31 @@ KINDS = {
 @payroll_staff_required
 def org_settings(request):
     company = Company.objects.first()
+    tree = [
+        {
+            "node": node,
+            "depth": depth,
+            "indent_px": depth * 26,
+            "is_cost_center": isinstance(node, CostCenter),
+            "kind": "cost-center" if isinstance(node, CostCenter) else "department",
+            # قرارداد جاری که مستقیم به همین گره وصل است — برای دیدن اینکه
+            # کدام گره خالی است و کدام واقعاً پرسنل دارد.
+            "people": EmploymentContract.objects.filter(
+                **{"cost_center" if isinstance(node, CostCenter) else "department": node},
+                status=EmploymentContract.Status.ACTIVE,
+            ).count(),
+        }
+        for node, depth in walk(company)
+    ]
     return render(
         request,
         "org/settings.html",
         {
             "company": company,
-            "departments": Department.objects.filter(company=company).order_by("name"),
-            "cost_centers": CostCenter.objects.filter(company=company).order_by("name"),
+            "tree": tree,
+            "unassigned": Department.objects.filter(
+                company=company, cost_center__isnull=True, parent__isnull=True
+            ),
             "job_titles": JobTitle.objects.filter(company=company).order_by("name"),
         },
     )

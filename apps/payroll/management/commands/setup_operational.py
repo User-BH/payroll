@@ -125,10 +125,16 @@ class Command(BaseCommand):
             return
 
         company = Company.objects.create(name=options["company"])
+        # مرکز هزینه اول ساخته می‌شود تا واحد همان لحظه زیرش بنشیند؛ چارت از
+        # همان نصب اولیه کامل است، نه چیزی که بعداً باید دستی وصل شود.
+        centers = {
+            name: CostCenter.objects.create(company=company, name=name)
+            for name in COST_CENTERS
+        }
         for name in DEPARTMENTS:
-            Department.objects.create(company=company, name=name)
-        for name in COST_CENTERS:
-            CostCenter.objects.create(company=company, name=name)
+            Department.objects.create(
+                company=company, name=name, cost_center=centers.get(name)
+            )
         for name in JOB_TITLES:
             JobTitle.objects.create(company=company, name=name)
 

@@ -12,6 +12,13 @@ from apps.accounts.decorators import can_edit_required, payroll_staff_required
 from apps.attendance.models import Timesheet
 from apps.employees.models import Employee, EmploymentContract
 from apps.org.models import CostCenter, Department
+from apps.org.tree import (
+    aggregate_period,
+    node_key,
+    parse_node_key,
+    subtree_department_ids,
+    walk,
+)
 from apps.payroll.engine.runner import CalculationError, calculate_period
 from apps.payroll.exports import generate_export
 from apps.payroll.models import (
@@ -428,7 +435,10 @@ def payslip_batch_print(request, pk):
     فیش فعلی شرکت یک PDF چندصفحه‌ای است؛ چاپ تک‌تک ۱۴۶ فیش عملی نیست.
     """
     period = get_object_or_404(PayrollPeriod.objects.select_related("company"), pk=pk)
-    query = request.GET.get("department")
+    # فیلتر روی «گره چارت» است نه فقط واحد: انتخاب یک مرکز هزینه یعنی فیش همهٔ
+    # واحدهای زیرش، وگرنه برای چاپ فیش‌های یک مرکز باید چند بار چاپ گرفت.
+    query = request.GET.get("node") or ""
+    node = parse_node_key(query)
 
     payslips = (
         Payslip.objects.filter(period=period)
@@ -436,8 +446,8 @@ def payslip_batch_print(request, pk):
         .prefetch_related("lines")
         .order_by("employee__personnel_code")
     )
-    if query:
-        payslips = payslips.filter(department_id=query)
+    if node is not None:
+        payslips = payslips.filter(department_id__in=subtree_department_ids(node))
 
     slips = []
     for payslip in payslips:
@@ -455,10 +465,15 @@ def payslip_batch_print(request, pk):
             "period": period,
             "slips": slips,
             "count": len(slips),
-            "departments": Department.objects.filter(
-                payslips__period=period
-            ).distinct().order_by("name"),
-            "selected_department": query,
+            # تورفتگی با فاصلهٔ بدون‌شکست ساخته می‌شود چون <option> نه HTML
+            # می‌پذیرد نه فاصلهٔ معمولی را نگه می‌دارد.
+            "nodes": [
+                {"key": node_key(item), "indent": "\u00a0\u00a0\u00a0" * depth,
+                 "name": item.name, "is_cost_center": isinstance(item, CostCenter)}
+                for item, depth in walk(period.company)
+            ],
+            "selected_node": query,
+            "node": node,
         },
     )
 
@@ -534,12 +549,35 @@ def reports(request):
     return render(request, "reports/index.html", {"periods": periods})
 
 
-def _report_rows(period):
-    return (
+def _report_rows(period, node=None):
+    """سطرهای گزارش، در صورت انتخاب گره فقط زیردرخت همان گره.
+
+    فیلتر روی زیردرخت است نه روی خود گره: انتخاب یک مرکز هزینه باید همهٔ
+    واحدهای زیرش را بیاورد، وگرنه «لیست بیمهٔ فروش» ناقص چاپ می‌شود.
+    """
+    rows = (
         Payslip.objects.filter(period=period)
         .select_related("employee", "department")
         .order_by("employee__personnel_code")
     )
+    if node is not None:
+        rows = rows.filter(department_id__in=subtree_department_ids(node))
+    return rows
+
+
+def _node_filter(request, period):
+    """گره انتخاب‌شده و فهرست گره‌ها برای نوار فیلتر گزارش‌ها."""
+    key = request.GET.get("node") or ""
+    node = parse_node_key(key)
+    return node, {
+        "node": node,
+        "node_key": key,
+        "nodes": [
+            {"key": node_key(item), "indent": "\u00a0\u00a0\u00a0" * depth,
+             "name": item.name, "is_cost_center": isinstance(item, CostCenter)}
+            for item, depth in walk(period.company)
+        ],
+    }
 
 
 @payroll_staff_required
@@ -551,7 +589,8 @@ def report_insurance(request, pk):
     می‌شود تا «چرا ۱۴۵ نفر شد نه ۱۴۶؟» بی‌جواب نماند.
     """
     period = get_object_or_404(PayrollPeriod.objects.select_related("company"), pk=pk)
-    all_rows = _report_rows(period)
+    node, node_context = _node_filter(request, period)
+    all_rows = _report_rows(period, node)
     rows = all_rows.filter(insurance_applies=True)
     excluded = all_rows.filter(insurance_applies=False)
     totals = rows.aggregate(
@@ -569,6 +608,7 @@ def report_insurance(request, pk):
             "count": rows.count(),
             "excluded": excluded,
             "excluded_count": excluded.count(),
+            **node_context,
         },
     )
 
@@ -576,19 +616,22 @@ def report_insurance(request, pk):
 @payroll_staff_required
 def report_tax(request, pk):
     period = get_object_or_404(PayrollPeriod.objects.select_related("company"), pk=pk)
-    rows = _report_rows(period).filter(tax_amount__gt=0)
+    node, node_context = _node_filter(request, period)
+    rows = _report_rows(period, node).filter(tax_amount__gt=0)
     totals = rows.aggregate(taxable=Sum("taxable_base"), tax=Sum("tax_amount"))
     return render(
         request,
         "reports/tax.html",
-        {"period": period, "rows": rows, "totals": totals, "count": rows.count()},
+        {"period": period, "rows": rows, "totals": totals, "count": rows.count(),
+         **node_context},
     )
 
 
 @payroll_staff_required
 def report_bank(request, pk):
     period = get_object_or_404(PayrollPeriod.objects.select_related("company"), pk=pk)
-    rows = _report_rows(period)
+    node, node_context = _node_filter(request, period)
+    rows = _report_rows(period, node)
     totals = rows.aggregate(net=Sum("net_payable"))
     missing_account = rows.filter(account_snapshot="").count()
     return render(
@@ -600,6 +643,32 @@ def report_bank(request, pk):
             "totals": totals,
             "count": rows.count(),
             "missing_account": missing_account,
+            **node_context,
+        },
+    )
+
+
+@payroll_staff_required
+def report_org(request, pk):
+    """گزارش تجمیعی روی چارت سازمانی — بند ۸ سند.
+
+    هر سطر جمعِ زیردرخت خودش است، پس جمع سطرهای سطح اول باید دقیقاً برابر جمع
+    کل دوره شود. اگر فیشی به واحدی وصل باشد که دیگر در چارت نیست، در سطر جدا
+    می‌آید تا این تساوی هیچ‌وقت بی‌سروصدا بشکند.
+    """
+    period = get_object_or_404(PayrollPeriod.objects.select_related("company"), pk=pk)
+    rows, orphan, grand = aggregate_period(period)
+    return render(
+        request,
+        "reports/org.html",
+        {
+            "period": period,
+            "rows": rows,
+            "orphan": orphan,
+            "grand": grand,
+            "unassigned": Department.objects.filter(
+                company=period.company, cost_center__isnull=True, parent__isnull=True
+            ),
         },
     )
 
@@ -779,14 +848,25 @@ def report_export(request, pk, kind):
         return redirect("reports")
 
     period = get_object_or_404(PayrollPeriod.objects.select_related("company"), pk=pk)
-    rows = _report_rows(period)
+    # همان گرهٔ صفحهٔ گزارش، تا فایل اکسل با چیزی که کاربر روی صفحه می‌بیند یکی
+    # باشد؛ خروجیِ کاملِ بی‌خبر، بدترین حالت است.
+    node = parse_node_key(request.GET.get("node"))
+    rows = _report_rows(period, node)
+    # همان صافیِ صفحهٔ گزارش روی فایل هم اعمال می‌شود: «لیست بیمه»‌ای که
+    # بازنشسته و قرارداد غیرمشمول را هم داشته باشد با صفحه و با فایل تأمین
+    # اجتماعی نمی‌خواند.
+    if kind == "insurance":
+        rows = rows.filter(insurance_applies=True)
+    elif kind == "tax":
+        rows = rows.filter(tax_amount__gt=0)
 
     workbook = Workbook()
     sheet = workbook.active
     sheet.title = spec["title"][:30]
     sheet.sheet_view.rightToLeft = True
 
-    sheet.append([f"{spec['title']} — {period.title} — {period.company.name}"])
+    scope = f" — {node.full_path}" if node is not None else ""
+    sheet.append([f"{spec['title']} — {period.title} — {period.company.name}{scope}"])
     sheet.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(spec["headers"]))
     sheet.cell(row=1, column=1).font = Font(bold=True, size=13)
     sheet.cell(row=1, column=1).alignment = Alignment(horizontal="center")

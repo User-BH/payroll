@@ -1,0 +1,17 @@
+{% load payroll_extras %}
+{# نوار فیلتر گره سازمانی — مشترک بین لیست بیمه، لیست مالیات و فایل بانک.
+   انتخاب یک گره یعنی زیردرخت همان گره، پس مرکز هزینه واحدهایش را هم می‌آورد. #}
+<form method="get" class="search-bar no-print" style="margin-top:0;">
+  <select class="input" name="node" style="max-width:280px;" onchange="this.form.submit()">
+    <option value="">کل سازمان</option>
+    {% for item in nodes %}
+    <option value="{{ item.key }}" {% if node_key == item.key %}selected{% endif %}>
+      {{ item.indent }}{{ item.name }}{% if item.is_cost_center %} (مرکز هزینه){% endif %}
+    </option>
+    {% endfor %}
+  </select>
+  <noscript><button class="btn btn-outline btn-sm" type="submit">فیلتر</button></noscript>
+  {% if node %}
+  <span class="hint">فقط {{ node.full_path }} — {{ count|fanum }} نفر</span>
+  {% endif %}
+</form>
