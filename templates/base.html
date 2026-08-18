@@ -51,6 +51,10 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M17 7.5c0-2-2.2-3.5-5-3.5s-5 1.4-5 3.3c0 4 10 2 10 6.2 0 2-2.2 3.5-5 3.5s-5-1.5-5-3.5"/></svg>
       مبالغ دستی
     </a>
+    <a class="nav-item {% if section == 'commission' %}active{% endif %}" href="{% if current_period %}{% url 'commission_allocations' current_period.pk %}{% else %}{% url 'period_list' %}{% endif %}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 17 9 12l3 3 8-8"/><path d="M15 7h5v5"/></svg>
+      تخصیص پورسانت
+    </a>
     <a class="nav-item {% if section == 'payslips' %}active{% endif %}" href="{% if current_period %}{% url 'payslip_list' current_period.pk %}{% else %}{% url 'period_list' %}{% endif %}">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path d="M9 12h6M9 16h6M9 8h2"/></svg>
       فیش حقوقی

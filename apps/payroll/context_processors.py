@@ -20,6 +20,8 @@ NAV_SECTIONS = {
     "period_create": "periods",
     "monthly_parameters": "monthly",
     "monthly_parameters_save": "monthly",
+    "commission_allocations": "commission",
+    "commission_allocations_save": "commission",
     "manual_inputs": "manual",
     "manual_input_save": "manual",
     "period_list": "periods",

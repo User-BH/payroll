@@ -221,6 +221,12 @@ class SalaryComponent(models.Model):
         "مبلغ ثابت", max_digits=18, decimal_places=0, default=Decimal("0")
     )
 
+    is_commission = models.BooleanField(
+        "قلم پورسانت", default=False,
+        help_text="مبلغ این اقلام وارد استخر تخصیص می‌شود و می‌تواند به حق "
+                  "مأموریت یا اضافه‌کاری منتقل شود",
+    )
+
     display_unit = models.CharField(
         "واحد نمایش در فیش", max_length=6,
         choices=DisplayUnit.choices, default=DisplayUnit.RIAL,

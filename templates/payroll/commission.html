@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% load payroll_extras %}
+{% block title %}تخصیص پورسانت{% endblock %}
+{% block heading %}تخصیص پورسانت — {{ period.title }}{% endblock %}
+{% block subheading %}
+  پورسانت اولیه = حق مأموریت + اضافه‌کاری + مانده · هیچ مبلغی حذف نمی‌شود
+{% endblock %}
+
+{% block content %}
+<div class="note-box">
+  <b>مبناها و سقف‌های این ماه</b> — از «آیتم‌های محاسباتی ماهانه» می‌آیند، نه از کد:
+  <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:6px 18px; margin-top:8px;">
+    <div>مبنای روزانه مأموریت: <b>{{ mission_rate|rial }}</b> ریال</div>
+    <div>سقف روز مأموریت: <b>{{ mission_max_days|fadec }}</b> روز</div>
+    <div>مبنای ساعتی اضافه‌کاری: <b>{{ overtime_rate|rial }}</b> ریال</div>
+    <div>سقف ساعت اضافه‌کاری: <b>{{ overtime_max_hours|fadec }}</b> ساعت</div>
+  </div>
+  {% if not mission_rate %}
+  <div style="margin-top:8px;">
+    <b>مبنای روزانه مأموریت صفر است</b>، پس هیچ مبلغی به حق مأموریت منتقل نمی‌شود.
+    آن را در <a href="{% url 'monthly_parameters' period.pk %}">آیتم‌های ماهانه</a> ثبت کنید.
+  </div>
+  {% endif %}
+  {% if not overtime_max_hours %}
+  <div style="margin-top:8px;">
+    <b>سقف ساعت اضافه‌کاری تعریف نشده است</b>، پس انتقال به اضافه‌کاری انجام نمی‌شود.
+    نبودِ سقف عمداً «بی‌نهایت» تفسیر نمی‌شود.
+  </div>
+  {% endif %}
+</div>
+
+<div class="stat-row">
+  <div class="stat"><b>پورسانت کل</b><span>{{ totals.source|rial }}</span></div>
+  <div class="stat"><b>به حق مأموریت</b><span>{{ totals.mission|rial }}</span></div>
+  <div class="stat"><b>به اضافه‌کاری</b><span>{{ totals.overtime|rial }}</span></div>
+  <div class="stat"><b>ماندهٔ پورسانت</b><span>{{ totals.remaining|rial }}</span></div>
+</div>
+
+<form method="post" action="{% url 'commission_allocations_save' period.pk %}">
+  {% csrf_token %}
+  <div class="panel">
+    <div class="panel-head">
+      <h3>ریز تخصیص</h3>
+      <span class="hint">عدد بیشتر از ظرفیت، خودکار به سقف محدود می‌شود و مازادش در مانده می‌ماند</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>پرسنل</th>
+            <th>پورسانت اولیه</th>
+            <th>ظرفیت مأموریت</th>
+            <th>به حق مأموریت</th>
+            <th>روز معادل</th>
+            <th>ظرفیت اضافه‌کاری</th>
+            <th>به اضافه‌کاری</th>
+            <th>ساعت معادل</th>
+            <th>مانده</th>
+            <th>توضیح</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          <tr>
+            <td>
+              <div class="cell-name">
+                <div class="av">{{ row.employee.initials }}</div>
+                <div>
+                  <b>{{ row.employee.full_name }}</b>
+                  <small>کد {{ row.employee.personnel_code|fadigits }}{% if row.is_manual %} · دستی{% endif %}</small>
+                </div>
+              </div>
+            </td>
+            <td data-label="پورسانت اولیه" class="num" style="white-space:nowrap;">{{ row.source|rial }}</td>
+            <td data-label="ظرفیت مأموریت" class="num" style="color:var(--muted); white-space:nowrap;">
+              {{ row.plan.mission_capacity|rial }}
+              <small style="display:block;">{{ row.plan.mission_free_days|fadec }} روز آزاد</small>
+            </td>
+            <td data-label="به حق مأموریت">
+              <input class="input num" style="width:145px; min-width:145px; font-size:12.5px;"
+                     name="emp__{{ row.employee.pk }}__mission" inputmode="decimal"
+                     value="{{ row.plan.to_mission|floatformat:"0" }}"
+                     {% if period.is_locked %}readonly{% endif %}>
+            </td>
+            <td data-label="روز معادل" class="num">{{ row.plan.mission_days|fadec }}</td>
+            <td data-label="ظرفیت اضافه‌کاری" class="num" style="color:var(--muted); white-space:nowrap;">
+              {{ row.plan.overtime_capacity|rial }}
+              <small style="display:block;">{{ row.plan.overtime_free_hours|fadec }} ساعت آزاد</small>
+            </td>
+            <td data-label="به اضافه‌کاری">
+              <input class="input num" style="width:145px; min-width:145px; font-size:12.5px;"
+                     name="emp__{{ row.employee.pk }}__overtime" inputmode="decimal"
+                     value="{{ row.plan.to_overtime|floatformat:"0" }}"
+                     {% if period.is_locked %}readonly{% endif %}>
+            </td>
+            <td data-label="ساعت معادل" class="num">{{ row.plan.overtime_hours|fadec }}</td>
+            <td data-label="مانده" class="num" style="font-weight:800; white-space:nowrap;">{{ row.plan.remaining|rial }}</td>
+            <td data-label="توضیح">
+              <input class="input" maxlength="160" style="width:150px; min-width:150px; font-size:12.5px;"
+                     name="emp__{{ row.employee.pk }}__note"
+                     value="{{ row.allocation.note|default:"" }}"
+                     {% if period.is_locked %}readonly{% endif %}>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="10">
+            <div class="empty">
+              در این دوره هیچ پورسانتی ثبت نشده است. مبالغ پورسانت از
+              «مبالغ دستی» وارد می‌شوند.
+            </div>
+          </td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {% if rows and not period.is_locked %}
+  <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+    <button class="btn btn-primary" type="submit">ذخیره تخصیص دستی</button>
+    <button class="btn btn-outline" type="submit" name="action" value="auto"
+            onclick="return confirm('همهٔ تخصیص‌های دستی پاک شوند و تقسیم خودکار جای آن‌ها بنشیند؟');">
+      برگرداندن به تقسیم خودکار
+    </button>
+    <a class="btn btn-outline" href="{% url 'manual_inputs' period.pk %}">مبالغ دستی</a>
+    <span class="hint">پس از ذخیره، دوره را دوباره محاسبه کنید.</span>
+  </div>
+  {% endif %}
+</form>
+{% endblock %}

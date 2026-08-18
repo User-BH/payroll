@@ -66,7 +66,7 @@ COMPONENTS = [
     ("MARRIAGE",     "حق تاهل",         "EARNING", "fixed",           50,  True,  True,  False, False, GREEN, False),
     ("FOOD",         "وجه بن",          "EARNING", "fixed",           60,  True,  True,  True,  False, GREEN, False),
     ("OVERTIME",     "اضافه کار",       "EARNING", "overtime",        70,  True,  True,  False, False, GREEN, False),
-    ("MISSION",      "حق ماموریت",      "EARNING", "manual",          80,  False, False, False, False, AMBER, False),
+    ("MISSION",      "حق ماموریت",      "EARNING", "mission_allowance",          80,  False, False, False, False, AMBER, False),
     ("PREV_CLAIM",   "طلب ماه قبل",     "EARNING", "manual",          90,  True,  True,  False, False, GREEN, False),
     ("LEAVE_PAY",    "وجه مرخصی",       "EARNING", "manual",          100, True,  True,  False, False, GREEN, False),
     # هزینه تلفن مشمول بیمه است — از فیش تیر ۱۴۰۵ آقای سعادتی تأیید شد:
@@ -226,7 +226,7 @@ class Command(BaseCommand):
         for code, name, seq, scope_type, target in SCOPED:
             component = SalaryComponent.objects.create(
                 company=company, code=code, name=name, kind="EARNING",
-                calc_type="MANUAL", sequence=seq,
+                calc_type="MANUAL", sequence=seq, is_commission=True,
                 is_insurable=True, is_taxable=True,
                 affects_eid=False, affects_severance=False, color=RED,
                 description="مبلغ در هر دوره وارد می‌شود",

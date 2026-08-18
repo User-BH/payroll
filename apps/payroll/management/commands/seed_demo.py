@@ -289,7 +289,7 @@ class Command(BaseCommand):
             # حق اولاد: معاف از بیمه، ولی مشمول مالیات
             ("CHILD", "حق اولاد", "EARNING", "child_allowance", 50, False, True, False, False, amber, False),
             # حق ماموریت: معاف از بیمه و معاف از مالیات
-            ("MISSION", "حق ماموریت", "EARNING", "manual_input", 55, False, False, False, False, amber, False),
+            ("MISSION", "حق ماموریت", "EARNING", "mission_allowance", 55, False, False, False, False, amber, False),
             ("JOB_ALLOWANCE", "فوق‌العاده شغل", "EARNING", "contract_allowance", 60, True, True, True, True, green, False),
             ("OVERTIME", "اضافه‌کاری", "EARNING", "overtime", 70, True, True, False, False, green, False),
             ("NIGHT", "شب‌کاری", "EARNING", "night_work", 80, True, True, False, False, green, False),
@@ -328,6 +328,7 @@ class Command(BaseCommand):
         for level, seq in [(1, 120), (2, 130), (3, 140)]:
             component = SalaryComponent.objects.create(
                 company=company,
+                is_commission=True,
                 code=f"COMMISSION_{level}",
                 name=f"پورسانت سطح {persian_levels[level]}",
                 kind="EARNING",

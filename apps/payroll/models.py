@@ -266,6 +266,98 @@ class MonthlyParameter(models.Model):
         return PARAM_LABELS.get(self.key, self.key)
 
 
+class CommissionAllocation(models.Model):
+    """تخصیص پورسانت یک پرسنل در یک دوره به حق مأموریت و اضافه‌کاری.
+
+    پورسانت طبق ضوابط شرکت می‌تواند در ردیف حق مأموریت یا اضافه‌کاری بنشیند،
+    ولی هر دو سقف دارند. این رکورد **کلِ مسیر** را نگه می‌دارد تا همیشه بشود
+    پرسید این عدد از کجا آمد:
+
+        پورسانت اولیه = منتقل‌شده به مأموریت + منتقل‌شده به اضافه‌کاری + مانده
+
+    این تساوی همیشه برقرار است. مبلغی که در هیچ‌کدام جا نشد **حذف نمی‌شود** و
+    به‌عنوان ماندهٔ پورسانت باقی می‌ماند.
+
+    مبناها و سقف‌های به‌کاررفته هم اینجا عکس‌برداری می‌شوند، چون ماه بعد عوض
+    می‌شوند و بدون آن‌ها محاسبهٔ این ماه قابل بازسازی نیست.
+    """
+
+    period = models.ForeignKey(
+        PayrollPeriod, on_delete=models.CASCADE,
+        related_name="commission_allocations", verbose_name="دوره",
+    )
+    employee = models.ForeignKey(
+        Employee, on_delete=models.CASCADE,
+        related_name="commission_allocations", verbose_name="پرسنل",
+    )
+
+    source_amount = models.DecimalField(
+        "پورسانت اولیه", max_digits=18, decimal_places=0, default=0
+    )
+    to_mission = models.DecimalField(
+        "منتقل‌شده به حق مأموریت", max_digits=18, decimal_places=0, default=0
+    )
+    mission_days = models.DecimalField(
+        "روز مأموریت معادل", max_digits=6, decimal_places=2, default=0
+    )
+    to_overtime = models.DecimalField(
+        "منتقل‌شده به اضافه‌کاری", max_digits=18, decimal_places=0, default=0
+    )
+    overtime_hours = models.DecimalField(
+        "ساعت اضافه‌کاری معادل", max_digits=8, decimal_places=2, default=0
+    )
+    remaining = models.DecimalField(
+        "ماندهٔ پورسانت", max_digits=18, decimal_places=0, default=0
+    )
+
+    # --- مبناها و سقف‌های همان ماه، در لحظهٔ تخصیص
+    mission_daily_rate = models.DecimalField(
+        "مبنای روزانه مأموریت", max_digits=18, decimal_places=0, default=0
+    )
+    mission_max_days = models.DecimalField(
+        "سقف روز مأموریت", max_digits=6, decimal_places=2, default=0
+    )
+    overtime_hourly_rate = models.DecimalField(
+        "مبنای ساعتی اضافه‌کاری", max_digits=18, decimal_places=0, default=0
+    )
+    overtime_max_hours = models.DecimalField(
+        "سقف ساعت اضافه‌کاری", max_digits=8, decimal_places=2, default=0
+    )
+
+    is_manual = models.BooleanField(
+        "تخصیص دستی", default=False,
+        help_text="کاربر تقسیم خودکار را تغییر داده است",
+    )
+    note = models.CharField("توضیح", max_length=160, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(
+        "accounts.User", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="commission_allocations", verbose_name="ثبت‌کننده",
+    )
+
+    class Meta:
+        verbose_name = "تخصیص پورسانت"
+        verbose_name_plural = "تخصیص پورسانت"
+        unique_together = [("period", "employee")]
+        ordering = ["employee__personnel_code"]
+
+    def __str__(self):
+        return f"تخصیص پورسانت {self.employee} — {self.period}"
+
+    @property
+    def is_balanced(self) -> bool:
+        """تساوی حفظ مبلغ — اگر بشکند یعنی جایی مبلغ گم شده است."""
+        return self.to_mission + self.to_overtime + self.remaining == self.source_amount
+
+    @property
+    def mission_capacity(self) -> Decimal:
+        return self.mission_daily_rate * self.mission_max_days
+
+    @property
+    def overtime_capacity(self) -> Decimal:
+        return self.overtime_hourly_rate * self.overtime_max_hours
+
+
 class Payslip(models.Model):
     """فیش حقوقی.
 

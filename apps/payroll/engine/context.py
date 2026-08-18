@@ -42,6 +42,7 @@ class PayrollContext:
     manual_inputs: dict = field(default_factory=dict)       # component_id -> Decimal
     contract_allowances: dict = field(default_factory=dict)  # component_id -> Decimal
     due_installments: list = field(default_factory=list)
+    allocation: object = None                                # CommissionAllocation
 
     # نتایج تجمعی حین محاسبه
     amounts: dict = field(default_factory=dict)   # component_code -> Decimal
@@ -140,6 +141,43 @@ class PayrollContext:
         if not getattr(self.contract, "is_insured", True):
             return False
         return not getattr(self.employee, "is_retired", False)
+
+    # ------------------------------------------------------------- پورسانت
+
+    @property
+    def commission_to_mission(self) -> Decimal:
+        return getattr(self.allocation, "to_mission", ZERO) or ZERO
+
+    @property
+    def commission_mission_days(self) -> Decimal:
+        return getattr(self.allocation, "mission_days", ZERO) or ZERO
+
+    @property
+    def commission_to_overtime(self) -> Decimal:
+        return getattr(self.allocation, "to_overtime", ZERO) or ZERO
+
+    @property
+    def commission_overtime_hours(self) -> Decimal:
+        return getattr(self.allocation, "overtime_hours", ZERO) or ZERO
+
+    @property
+    def commission_transferred(self) -> Decimal:
+        return self.commission_to_mission + self.commission_to_overtime
+
+    def commission_share(self, component_amount: Decimal) -> Decimal:
+        """سهم این قلم پورسانت از ماندهٔ کل.
+
+        پورسانت ممکن است چند قلم باشد (سطح ۱، ۲، ۳) و تخصیص روی جمعشان انجام
+        شده است. مانده به نسبت سهم هر قلم تقسیم می‌شود تا جمع سطرها دقیقاً
+        برابر ماندهٔ کل بماند و هیچ ریالی گم یا اضافه نشود.
+        """
+        from apps.payroll.utils import quantize_rial
+
+        source = getattr(self.allocation, "source_amount", ZERO) or ZERO
+        remaining = getattr(self.allocation, "remaining", ZERO) or ZERO
+        if not source:
+            return Decimal(component_amount)
+        return quantize_rial(Decimal(component_amount) * remaining / source)
 
     # ---------------------------------------------------------------- کمکی
 

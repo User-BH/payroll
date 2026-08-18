@@ -73,6 +73,61 @@ def resolve_effective_params(period, legal_parameter) -> EffectiveParams:
     return EffectiveParams(legal_parameter, overrides)
 
 
+def ensure_commission_allocations(period, params, timesheets):
+    """تخصیص پورسانت همهٔ پرسنل دوره — {employee_id: CommissionAllocation}.
+
+    برای کسی که پورسانت دارد ولی تخصیصش ثبت نشده، تقسیم خودکار انجام و ذخیره
+    می‌شود. تخصیص‌های **دستی** دست‌نخورده می‌مانند؛ کاربر آن‌ها را عمداً
+    تغییر داده است.
+
+    تخصیص‌های خودکارِ قدیمی دوباره ساخته می‌شوند چون ممکن است مبنای ماه یا
+    مبلغ پورسانت از آخرین اجرا عوض شده باشد.
+    """
+    from apps.payroll.commission import build_plan, commission_totals
+    from apps.payroll.models import CommissionAllocation
+
+    totals = commission_totals(period)
+    existing = {
+        item.employee_id: item
+        for item in CommissionAllocation.objects.filter(period=period)
+    }
+
+    result = {}
+    for employee_id, source in totals.items():
+        current = existing.get(employee_id)
+        if current is not None and current.is_manual:
+            result[employee_id] = current
+            continue
+        employee = (
+            current.employee if current is not None
+            else _employee_by_id(period, employee_id)
+        )
+        if employee is None:
+            continue
+        plan = build_plan(
+            period, employee, params, source, timesheets.get(employee_id)
+        ).auto()
+        allocation, _ = CommissionAllocation.objects.update_or_create(
+            period=period, employee_id=employee_id,
+            defaults={**plan.as_fields(), "is_manual": False},
+        )
+        result[employee_id] = allocation
+
+    # کسانی که پورسانت ندارند ولی رکورد قدیمی دارند: رکورد بی‌مصرف پاک شود
+    stale = set(existing) - set(totals)
+    if stale:
+        CommissionAllocation.objects.filter(
+            period=period, employee_id__in=stale, is_manual=False
+        ).delete()
+    return result
+
+
+def _employee_by_id(period, employee_id):
+    from apps.employees.models import Employee
+
+    return Employee.objects.filter(pk=employee_id).first()
+
+
 def _rule_for(component):
     """انتخاب قاعده بر اساس نحوه محاسبه قلم."""
     if component.calc_type == SalaryComponent.CalcType.ENGINE_RULE:
@@ -313,6 +368,11 @@ def calculate_period(period: PayrollPeriod, user=None) -> PayrollRun:
             allowance.component_id
         ] = allowance.amount
 
+    # تخصیص پورسانت: آنچه کاربر در صفحهٔ «تخصیص پورسانت» تأیید کرده. اگر برای
+    # کسی ثبت نشده باشد، همان‌جا با تقسیم خودکار ساخته می‌شود تا محاسبه هرگز
+    # بی‌صدا از پورسانت صرف‌نظر نکند.
+    allocations = ensure_commission_allocations(period, params, timesheets)
+
     installments = {}
     due_qs = LoanInstallment.objects.filter(
         due_year=period.year,
@@ -350,6 +410,7 @@ def calculate_period(period: PayrollPeriod, user=None) -> PayrollRun:
                 manual_inputs=manual_inputs.get(employee.pk, {}),
                 contract_allowances=allowances.get(contract.pk, {}),
                 due_installments=installments.get(employee.pk, []),
+                allocation=allocations.get(employee.pk),
             )
             calculate_payslip(ctx, components, run=run)
             success += 1

@@ -57,6 +57,16 @@ urlpatterns = [
         payroll_views.monthly_parameters_save,
         name="monthly_parameters_save",
     ),
+    path(
+        "periods/<int:pk>/commission/",
+        payroll_views.commission_allocations,
+        name="commission_allocations",
+    ),
+    path(
+        "periods/<int:pk>/commission/save/",
+        payroll_views.commission_allocations_save,
+        name="commission_allocations_save",
+    ),
     path("periods/<int:pk>/manual/", payroll_views.manual_inputs, name="manual_inputs"),
     path("periods/<int:pk>/manual/save/", payroll_views.manual_input_save, name="manual_input_save"),
     path("periods/<int:pk>/", payroll_views.period_detail, name="period_detail"),

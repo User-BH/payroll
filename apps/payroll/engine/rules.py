@@ -152,11 +152,95 @@ def _hourly_rule(ctx: PayrollContext, hours: Decimal, factor: Decimal, label: st
 
 @rule("overtime", "اضافه‌کاری")
 def overtime(ctx: PayrollContext, component):
-    if not ctx.timesheet:
+    """اضافه‌کاری = ساعت‌های جدول کارکرد + مبلغ منتقل‌شده از پورسانت.
+
+    مبنای ساعتی اگر برای همان ماه ثبت شده باشد از آن می‌آید، وگرنه از مزد
+    ساعتی خود پرسنل. مبلغ منتقل‌شده از پورسانت در `commission.py` و با رعایت
+    سقف ساعت همان ماه حساب شده و اینجا فقط به سطر اضافه می‌شود.
+    """
+    hours = ctx.timesheet.overtime_hours if ctx.timesheet else ZERO
+    monthly_rate = Decimal(ctx.params.overtime_hourly_rate or ZERO)
+
+    # مبنای ساعتیِ ماه، **مبلغ نهایی هر ساعت** است و ضریب روی آن اعمال نمی‌شود:
+    # همان عددی است که هر ماه تصویب می‌شود. اگر ضریب هم می‌خورد، «ساعت معادلِ»
+    # مبلغ منتقل‌شده از پورسانت با سقف ساعت نمی‌خواند و سقف بی‌معنا می‌شد.
+    if monthly_rate:
+        hourly, factor, basis = monthly_rate, Decimal("1"), "مبنای ساعتی این ماه"
+    else:
+        hourly, factor = ctx.hourly_base, ctx.params.overtime_factor
+        basis = "مزد ساعتی"
+
+    amount = hourly * factor * hours if hours and hours > 0 else ZERO
+    parts = []
+    if hours and hours > 0:
+        rate_note = "" if monthly_rate else f" × {fa_number(factor, 3)}"
+        parts.append(
+            f"اضافه‌کاری: {fa_number(hours, 2)} ساعت × {fa_money(hourly)} ریال "
+            f"{basis}{rate_note}"
+        )
+
+    transferred = ctx.commission_to_overtime
+    if transferred:
+        amount += transferred
+        hours = hours + ctx.commission_overtime_hours
+        parts.append(
+            f"به‌علاوهٔ {fa_money(transferred)} ریال منتقل‌شده از پورسانت "
+            f"({fa_number(ctx.commission_overtime_hours, 2)} ساعت)"
+        )
+
+    if amount <= ZERO:
         return None
-    return _hourly_rule(
-        ctx, ctx.timesheet.overtime_hours, ctx.params.overtime_factor, "اضافه‌کاری"
-    )
+    return LineResult(
+        amount=amount,
+        base_amount=hourly,
+        quantity=hours,
+        rate=factor,
+        explanation=" — ".join(parts),
+    ).rounded()
+
+
+@rule("mission_allowance", "حق مأموریت")
+def mission_allowance(ctx: PayrollContext, component):
+    """حق مأموریت = روزهای مأموریت جدول کارکرد + مبلغ منتقل‌شده از پورسانت.
+
+    مبنای روزانه «آیتم محاسباتی ماهانه» است و هر ماه جداگانه ثبت می‌شود؛ اگر
+    ثبت نشده باشد فقط مبلغ دستیِ همان قلم (اگر باشد) می‌ماند.
+    """
+    rate = Decimal(ctx.params.mission_daily_rate or ZERO)
+    days = (ctx.timesheet.mission_days if ctx.timesheet else ZERO) or ZERO
+
+    amount = rate * days
+    parts = []
+    if amount:
+        parts.append(
+            f"حق مأموریت: {fa_number(days, 2)} روز × {fa_money(rate)} ریال "
+            f"مبنای روزانهٔ این ماه"
+        )
+
+    transferred = ctx.commission_to_mission
+    if transferred:
+        amount += transferred
+        days = days + ctx.commission_mission_days
+        parts.append(
+            f"به‌علاوهٔ {fa_money(transferred)} ریال منتقل‌شده از پورسانت "
+            f"({fa_number(ctx.commission_mission_days, 2)} روز)"
+        )
+
+    # مبلغ دستیِ ثبت‌شده روی همین قلم هم اگر باشد اضافه می‌شود
+    manual = ctx.manual_inputs.get(component.id)
+    if manual:
+        amount += Decimal(manual)
+        parts.append(f"به‌علاوهٔ {fa_money(manual)} ریال مبلغ دستی")
+
+    if amount <= ZERO:
+        return None
+    return LineResult(
+        amount=amount,
+        base_amount=rate,
+        quantity=days,
+        rate=Decimal("1"),
+        explanation=" — ".join(parts),
+    ).rounded()
 
 
 @rule("night_work", "شب‌کاری")
@@ -214,13 +298,35 @@ def contract_allowance(ctx: PayrollContext, component):
 
 @rule("manual_input", "ورود دستی دوره")
 def manual_input(ctx: PayrollContext, component):
-    """اقلامی مثل پورسانت فروش که مبلغشان از بیرون موتور می‌آید."""
-    amount = ctx.manual_inputs.get(component.id)
+    """اقلامی مثل پورسانت فروش که مبلغشان از بیرون موتور می‌آید.
+
+    اگر قلم «پورسانت» باشد و بخشی از آن به حق مأموریت یا اضافه‌کاری منتقل شده
+    باشد، فقط **مانده** روی این سطر می‌نشیند — وگرنه همان مبلغ دو بار پرداخت
+    می‌شد. توضیح سطر می‌گوید چه مقدار کجا رفته است.
+    """
+    amount = Decimal(ctx.manual_inputs.get(component.id) or ZERO)
     if not amount:
         return None
+
+    if component.is_commission and ctx.commission_transferred:
+        share = ctx.commission_share(amount)
+        if share <= ZERO:
+            return None
+        return LineResult(
+            amount=share,
+            base_amount=amount,
+            quantity=Decimal("1"),
+            rate=Decimal("1"),
+            explanation=(
+                f"{component.name}: از {fa_money(amount)} ریال، "
+                f"{fa_money(amount - share)} ریال به حق مأموریت/اضافه‌کاری منتقل شد "
+                f"و {fa_money(share)} ریال مانده"
+            ),
+        ).rounded()
+
     return LineResult(
-        amount=Decimal(amount),
-        base_amount=Decimal(amount),
+        amount=amount,
+        base_amount=amount,
         quantity=Decimal("1"),
         rate=Decimal("1"),
         explanation=f"{component.name}: مبلغ ثبت‌شده برای دوره {ctx.period.title}",

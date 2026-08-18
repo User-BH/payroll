@@ -50,6 +50,9 @@ MONTHLY_PARAMS = [
      "خالی یا صفر یعنی از مزد ساعتی خود پرسنل حساب شود"),
     ("mission_max_days", "سقف روز مأموریت", DAYS, Group.WAGE,
      "حداکثر روز مأموریت قابل ثبت در ماه"),
+    ("overtime_max_hours", "سقف ساعت اضافه‌کاری", HOURS, Group.WAGE,
+     "حداکثر ساعت اضافه‌کاری قابل ثبت در ماه — صفر یعنی سقفی تعریف نشده و "
+     "انتقال پورسانت به اضافه‌کاری انجام نمی‌شود"),
 
     ("min_daily_wage", "حداقل دستمزد روزانه", RIAL, Group.WAGE, ""),
     ("seniority_daily", "پایه سنوات روزانه", RIAL, Group.WAGE, ""),
@@ -74,6 +77,7 @@ MONTHLY_ONLY_DEFAULTS = {
     "mission_daily_rate": Decimal("0"),
     "overtime_hourly_rate": Decimal("0"),
     "mission_max_days": Decimal("25"),
+    "overtime_max_hours": Decimal("0"),
 }
 
 PARAM_KEYS = [key for key, *_ in MONTHLY_PARAMS]

@@ -15,6 +15,7 @@ from apps.org.models import CostCenter, Department
 from apps.payroll.engine.runner import CalculationError, calculate_period
 from apps.payroll.exports import generate_export
 from apps.payroll.models import (
+    CommissionAllocation,
     MonthlyParameter,
     PayrollExport,
     PayrollInput,
@@ -916,3 +917,134 @@ def monthly_parameters_save(request, pk):
         + " برای اعمال روی فیش‌ها، دوره را دوباره محاسبه کنید.",
     )
     return redirect("monthly_parameters", pk=period.pk)
+
+
+# ------------------------------------------------------- تخصیص پورسانت
+
+
+@payroll_staff_required
+def commission_allocations(request, pk):
+    """تخصیص پورسانت به حق مأموریت و اضافه‌کاری.
+
+    هر سطر نشان می‌دهد پورسانت اولیه چقدر بوده، چقدر کجا رفته و چقدر مانده —
+    و اینکه ظرفیت هر کدام در همین ماه چقدر است.
+    """
+    from apps.payroll.commission import build_plan, commission_totals
+    from apps.payroll.engine.runner import (
+        resolve_effective_params, resolve_legal_parameter,
+    )
+
+    period = get_object_or_404(
+        PayrollPeriod.objects.select_related("company", "fiscal_year"), pk=pk
+    )
+    try:
+        params = resolve_effective_params(period, resolve_legal_parameter(period))
+    except Exception:  # noqa: BLE001
+        messages.error(request, "پارامتر قانونی این سال تعریف نشده است.")
+        return redirect("period_detail", pk=period.pk)
+
+    totals = commission_totals(period)
+    timesheets = {ts.employee_id: ts for ts in Timesheet.objects.filter(period=period)}
+    saved = {a.employee_id: a for a in CommissionAllocation.objects.filter(period=period)}
+
+    employees = {
+        e.pk: e for e in Employee.objects.filter(pk__in=totals.keys())
+    }
+
+    rows = []
+    for employee_id, source in sorted(
+        totals.items(), key=lambda kv: employees[kv[0]].personnel_code if kv[0] in employees else ""
+    ):
+        employee = employees.get(employee_id)
+        if employee is None:
+            continue
+        allocation = saved.get(employee_id)
+        plan = build_plan(period, employee, params, source, timesheets.get(employee_id))
+        if allocation is not None:
+            plan.manual(allocation.to_mission, allocation.to_overtime)
+        else:
+            plan.auto()
+        rows.append({
+            "employee": employee,
+            "source": source,
+            "plan": plan,
+            "allocation": allocation,
+            "is_manual": bool(allocation and allocation.is_manual),
+        })
+
+    return render(
+        request,
+        "payroll/commission.html",
+        {
+            "period": period,
+            "rows": rows,
+            "mission_rate": params.mission_daily_rate,
+            "mission_max_days": params.mission_max_days,
+            "overtime_rate": params.overtime_hourly_rate,
+            "overtime_max_hours": params.overtime_max_hours,
+            "totals": {
+                "source": sum((r["source"] for r in rows), 0),
+                "mission": sum((r["plan"].to_mission for r in rows), 0),
+                "overtime": sum((r["plan"].to_overtime for r in rows), 0),
+                "remaining": sum((r["plan"].remaining for r in rows), 0),
+            },
+        },
+    )
+
+
+@can_edit_required
+@require_POST
+def commission_allocations_save(request, pk):
+    """ذخیره تقسیم دستی، یا برگرداندن همه به تقسیم خودکار."""
+    from apps.payroll.commission import build_plan, commission_totals
+    from apps.payroll.engine.runner import (
+        resolve_effective_params, resolve_legal_parameter,
+    )
+
+    period = get_object_or_404(PayrollPeriod, pk=pk)
+    if period.is_locked:
+        messages.error(request, "دوره قفل شده است.")
+        return redirect("commission_allocations", pk=period.pk)
+
+    params = resolve_effective_params(period, resolve_legal_parameter(period))
+    totals = commission_totals(period)
+    timesheets = {ts.employee_id: ts for ts in Timesheet.objects.filter(period=period)}
+
+    if request.POST.get("action") == "auto":
+        CommissionAllocation.objects.filter(period=period).delete()
+        messages.success(
+            request,
+            "همهٔ تخصیص‌ها به تقسیم خودکار برگشتند. "
+            "برای اعمال روی فیش‌ها، دوره را دوباره محاسبه کنید.",
+        )
+        return redirect("commission_allocations", pk=period.pk)
+
+    changed = 0
+    for employee in Employee.objects.filter(pk__in=totals.keys()):
+        prefix = f"emp__{employee.pk}"
+        if f"{prefix}__mission" not in request.POST:
+            continue
+        plan = build_plan(
+            period, employee, params, totals[employee.pk], timesheets.get(employee.pk)
+        ).manual(
+            parse_decimal(request.POST.get(f"{prefix}__mission"), 0),
+            parse_decimal(request.POST.get(f"{prefix}__overtime"), 0),
+        )
+        CommissionAllocation.objects.update_or_create(
+            period=period, employee=employee,
+            defaults={
+                **plan.as_fields(),
+                "is_manual": True,
+                "note": (request.POST.get(f"{prefix}__note") or "").strip()[:160],
+                "updated_by": request.user,
+            },
+        )
+        changed += 1
+
+    messages.success(
+        request,
+        f"تخصیص پورسانت {changed} نفر ثبت شد. مبالغ خارج از ظرفیت به سقف مجاز "
+        "محدود شدند و مازادشان در ماندهٔ پورسانت ماند. "
+        "برای اعمال روی فیش‌ها، دوره را دوباره محاسبه کنید.",
+    )
+    return redirect("commission_allocations", pk=period.pk)
