@@ -180,6 +180,118 @@ class Timesheet(models.Model):
         return self.status == self.Status.APPROVED
 
 
+class LeaveRecord(models.Model):
+    """یک مرخصی ثبت‌شده در کارتابل مرخصی.
+
+    کارگزینی مرخصی را همین‌جا ثبت می‌کند و همان لحظه در کارکرد ماه اعمال
+    می‌شود — بدون ورود دوباره در جدول کارکرد و بدون رفت‌وبرگشت بین کارگزینی و
+    حقوق و دستمزد.
+
+    **مبنا دقیقه است**، مثل بقیهٔ مرخصی‌های سامانه: مرخصی ساعتی و روزانه هر دو
+    با یک واحد نگهداری می‌شوند و روزِ اعشاری فقط برای نمایش ساخته می‌شود.
+
+    مرخصی‌ای که روی دو ماه بیفتد بین دوره‌ها به نسبت روزهای مشترک تقسیم
+    می‌شود؛ در حالت رایج (مرخصی روزانه) این تقسیم دقیق است.
+    """
+
+    class Kind(models.TextChoices):
+        ENTITLED = "ENTITLED", "استحقاقی"
+        UNPAID = "UNPAID", "بدون حقوق"
+        SICK = "SICK", "استعلاجی"
+
+    class Status(models.TextChoices):
+        REGISTERED = "REGISTERED", "ثبت‌شده"
+        CANCELLED = "CANCELLED", "لغوشده"
+
+    # هر نوع مرخصی به کدام ستون کارکرد می‌نشیند
+    TIMESHEET_FIELD = {
+        Kind.ENTITLED: "leave_minutes",
+        Kind.UNPAID: "unpaid_leave_days",
+        Kind.SICK: "sick_leave_days",
+    }
+
+    employee = models.ForeignKey(
+        Employee, on_delete=models.CASCADE, related_name="leave_records", verbose_name="پرسنل"
+    )
+    kind = models.CharField("نوع مرخصی", max_length=10, choices=Kind.choices, default=Kind.ENTITLED)
+    start_date = models.DateField("از تاریخ")
+    end_date = models.DateField("تا تاریخ")
+    minutes = models.PositiveIntegerField(
+        "مدت (دقیقه)", default=0,
+        help_text="مبنای ذخیره دقیقه است؛ روز و ساعت از روی همین ساخته می‌شوند",
+    )
+
+    status = models.CharField(
+        "وضعیت", max_length=12, choices=Status.choices, default=Status.REGISTERED
+    )
+    reason = models.CharField("علت", max_length=200, blank=True)
+
+    created_at = models.DateTimeField("زمان ثبت", auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(
+        "accounts.User", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="leave_records", verbose_name="ثبت‌کننده",
+    )
+
+    class Meta:
+        verbose_name = "مرخصی"
+        verbose_name_plural = "کارتابل مرخصی"
+        ordering = ["-start_date", "employee__personnel_code"]
+        indexes = [models.Index(fields=["employee", "start_date", "end_date"])]
+
+    def __str__(self):
+        return f"{self.get_kind_display()} {self.employee.full_name} — {self.start_date}"
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        if self.start_date and self.end_date and self.end_date < self.start_date:
+            raise ValidationError({"end_date": "تاریخ پایان نمی‌تواند قبل از شروع باشد."})
+        if not self.minutes:
+            # خطای بدون فیلد: مدت در فرم به‌صورت سه ورودی روز/ساعت/دقیقه گرفته
+            # می‌شود و فیلدی به نام `minutes` در فرم وجود ندارد که خطا را بگیرد.
+            raise ValidationError("مدت مرخصی نمی‌تواند صفر باشد.")
+
+    @property
+    def is_active(self):
+        return self.status == self.Status.REGISTERED
+
+    @property
+    def span_days(self) -> int:
+        if not (self.start_date and self.end_date):
+            return 0
+        return (self.end_date - self.start_date).days + 1
+
+    def minutes_in(self, start, end) -> int:
+        """دقیقه‌های این مرخصی که داخل بازهٔ [start, end] می‌افتند.
+
+        تقسیم به نسبت روزهای مشترک است. برای مرخصی روزانه — که مدتش مضربی از
+        طول روز کاری است — این تقسیم دقیق درمی‌آید.
+        """
+        if not self.is_active or not self.span_days:
+            return 0
+        first = max(self.start_date, start)
+        last = min(self.end_date, end)
+        if last < first:
+            return 0
+        overlap = (last - first).days + 1
+        if overlap >= self.span_days:
+            return int(self.minutes)
+        return int(round(self.minutes * overlap / self.span_days))
+
+    def parts(self, day_minutes=None):
+        """(روز، ساعت، دقیقه) برای نمایش."""
+        from apps.attendance.leave import DEFAULT_DAY_MINUTES, split_dhm
+
+        _, days, hours, mins = split_dhm(self.minutes, day_minutes or DEFAULT_DAY_MINUTES)
+        return {"d": days, "h": hours, "m": mins}
+
+    def display(self, day_minutes=None):
+        from apps.attendance.leave import DEFAULT_DAY_MINUTES, format_dhm
+
+        return format_dhm(self.minutes, day_minutes or DEFAULT_DAY_MINUTES)
+
+
 class LeaveEntitlement(models.Model):
     """سهمیه مرخصی یک پرسنل در یک سال مالی.
 

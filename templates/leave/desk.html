@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% load payroll_extras %}
+{% block title %}کارتابل مرخصی{% endblock %}
+{% block heading %}کارتابل مرخصی{% endblock %}
+{% block subheading %}
+  {{ total|fanum }} مرخصی ثبت شده · هر ثبت همان لحظه در کارکرد ماه اعمال می‌شود
+{% endblock %}
+
+{% block content %}
+<div class="note-box">
+  <b>ثبت اینجا یعنی ثبت در کارکرد.</b>
+  لازم نیست همان عدد را دوباره در جدول کارکرد ماهانه وارد کنید.
+  برای هر نوع مرخصی، اگر در آن دوره رکوردی وجود داشته باشد، ستون متناظرِ کارکرد از
+  <b>جمع رکوردهای ثبت‌شده</b> ساخته می‌شود؛ نوع‌هایی که رکورد ندارند دست‌نخورده می‌مانند.
+  لغو یک مرخصی هم بلافاصله سهمش را از همان ستون برمی‌دارد.
+  <br>مبنای ذخیره دقیقه است — یک روز کاری {{ day_minutes|fanum }} دقیقه.
+</div>
+
+<form method="get" class="search-bar">
+  <input class="input" type="search" name="q" value="{{ q }}" placeholder="جستجوی نام یا کد پرسنلی…">
+  <select class="input" name="period" style="max-width:200px;">
+    <option value="">همه دوره‌ها</option>
+    {% for p in periods %}
+    <option value="{{ p.pk }}" {% if period_id == p.pk|stringformat:"s" %}selected{% endif %}>{{ p.title }}</option>
+    {% endfor %}
+  </select>
+  <select class="input" name="kind" style="max-width:170px;">
+    <option value="">همه نوع‌ها</option>
+    {% for value, label in kinds %}
+    <option value="{{ value }}" {% if kind == value %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <button class="btn btn-outline btn-sm" type="submit">فیلتر</button>
+  {% if user.can_edit_payroll %}
+  <a class="btn btn-primary btn-sm" href="{% url 'leave_record_create' %}">ثبت مرخصی</a>
+  {% if period and period.is_editable %}
+  <button class="btn btn-outline btn-sm" type="submit" form="sync-form">اعمال دوباره در کارکرد {{ period.title }}</button>
+  {% endif %}
+  {% endif %}
+</form>
+
+{% if period and period.is_editable and user.can_edit_payroll %}
+<form id="sync-form" method="post" action="{% url 'leave_sync_period' period.pk %}">{% csrf_token %}</form>
+{% endif %}
+
+<div class="panel">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>پرسنل</th><th>نوع</th><th>از تاریخ</th><th>تا تاریخ</th>
+          <th>مدت</th>
+          {% if period %}<th>سهم {{ period.title }}</th>{% endif %}
+          <th>علت</th><th>ثبت‌کننده</th><th>وضعیت</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr {% if not row.record.is_active %}style="opacity:.55;"{% endif %}>
+          <td>
+            <div class="cell-name">
+              <div class="av">{{ row.record.employee.initials }}</div>
+              <div>
+                <b>{{ row.record.employee.full_name }}</b>
+                <small>کد {{ row.record.employee.personnel_code|fadigits }}</small>
+              </div>
+            </div>
+          </td>
+          <td data-label="نوع">{{ row.record.get_kind_display }}</td>
+          <td data-label="از تاریخ" class="num">{{ row.record.start_date|jalali }}</td>
+          <td data-label="تا تاریخ" class="num">{{ row.record.end_date|jalali }}</td>
+          <td data-label="مدت" style="white-space:nowrap; font-weight:700;">{{ row.display }}</td>
+          {% if period %}
+          <td data-label="سهم این دوره" class="num" style="color:var(--muted);">
+            {{ row.in_period|dhm }}
+          </td>
+          {% endif %}
+          <td data-label="علت">{{ row.record.reason|default:"—" }}</td>
+          <td data-label="ثبت‌کننده" style="color:var(--muted);">{{ row.record.created_by.display_name|default:"—" }}</td>
+          <td>
+            {% if row.record.is_active %}
+            <span class="badge ok"><span class="dot"></span>ثبت‌شده</span>
+            {% if user.can_edit_payroll %}
+            <a class="link-btn" style="margin-inline-start:8px;" href="{% url 'leave_record_edit' row.record.pk %}">ویرایش</a>
+            <form method="post" action="{% url 'leave_record_cancel' row.record.pk %}" style="display:inline;"
+                  onsubmit="return confirm('این مرخصی لغو شود و از کارکرد برداشته شود؟');">
+              {% csrf_token %}
+              <button class="link-btn" type="submit" style="border:none; background:none; cursor:pointer;">لغو</button>
+            </form>
+            {% endif %}
+            {% else %}
+            <span class="badge muted"><span class="dot"></span>لغوشده</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="9"><div class="empty">مرخصی‌ای با این مشخصات ثبت نشده است.</div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if page_obj.has_other_pages %}
+  <div class="pager">
+    {% if page_obj.has_previous %}
+    <a href="?q={{ q }}&period={{ period_id }}&kind={{ kind }}&page={{ page_obj.previous_page_number }}">قبلی</a>
+    {% endif %}
+    <span class="current">{{ page_obj.number|fanum }} از {{ page_obj.paginator.num_pages|fanum }}</span>
+    {% if page_obj.has_next %}
+    <a href="?q={{ q }}&period={{ period_id }}&kind={{ kind }}&page={{ page_obj.next_page_number }}">بعدی</a>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

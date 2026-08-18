@@ -6,6 +6,7 @@ from django.urls import path
 from apps.accounts import portal_admin
 from apps.accounts import views as accounts_views
 from apps.attendance import entitlement_views
+from apps.attendance import leave_views
 from apps.attendance import views as attendance_views
 from apps.employees import views as employees_views
 from apps.loans import views as loans_views
@@ -125,6 +126,12 @@ urlpatterns = [
     path("settings/fiscal/", config_views.fiscal_settings, name="fiscal_settings"),
     path("settings/params/<int:pk>/edit/", config_views.legal_parameter_edit, name="legal_parameter_edit"),
     path("settings/brackets/<int:pk>/edit/", config_views.tax_brackets_edit, name="tax_brackets_edit"),
+    # ---- کارتابل مرخصی
+    path("leave/desk/", leave_views.leave_desk, name="leave_desk"),
+    path("leave/desk/new/", leave_views.leave_record_form, name="leave_record_create"),
+    path("leave/desk/<int:pk>/edit/", leave_views.leave_record_form, name="leave_record_edit"),
+    path("leave/desk/<int:pk>/cancel/", leave_views.leave_record_cancel, name="leave_record_cancel"),
+    path("leave/desk/sync/<int:pk>/", leave_views.leave_sync_period, name="leave_sync_period"),
     # ---- سهمیه مرخصی
     path("leave/entitlements/", entitlement_views.entitlement_list, name="entitlement_list"),
     path("leave/entitlements/save/", entitlement_views.entitlement_save, name="entitlement_save"),
