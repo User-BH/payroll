@@ -25,6 +25,7 @@ from apps.payroll.engine import rules as rules_module
 from apps.payroll.engine.context import ZERO, LineResult, PayrollContext
 from apps.payroll.engine.rules import get_rule
 from apps.payroll.models import (
+    MonthlyParameter,
     PayrollInput,
     PayrollPeriod,
     PayrollRun,
@@ -33,6 +34,7 @@ from apps.payroll.models import (
 )
 from apps.payroll.utils import fa_money, fa_number, floor_to_unit, quantize_rial
 from apps.payroll_config.models import LegalParameter, SalaryComponent
+from apps.payroll_config.monthly import PARAM_KEYS as MONTHLY_PARAM_KEYS, EffectiveParams
 
 ROUNDING_COMPONENT_CODE = "ROUNDING_ADJ"
 
@@ -55,6 +57,20 @@ def resolve_legal_parameter(period) -> LegalParameter:
             f"برای سال مالی {period.fiscal_year.year} پارامتر قانونی تعریف نشده است."
         )
     return params
+
+
+def resolve_effective_params(period, legal_parameter) -> EffectiveParams:
+    """پارامتر سالانه + مقادیر ماهانهٔ همین دوره.
+
+    ترتیب خواندن: **مقدار ماهانهٔ همان دوره، وگرنه مقدار سالانه.** قاعده‌های
+    موتور از این تفاوت بی‌خبرند و همان `params.<field>` را می‌خوانند.
+    """
+    overrides = {
+        item.key: item.value
+        for item in MonthlyParameter.objects.filter(period=period)
+        if item.key in MONTHLY_PARAM_KEYS
+    }
+    return EffectiveParams(legal_parameter, overrides)
 
 
 def _rule_for(component):
@@ -80,6 +96,9 @@ def _hash_context(ctx: PayrollContext) -> str:
         str(ctx.gross),
         str(ctx.total_deductions),
         str(ctx.params.pk),
+        # مقادیر ماهانه هم باید در شناسه بیایند، وگرنه تغییر مبنای ماه،
+        # شناسهٔ محاسبه را عوض نمی‌کرد و دو فیشِ متفاوت یک شناسه می‌گرفتند.
+        str(sorted(getattr(ctx.params, "overrides", {}).items())),
     ]
     return hashlib.sha256("|".join(parts).encode()).hexdigest()[:32]
 
@@ -252,7 +271,9 @@ def calculate_period(period: PayrollPeriod, user=None) -> PayrollRun:
     if period.is_locked:
         raise CalculationError("دوره قفل شده است و قابل محاسبه مجدد نیست.")
 
-    params = resolve_legal_parameter(period)
+    legal_parameter = resolve_legal_parameter(period)
+    # پارامترهای مؤثر = سالانه با روکشِ مقادیر ماهانهٔ همین دوره
+    params = resolve_effective_params(period, legal_parameter)
 
     run = PayrollRun.objects.create(
         period=period,
@@ -349,7 +370,7 @@ def calculate_period(period: PayrollPeriod, user=None) -> PayrollRun:
             f"اولین خطا — {errors[0]['name']}: {errors[0]['error']}"
         )
 
-    _finalize_period(period, params, run, success)
+    _finalize_period(period, legal_parameter, run, success)
     return run
 
 

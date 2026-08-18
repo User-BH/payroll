@@ -14,8 +14,14 @@ from apps.employees.models import Employee, EmploymentContract
 from apps.org.models import CostCenter, Department
 from apps.payroll.engine.runner import CalculationError, calculate_period
 from apps.payroll.exports import generate_export
-from apps.payroll.models import PayrollExport, PayrollInput, PayrollPeriod, Payslip
-from apps.payroll.utils import fa_money, jalali_str
+from apps.payroll.models import (
+    MonthlyParameter,
+    PayrollExport,
+    PayrollInput,
+    PayrollPeriod,
+    Payslip,
+)
+from apps.payroll.utils import fa_money, jalali_str, parse_decimal
 from apps.payroll_config.models import SalaryComponent
 
 
@@ -815,3 +821,98 @@ def report_export(request, pk, kind):
     )
     response["Content-Disposition"] = f'attachment; filename="{filename}"'
     return response
+
+
+# ------------------------------------------------ آیتم‌های محاسباتی ماهانه
+
+
+@payroll_staff_required
+def monthly_parameters(request, pk):
+    """مقادیر محاسباتی‌ای که هر ماه فرق می‌کنند.
+
+    آنچه سالانه ثابت است در «تنظیمات سال مالی» می‌ماند. اینجا فقط استثنای همان
+    ماه ثبت می‌شود: خالی گذاشتن هر خانه یعنی «همان مقدار سالانه».
+    """
+    from apps.payroll.engine.runner import resolve_legal_parameter
+    from apps.payroll_config.monthly import annual_value, grouped_params
+
+    period = get_object_or_404(
+        PayrollPeriod.objects.select_related("company", "fiscal_year"), pk=pk
+    )
+    try:
+        legal_parameter = resolve_legal_parameter(period)
+    except Exception:  # noqa: BLE001 — نبود پارامتر سال باید پیام بدهد نه ۵۰۰
+        messages.error(
+            request,
+            f"برای سال مالی {period.fiscal_year.year} پارامتر قانونی تعریف نشده است. "
+            "ابتدا «تنظیمات سال مالی» را کامل کنید.",
+        )
+        return redirect("period_detail", pk=period.pk)
+
+    saved = {
+        item.key: item for item in MonthlyParameter.objects.filter(period=period)
+    }
+
+    groups = []
+    for group_name, rows in grouped_params().items():
+        items = []
+        for row in rows:
+            item = saved.get(row["key"])
+            items.append({
+                **row,
+                "annual": annual_value(legal_parameter, row["key"]),
+                "monthly": item.value if item else None,
+                # توضیحِ ذخیره‌شدهٔ کاربر، نه راهنمای رجیستری — راهنما زیر
+                # عنوان نشان داده می‌شود و نباید داخل خانهٔ ورودی بنشیند.
+                "note": item.note if item else "",
+                "hint": row["note"],
+            })
+        groups.append({"name": group_name, "items": items})
+
+    return render(
+        request,
+        "settings/monthly_parameters.html",
+        {
+            "period": period,
+            "groups": groups,
+            "legal_parameter": legal_parameter,
+            "override_count": len(saved),
+        },
+    )
+
+
+@can_edit_required
+@require_POST
+def monthly_parameters_save(request, pk):
+    """ذخیره مقادیر ماهانه. خانهٔ خالی یعنی حذف استثنا و برگشت به مقدار سالانه."""
+    from apps.payroll_config.monthly import PARAM_KEYS
+
+    period = get_object_or_404(PayrollPeriod, pk=pk)
+    if period.is_locked:
+        messages.error(request, "دوره قفل شده است و پارامترهایش قابل تغییر نیستند.")
+        return redirect("monthly_parameters", pk=period.pk)
+
+    created, removed = 0, 0
+    for key in PARAM_KEYS:
+        raw = (request.POST.get(f"value__{key}") or "").strip()
+        note = (request.POST.get(f"note__{key}") or "").strip()[:160]
+        if not raw:
+            removed += MonthlyParameter.objects.filter(period=period, key=key).delete()[0]
+            continue
+        value = parse_decimal(raw, None)
+        if value is None or value < 0:
+            messages.error(request, f"مقدار «{raw}» برای این ماه معتبر نیست.")
+            return redirect("monthly_parameters", pk=period.pk)
+        MonthlyParameter.objects.update_or_create(
+            period=period, key=key,
+            defaults={"value": value, "note": note, "updated_by": request.user},
+        )
+        created += 1
+
+    messages.success(
+        request,
+        f"{created} مقدار ماهانه برای {period.title} ثبت شد"
+        + (f" و {removed} مورد به مقدار سالانه برگشت." if removed else ".")
+        + " برای اعمال روی فیش‌ها، دوره را دوباره محاسبه کنید.",
+    )
+    return redirect("monthly_parameters", pk=period.pk)

@@ -223,6 +223,49 @@ class PayrollInput(models.Model):
         return f"{self.employee} — {self.component}: {self.amount}"
 
 
+class MonthlyParameter(models.Model):
+    """مقدار یک پارامتر محاسباتی در یک دورهٔ مشخص.
+
+    آنچه سالانه ثابت است در «تنظیمات سال مالی» می‌ماند. این جدول فقط برای
+    مقادیری است که **هر ماه فرق می‌کنند** — مبنای حق مأموریت، مبنای اضافه‌کاری
+    و مانند آن‌ها.
+
+    نبودِ رکورد یعنی «همان مقدار سالانه». پس این جدول جایگزین تنظیمات سال
+    نیست، استثنای همان ماه است.
+
+    فهرست کلیدهای مجاز در `apps/payroll_config/monthly.py` است.
+    """
+
+    period = models.ForeignKey(
+        PayrollPeriod, on_delete=models.CASCADE,
+        related_name="monthly_parameters", verbose_name="دوره",
+    )
+    key = models.CharField("کلید پارامتر", max_length=40)
+    value = models.DecimalField("مقدار", max_digits=18, decimal_places=4)
+    note = models.CharField("توضیح", max_length=160, blank=True)
+
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(
+        "accounts.User", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="monthly_parameters", verbose_name="ثبت‌کننده",
+    )
+
+    class Meta:
+        verbose_name = "آیتم محاسباتی ماهانه"
+        verbose_name_plural = "آیتم‌های محاسباتی ماهانه"
+        unique_together = [("period", "key")]
+        ordering = ["key"]
+
+    def __str__(self):
+        return f"{self.period} — {self.key}: {self.value}"
+
+    @property
+    def label(self):
+        from apps.payroll_config.monthly import PARAM_LABELS
+
+        return PARAM_LABELS.get(self.key, self.key)
+
+
 class Payslip(models.Model):
     """فیش حقوقی.
 

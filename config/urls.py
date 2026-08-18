@@ -47,6 +47,16 @@ urlpatterns = [
     # ---- دوره‌های حقوقی
     path("periods/", payroll_views.period_list, name="period_list"),
     path("periods/new/", payroll_views.period_create, name="period_create"),
+    path(
+        "periods/<int:pk>/monthly/",
+        payroll_views.monthly_parameters,
+        name="monthly_parameters",
+    ),
+    path(
+        "periods/<int:pk>/monthly/save/",
+        payroll_views.monthly_parameters_save,
+        name="monthly_parameters_save",
+    ),
     path("periods/<int:pk>/manual/", payroll_views.manual_inputs, name="manual_inputs"),
     path("periods/<int:pk>/manual/save/", payroll_views.manual_input_save, name="manual_input_save"),
     path("periods/<int:pk>/", payroll_views.period_detail, name="period_detail"),

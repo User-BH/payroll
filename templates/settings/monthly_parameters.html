@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% load payroll_extras %}
+{% block title %}آیتم‌های محاسباتی ماهانه{% endblock %}
+{% block heading %}آیتم‌های محاسباتی ماهانه — {{ period.title }}{% endblock %}
+{% block subheading %}
+  {{ override_count|fanum }} مقدار برای این ماه ثبت شده · خانهٔ خالی یعنی همان مقدار سال مالی
+{% endblock %}
+
+{% block content %}
+<div class="note-box">
+  <b>آنچه سالانه ثابت است اینجا نیست.</b>
+  حداقل دستمزد، پایه سنوات، حق مسکن و بن در «تنظیمات سال مالی» ثبت می‌شوند و برای
+  همهٔ ماه‌های سال یکی‌اند. این صفحه فقط برای مقادیری است که <b>همین ماه</b> فرق
+  می‌کنند — مثل مبنای حق مأموریت و مبنای اضافه‌کاری.
+  <br>
+  ترتیب خواندن در موتور: <b>مقدار این ماه، وگرنه مقدار سال</b>. پس هر خانه‌ای که
+  خالی بگذارید، عدد سال مالی استفاده می‌شود.
+</div>
+
+{% if period.is_locked %}
+<div class="note-box">
+  <b>دوره قفل شده است.</b> مقادیر فقط برای مشاهده‌اند.
+</div>
+{% endif %}
+
+<form method="post" action="{% url 'monthly_parameters_save' period.pk %}">
+  {% csrf_token %}
+
+  {% for group in groups %}
+  <div class="panel">
+    <div class="panel-head">
+      <h3>{{ group.name }}</h3>
+      <span class="hint">مقدار سال مالی {{ period.fiscal_year.year|fanum }} کنار هر خانه آمده</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:30%">آیتم</th>
+            <th>مقدار سال مالی</th>
+            <th>مقدار این ماه</th>
+            <th>واحد</th>
+            <th>توضیح</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in group.items %}
+          <tr>
+            <td>
+              <b>{{ item.label }}</b>
+              {% if item.hint %}<div class="explain">{{ item.hint }}</div>{% endif %}
+            </td>
+            <td data-label="مقدار سال" class="num" style="color:var(--muted);">
+              {% if item.unit == 'RIAL' %}{{ item.annual|rial }}{% else %}{{ item.annual|fadec }}{% endif %}
+            </td>
+            <td data-label="مقدار این ماه">
+              <input class="input num" name="value__{{ item.key }}" inputmode="decimal"
+                     style="max-width:170px;"
+                     value="{% if item.monthly != None %}{{ item.monthly|floatformat:"-4" }}{% endif %}"
+                     placeholder="— همان مقدار سال —"
+                     {% if period.is_locked %}readonly{% endif %}>
+            </td>
+            <td data-label="واحد" style="color:var(--muted);">{{ item.unit_label }}</td>
+            <td data-label="توضیح">
+              <input class="input" name="note__{{ item.key }}" maxlength="160"
+                     value="{{ item.note }}" placeholder="اختیاری — دلیل تفاوت این ماه"
+                     {% if period.is_locked %}readonly{% endif %}>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endfor %}
+
+  {% if not period.is_locked %}
+  <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+    <button class="btn btn-primary" type="submit">ذخیره مقادیر این ماه</button>
+    <a class="btn btn-outline" href="{% url 'period_detail' period.pk %}">بازگشت به دوره</a>
+    <a class="btn btn-outline" href="{% url 'fiscal_settings' %}">تنظیمات سال مالی</a>
+    <span class="hint">پس از ذخیره، دوره را دوباره محاسبه کنید تا روی فیش‌ها بنشیند.</span>
+  </div>
+  {% endif %}
+</form>
+{% endblock %}

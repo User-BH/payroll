@@ -18,6 +18,8 @@ NAV_SECTIONS = {
     "employee_terminate": "employees",
     "employee_reactivate": "employees",
     "period_create": "periods",
+    "monthly_parameters": "monthly",
+    "monthly_parameters_save": "monthly",
     "manual_inputs": "manual",
     "manual_input_save": "manual",
     "period_list": "periods",
