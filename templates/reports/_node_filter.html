@@ -1,6 +1,6 @@
 {% load payroll_extras %}
-{# نوار فیلتر گره سازمانی — مشترک بین لیست بیمه، لیست مالیات و فایل بانک.
-   انتخاب یک گره یعنی زیردرخت همان گره، پس مرکز هزینه واحدهایش را هم می‌آورد. #}
+{% comment %} نوار فیلتر گره سازمانی — مشترک بین لیست بیمه، لیست مالیات و فایل بانک.
+   انتخاب یک گره یعنی زیردرخت همان گره، پس مرکز هزینه واحدهایش را هم می‌آورد. {% endcomment %}
 <form method="get" class="search-bar no-print" style="margin-top:0;">
   <select class="input" name="node" style="max-width:280px;" onchange="this.form.submit()">
     <option value="">کل سازمان</option>

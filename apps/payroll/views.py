@@ -487,15 +487,94 @@ def _sheet_data(period):
         for line in payslip.lines.all():
             cells[line.component_code] = line
             totals[line.component_code] = totals.get(line.component_code, ZERO) + line.amount
-        rows.append({"payslip": payslip, "cells": [cells.get(c["code"]) for c in columns]})
+        # شکل سلول همیشه یکی است، چه آزمایشی در کار باشد چه نه: یک شکل یعنی
+        # یک مسیر در قالب و یک مسیر در خروجی اکسل.
+        rows.append({
+            "payslip": payslip,
+            "cells": [{"line": cells.get(c["code"]), "delta": None} for c in columns],
+        })
 
     return {
         "groups": groups,
         "columns": columns,
         "rows": rows,
-        "totals": [totals.get(column["code"], ZERO) for column in columns],
+        "totals": [
+            {"value": totals.get(column["code"], ZERO), "delta": None} for column in columns
+        ],
         "count": len(payslips),
     }
+
+
+def _read_simulation(request, period, data):
+    """پارامترهای «اجرای آزمایشی» از URL، و تفاوت هر سلول با وضع موجود.
+
+    آزمایش با GET انجام می‌شود نه POST، چون هیچ چیزی تغییر نمی‌دهد و باید
+    بشود نتیجه‌اش را با لینک به دیگری نشان داد.
+    """
+    from apps.payroll.engine.simulate import PARAM_LABELS, TESTABLE_PARAMS, simulate_period
+
+    param_key = request.GET.get("param") or ""
+    param_value = (request.GET.get("value") or "").strip()
+    component_id = request.GET.get("component") or ""
+    component_field = request.GET.get("field") or "rate"
+    component_value = (request.GET.get("cvalue") or "").strip()
+
+    params_overrides, component_overrides = {}, {}
+    if param_key in PARAM_LABELS and param_value:
+        params_overrides[param_key] = param_value
+    if component_id and component_value and component_field in ("rate", "fixed_amount"):
+        component_overrides[component_id] = {component_field: component_value}
+
+    context = {
+        "testable_params": TESTABLE_PARAMS,
+        "sim_param": param_key,
+        "sim_value": param_value,
+        "sim_component": component_id,
+        "sim_field": component_field,
+        "sim_cvalue": component_value,
+        "editable_components": SalaryComponent.objects.filter(
+            company=period.company, is_active=True
+        ).exclude(kind=SalaryComponent.Kind.INFO).order_by("sequence", "id"),
+        "simulation": None,
+    }
+    if not (params_overrides or component_overrides):
+        return context
+
+    result = simulate_period(period, params_overrides, component_overrides)
+
+    # تفاوت هر سلول و هر ستون نسبت به وضع موجود
+    for row in data["rows"]:
+        employee_id = row["payslip"].employee_id
+        for index, column in enumerate(data["columns"]):
+            cell = row["cells"][index]
+            line = cell["line"]
+            current = ZERO
+            if line is not None:
+                current = line.quantity if line.display_unit in ("DAY", "HOUR") else line.amount
+            after = result["cells"].get((employee_id, column["code"]), ZERO)
+            cell["delta"] = after - current
+
+    for index, column in enumerate(data["columns"]):
+        data["totals"][index]["delta"] = (
+            result["totals"].get(column["code"], ZERO) - data["totals"][index]["value"]
+        )
+    current_net = sum((row["payslip"].net_payable for row in data["rows"]), ZERO)
+    new_net = sum((item["net"] for item in result["employees"].values()), ZERO)
+    current_cost = sum((row["payslip"].employer_total_cost for row in data["rows"]), ZERO)
+    new_cost = sum((item["employer_cost"] for item in result["employees"].values()), ZERO)
+
+    context["simulation"] = {
+        "net_before": current_net,
+        "net_after": new_net,
+        "net_delta": new_net - current_net,
+        "cost_before": current_cost,
+        "cost_after": new_cost,
+        "cost_delta": new_cost - current_cost,
+        "param_label": PARAM_LABELS.get(param_key, ""),
+        "param_value": param_value,
+        "component_changes": result["component_changes"],
+    }
+    return context
 
 
 @payroll_staff_required
@@ -504,8 +583,11 @@ def period_sheet(request, pk):
     period = get_object_or_404(
         PayrollPeriod.objects.select_related("company", "fiscal_year"), pk=pk
     )
+    data = _sheet_data(period)
     return render(
-        request, "periods/sheet.html", {"period": period, **_sheet_data(period)}
+        request,
+        "periods/sheet.html",
+        {"period": period, **data, **_read_simulation(request, period, data)},
     )
 
 
@@ -546,7 +628,8 @@ def period_sheet_export(request, pk):
     for row in data["rows"]:
         employee = row["payslip"].employee
         values = [employee.personnel_code, employee.full_name, row["payslip"].department.name]
-        for line in row["cells"]:
+        for cell in row["cells"]:
+            line = cell["line"]
             if line is None:
                 values.append(None)
             elif line.display_unit in ("DAY", "HOUR"):
@@ -555,7 +638,7 @@ def period_sheet_export(request, pk):
                 values.append(line.amount)
         sheet.append(values)
 
-    total_row = ["", f"جمع {data['count']} نفر", ""] + list(data["totals"])
+    total_row = ["", f"جمع {data['count']} نفر", ""] + [t["value"] for t in data["totals"]]
     sheet.append(total_row)
     for cell in sheet[sheet.max_row]:
         cell.font = Font(bold=True)

@@ -13,6 +13,80 @@
     <a class="btn btn-primary btn-sm" href="{% url 'period_sheet_export' period.pk %}">خروجی اکسل همین برگه</a>
   </div>
 
+  {% comment %} ---- اجرای آزمایشی: یک عدد را عوض کنید و اثرش را روی کل برگه ببینید.
+       با GET کار می‌کند چون هیچ چیزی تغییر نمی‌دهد و باید بشود نتیجه‌اش را
+       با لینک نشان داد. {% endcomment %}
+  <form method="get" class="panel" style="padding:14px 16px; margin-bottom:14px;">
+    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+      <div class="field" style="margin:0; min-width:210px;">
+        <label>پارامتر سال</label>
+        <select class="input" name="param">
+          <option value="">— بدون تغییر —</option>
+          {% for key, label, unit in testable_params %}
+          <option value="{{ key }}" {% if sim_param == key %}selected{% endif %}>{{ label }} ({{ unit }})</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field" style="margin:0; width:170px;">
+        <label>مقدار آزمایشی</label>
+        <input class="input num" name="value" value="{{ sim_value }}" inputmode="decimal" placeholder="مثلاً ۳۰۰۰۰۰۰۰">
+      </div>
+      <div class="field" style="margin:0; min-width:200px;">
+        <label>یا ضریب/مبلغ یک قلم</label>
+        <select class="input" name="component">
+          <option value="">— بدون تغییر —</option>
+          {% for item in editable_components %}
+          <option value="{{ item.pk }}" {% if sim_component == item.pk|stringformat:"s" %}selected{% endif %}>{{ item.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field" style="margin:0; width:140px;">
+        <label>کدام مقدار</label>
+        <select class="input" name="field">
+          <option value="rate" {% if sim_field == 'rate' %}selected{% endif %}>ضریب / نرخ</option>
+          <option value="fixed_amount" {% if sim_field == 'fixed_amount' %}selected{% endif %}>مبلغ ثابت</option>
+        </select>
+      </div>
+      <div class="field" style="margin:0; width:150px;">
+        <label>مقدار آزمایشی</label>
+        <input class="input num" name="cvalue" value="{{ sim_cvalue }}" inputmode="decimal">
+      </div>
+      <button class="btn btn-primary" type="submit">اجرای آزمایشی</button>
+      {% if simulation %}
+      <a class="btn btn-outline" href="{% url 'period_sheet' period.pk %}">پاک کردن</a>
+      {% endif %}
+    </div>
+  </form>
+
+  {% if simulation %}
+  <div class="note-box" style="border-color:var(--amber);">
+    <b>این یک اجرای آزمایشی است — هیچ چیزی ذخیره نشده.</b>
+    {% if simulation.param_label %}«{{ simulation.param_label }}» روی {{ simulation.param_value|fadigits }} گذاشته شد.{% endif %}
+    {% for change in simulation.component_changes %}
+      «{{ change.name }}» از {{ change.before|fadec }} به {{ change.after|fadec }} تغییر کرد.
+    {% endfor %}
+    برای اینکه واقعاً اعمال شود، باید مقدار را در «تنظیمات سال مالی» یا در خود قلم
+    ذخیره کنید و دوره را دوباره محاسبه بگیرید.
+  </div>
+
+  <div class="stat-row">
+    <div class="stat"><b>خالص فعلی</b><span>{{ simulation.net_before|rial }}</span></div>
+    <div class="stat"><b>خالص با این تغییر</b><span>{{ simulation.net_after|rial }}</span></div>
+    <div class="stat">
+      <b>تفاوت خالص</b>
+      <span style="color:{% if simulation.net_delta > 0 %}var(--green){% elif simulation.net_delta < 0 %}var(--red){% else %}var(--muted){% endif %};">
+        {% if simulation.net_delta > 0 %}+{% endif %}{{ simulation.net_delta|rial }}
+      </span>
+    </div>
+    <div class="stat">
+      <b>تفاوت هزینه کارفرما</b>
+      <span style="color:{% if simulation.cost_delta > 0 %}var(--green){% elif simulation.cost_delta < 0 %}var(--red){% else %}var(--muted){% endif %};">
+        {% if simulation.cost_delta > 0 %}+{% endif %}{{ simulation.cost_delta|rial }}
+      </span>
+    </div>
+  </div>
+  {% endif %}
+
   {# نوار توضیح سلول: تا وقتی سلولی انتخاب نشده، راهنما نشان می‌دهد #}
   <div class="cell-note" :class="cell ? 'is-active' : ''">
     <template x-if="!cell">
@@ -51,16 +125,19 @@
               <a href="{% url 'payslip_detail' row.payslip.pk %}"><b>{{ row.payslip.employee.full_name }}</b></a>
               <small>کد {{ row.payslip.employee.personnel_code|fadigits }} · {{ row.payslip.department.name }}</small>
             </td>
-            {% for line in row.cells %}
-            {% if line %}
+            {% for cell in row.cells %}
+            {% if cell.line %}
             <td class="num cell" tabindex="0"
-                @click="cell = { title: '{{ row.payslip.employee.full_name|escapejs }} — {{ line.component_name|escapejs }}', note: '{{ line.explanation|escapejs }}' }">
-              {% if line.display_unit == 'DAY' %}{{ line.quantity|fadec }}
-              {% elif line.display_unit == 'HOUR' %}{{ line.quantity|fadec }}
-              {% else %}{{ line.amount|rial }}{% endif %}
+                @click="cell = { title: '{{ row.payslip.employee.full_name|escapejs }} — {{ cell.line.component_name|escapejs }}', note: '{{ cell.line.explanation|escapejs }}' }">
+              {% if cell.line.display_unit == 'DAY' or cell.line.display_unit == 'HOUR' %}{{ cell.line.quantity|fadec }}
+              {% else %}{{ cell.line.amount|rial }}{% endif %}
+              {% if cell.delta %}<span class="delta {% if cell.delta > 0 %}up{% else %}down{% endif %}">{% if cell.delta > 0 %}+{% endif %}{{ cell.delta|rial }}</span>{% endif %}
             </td>
             {% else %}
-            <td class="num empty-cell">—</td>
+            <td class="num empty-cell">
+              —
+              {% if cell.delta %}<span class="delta up">+{{ cell.delta|rial }}</span>{% endif %}
+            </td>
             {% endif %}
             {% endfor %}
           </tr>
@@ -73,7 +150,10 @@
           <tr>
             <td class="stick">جمع {{ count|fanum }} نفر</td>
             {% for total in totals %}
-            <td class="num">{% if total %}{{ total|rial }}{% else %}—{% endif %}</td>
+            <td class="num">
+              {% if total.value %}{{ total.value|rial }}{% else %}—{% endif %}
+              {% if total.delta %}<span class="delta {% if total.delta > 0 %}up{% else %}down{% endif %}">{% if total.delta > 0 %}+{% endif %}{{ total.delta|rial }}</span>{% endif %}
+            </td>
             {% endfor %}
           </tr>
         </tfoot>
@@ -115,5 +195,9 @@
     background:var(--paper-2); min-height:56px;
   }
   .cell-note.is-active{border-color:var(--red); background:var(--red-soft);}
+  /* تفاوت اجرای آزمایشی، زیر خودِ عدد فعلی — تا مقایسه بدون جابه‌جایی چشم باشد */
+  .delta{display:block; font-size:10.5px; font-weight:800; margin-top:2px;}
+  .delta.up{color:var(--green);}
+  .delta.down{color:var(--red);}
 </style>
 {% endblock %}

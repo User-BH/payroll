@@ -160,8 +160,17 @@ def _hash_context(ctx: PayrollContext) -> str:
     return hashlib.sha256("|".join(parts).encode()).hexdigest()[:32]
 
 
-def calculate_payslip(ctx: PayrollContext, components, run=None) -> Payslip:
-    """محاسبه و ثبت فیش یک پرسنل. باید داخل transaction صدا زده شود."""
+def compute_lines(ctx: PayrollContext, components):
+    """محاسبهٔ سطرهای یک فیش — **بدون هیچ نوشتنی در دیتابیس**.
+
+    این تابع از `calculate_payslip` جدا شد تا «اجرای آزمایشی» بتواند دقیقاً همان
+    محاسبه را انجام دهد بدون آنکه چیزی ذخیره شود. اگر شبیه‌سازی پیاده‌سازی دوم
+    می‌داشت، عددی که کاربر پیش از تصمیم می‌دید با عددی که بعد از تأیید در فیش
+    می‌نشست فرق می‌کرد — بدترین حالت ممکن برای اعتماد.
+
+    خروجی: فهرست `(component, LineResult)` به ترتیب محاسبه. خودِ `ctx` هم
+    پر می‌شود (ناخالص، کسور، مبناها) و قابل خواندن است.
+    """
     by_kind = {
         SalaryComponent.Kind.EARNING: [],
         SalaryComponent.Kind.DEDUCTION: [],
@@ -261,6 +270,13 @@ def calculate_payslip(ctx: PayrollContext, components, run=None) -> Payslip:
     # نمی‌گذارد و فقط سطر اضافه می‌کند.
     run_pass(SalaryComponent.Kind.INFO)
 
+    return pending, employer_extra, loan_line_position
+
+
+def calculate_payslip(ctx: PayrollContext, components, run=None) -> Payslip:
+    """محاسبه و ثبت فیش یک پرسنل. باید داخل transaction صدا زده شود."""
+    pending, employer_extra, loan_line_position = compute_lines(ctx, components)
+
     payslip = Payslip.objects.create(
         period=ctx.period,
         employee=ctx.employee,
@@ -330,6 +346,78 @@ def calculate_payslip(ctx: PayrollContext, components, run=None) -> Payslip:
     return payslip
 
 
+def gather_period_inputs(period, params, include_deducted=False):
+    """همهٔ ورودی‌های محاسبهٔ یک دوره، بدون نوشتن.
+
+    اجرای واقعی و اجرای آزمایشی هر دو از اینجا می‌خوانند تا نتوانند با هم فرق
+    کنند. تنها چیزی که اینجا نیست، ساختِ تخصیص پورسانت است — آن می‌نویسد و
+    عمداً بیرون ماند.
+
+    `include_deducted`: اجرای واقعی پیش از محاسبه، اقساطِ کسرشدهٔ همین ماه را
+    به «سررسید» برمی‌گرداند، پس آن‌ها را در حالت DUE می‌بیند. اجرای آزمایشی
+    چنین کاری نمی‌کند (حق نوشتن ندارد)، پس باید همان اقساط را با وضعیت
+    «کسرشده» هم به حساب بیاورد — وگرنه شبیه‌سازی سطر وام را جا می‌اندازد و
+    خالصِ نمایش‌داده‌شده از خالص واقعی بیشتر می‌شود.
+    """
+    components = list(
+        SalaryComponent.objects.filter(company=period.company, is_active=True)
+        .select_related("base_component")
+        .prefetch_related("scopes")
+        .order_by("sequence", "id")
+    )
+
+    timesheets = {
+        ts.employee_id: ts for ts in Timesheet.objects.filter(period=period)
+    }
+
+    manual_inputs = {}
+    for item in PayrollInput.objects.filter(period=period):
+        manual_inputs.setdefault(item.employee_id, {})[item.component_id] = item.amount
+
+    allowances = {}
+    allowance_qs = ContractAllowance.objects.filter(
+        effective_from__lte=period.end_date
+    ).filter(Q(effective_to__isnull=True) | Q(effective_to__gte=period.start_date))
+    for allowance in allowance_qs:
+        allowances.setdefault(allowance.contract_id, {})[
+            allowance.component_id
+        ] = allowance.amount
+
+    statuses = [LoanInstallment.Status.PENDING, LoanInstallment.Status.DUE]
+    if include_deducted:
+        statuses.append(LoanInstallment.Status.DEDUCTED)
+    installments = {}
+    due_qs = LoanInstallment.objects.filter(
+        due_year=period.year,
+        due_month=period.month,
+        status__in=statuses,
+        loan__status=Loan.Status.ACTIVE,
+    ).select_related("loan")
+    for installment in due_qs:
+        installments.setdefault(installment.loan.employee_id, []).append(installment)
+
+    contracts = (
+        EmploymentContract.objects.filter(
+            status=EmploymentContract.Status.ACTIVE,
+            effective_from__lte=period.end_date,
+            employee__company=period.company,
+            employee__status="ACTIVE",
+        )
+        .filter(Q(effective_to__isnull=True) | Q(effective_to__gte=period.start_date))
+        .select_related("employee", "department", "cost_center", "job_title")
+        .order_by("employee__personnel_code")
+    )
+
+    return {
+        "components": components,
+        "timesheets": timesheets,
+        "manual_inputs": manual_inputs,
+        "allowances": allowances,
+        "installments": installments,
+        "contracts": contracts,
+    }
+
+
 @transaction.atomic
 def calculate_period(period: PayrollPeriod, user=None) -> PayrollRun:
     """محاسبه کل دوره — یا همه یا هیچ.
@@ -358,56 +446,15 @@ def calculate_period(period: PayrollPeriod, user=None) -> PayrollRun:
     ).update(status=LoanInstallment.Status.DUE, payslip_line=None, deducted_at=None)
     Payslip.objects.filter(period=period, revision=0).delete()
 
-    components = list(
-        SalaryComponent.objects.filter(company=period.company, is_active=True)
-        .select_related("base_component")
-        .prefetch_related("scopes")
-        .order_by("sequence", "id")
-    )
-
-    timesheets = {
-        ts.employee_id: ts for ts in Timesheet.objects.filter(period=period)
-    }
-
-    manual_inputs = {}
-    for item in PayrollInput.objects.filter(period=period):
-        manual_inputs.setdefault(item.employee_id, {})[item.component_id] = item.amount
-
-    allowances = {}
-    allowance_qs = ContractAllowance.objects.filter(
-        effective_from__lte=period.end_date
-    ).filter(Q(effective_to__isnull=True) | Q(effective_to__gte=period.start_date))
-    for allowance in allowance_qs:
-        allowances.setdefault(allowance.contract_id, {})[
-            allowance.component_id
-        ] = allowance.amount
-
+    data = gather_period_inputs(period, params)
+    components, timesheets = data["components"], data["timesheets"]
+    manual_inputs, allowances = data["manual_inputs"], data["allowances"]
+    installments, contracts = data["installments"], data["contracts"]
     # تخصیص پورسانت: آنچه کاربر در صفحهٔ «تخصیص پورسانت» تأیید کرده. اگر برای
     # کسی ثبت نشده باشد، همان‌جا با تقسیم خودکار ساخته می‌شود تا محاسبه هرگز
-    # بی‌صدا از پورسانت صرف‌نظر نکند.
+    # بی‌صدا از پورسانت صرف‌نظر نکند. (این تنها نوشتنِ پیش از محاسبه است، پس
+    # در «اجرای آزمایشی» صدا زده نمی‌شود.)
     allocations = ensure_commission_allocations(period, params, timesheets)
-
-    installments = {}
-    due_qs = LoanInstallment.objects.filter(
-        due_year=period.year,
-        due_month=period.month,
-        status__in=[LoanInstallment.Status.PENDING, LoanInstallment.Status.DUE],
-        loan__status=Loan.Status.ACTIVE,
-    ).select_related("loan")
-    for installment in due_qs:
-        installments.setdefault(installment.loan.employee_id, []).append(installment)
-
-    contracts = (
-        EmploymentContract.objects.filter(
-            status=EmploymentContract.Status.ACTIVE,
-            effective_from__lte=period.end_date,
-            employee__company=period.company,
-            employee__status="ACTIVE",
-        )
-        .filter(Q(effective_to__isnull=True) | Q(effective_to__gte=period.start_date))
-        .select_related("employee", "department", "cost_center", "job_title")
-        .order_by("employee__personnel_code")
-    )
 
     success = 0
     errors = []
