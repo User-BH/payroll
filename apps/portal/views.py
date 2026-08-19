@@ -103,7 +103,12 @@ def portal_payslip(request, pk):
     # اولین باز کردن فیش = «دیده شد». از این لحظه پرسنل باید تأیید یا اعتراض کند.
     payslip.mark_viewed()
 
-    lines = payslip.lines.all().order_by("sequence", "id")
+    # پرسنل همان چیزی را می‌بیند که روی فیش چاپی است، نه مبناهای محاسبه.
+    lines = [
+        line
+        for line in payslip.lines.select_related("component").order_by("sequence", "id")
+        if line.component is None or line.component.print_on_payslip
+    ]
     return render(
         request,
         "portal/payslip.html",

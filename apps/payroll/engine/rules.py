@@ -471,11 +471,10 @@ def income_tax(ctx: PayrollContext, component):
     """
     from apps.payroll_config.models import TaxBracket
 
-    taxable = ctx.taxable_base
+    taxable = ctx.taxable_after_insurance
     ins_note = ""
     if ctx.params.deduct_insurance_from_tax_base:
         ins = ctx.amount_of("INSURANCE_EMP")
-        taxable -= ins
         if ins:
             ins_note = f" (پس از کسر بیمه سهم کارگر {fa_money(ins)})"
 
@@ -633,3 +632,113 @@ def unemployment_insurance(ctx: PayrollContext, component):
             f"{fa_number(rate * 100, 2)}٪"
         ),
     ).rounded()
+
+
+# ================================================================== اطلاعی
+# «مبنای محاسبه»هایی که عدد پرداختی نیستند ولی هر حسابداری اول سراغشان می‌رود.
+# در فایل اکسل شرکت این‌ها ستون‌های پشت‌صحنه بودند (ماخذ بیمه، ماخذ مالیات،
+# جمع مزد و سنوات روزانه…) و چون سطر نداشتند، هر بار باید از فرمول سلول
+# بیرون کشیده می‌شدند. اینجا هر کدام یک قلمِ اسم‌دارند.
+#
+# سه قاعدهٔ ثابت دربارهٔ اقلام اطلاعی:
+#   ۱. بعد از هر سه پاس دیگر اجرا می‌شوند، پس عددشان نهایی است.
+#   ۲. در هیچ جمعی وارد نمی‌شوند — نه ناخالص، نه کسور، نه مبنای بیمه و مالیات.
+#   ۳. عددشان از همان جایی می‌آید که محاسبهٔ واقعی از آن آمده، نه از فرمول دوم.
+
+
+def _info(label: str, amount, explanation: str, quantity=None, rate=None, money=True):
+    """یک سطر اطلاعی. `money=False` برای مقدارهایی مثل روز که نباید گرد شوند."""
+    result = LineResult(
+        amount=amount,
+        base_amount=amount,
+        quantity=quantity if quantity is not None else Decimal("1"),
+        rate=rate if rate is not None else ZERO,
+        explanation=explanation,
+    )
+    return result.rounded() if money else result
+
+
+@rule("info_insurance_base", "ماخذ بیمه")
+def info_insurance_base(ctx: PayrollContext, component):
+    """همان مبنایی که سه قلم بیمه روی آن حساب شده‌اند."""
+    if not ctx.insurance_applies:
+        return _info(
+            component.name, ZERO,
+            "این پرسنل در این دوره مشمول بیمه نیست، پس ماخذ بیمه ندارد.",
+        )
+    base = ctx.capped_insurable
+    ceiling = ctx.params.insurance_ceiling
+    note = ""
+    if ceiling and ctx.insurable_base > ceiling:
+        note = (
+            f" — از {fa_money(ctx.insurable_base)} به سقف قانونی "
+            f"{fa_money(ceiling)} محدود شد"
+        )
+    return _info(
+        component.name, base,
+        f"ماخذ بیمه: جمع اقلام مشمول بیمه = {fa_money(base)} ریال{note}",
+    )
+
+
+@rule("info_tax_base", "ماخذ مالیات")
+def info_tax_base(ctx: PayrollContext, component):
+    """درآمد مشمول مالیات — دقیقاً عددی که پلکان مالیات روی آن نشسته."""
+    base = ctx.taxable_after_insurance
+    note = ""
+    if ctx.params.deduct_insurance_from_tax_base and ctx.amount_of("INSURANCE_EMP"):
+        note = f" پس از کسر بیمه سهم کارگر {fa_money(ctx.amount_of('INSURANCE_EMP'))}"
+    return _info(
+        component.name, max(base, ZERO),
+        f"ماخذ مالیات: جمع اقلام مشمول مالیات{note} = {fa_money(max(base, ZERO))} ریال",
+    )
+
+
+@rule("info_daily_wage", "مزد روزانه")
+def info_daily_wage(ctx: PayrollContext, component):
+    return _info(
+        component.name, ctx.daily_base,
+        f"مزد روزانه بر مبنای {ctx.wage_basis_label}: {fa_money(ctx.daily_base)} ریال",
+    )
+
+
+@rule("info_hourly_wage", "مزد ساعتی")
+def info_hourly_wage(ctx: PayrollContext, component):
+    hours = ctx.params.daily_work_hours or Decimal("7.33")
+    return _info(
+        component.name, ctx.hourly_base,
+        f"مزد ساعتی: {fa_money(ctx.daily_base)} ÷ {fa_number(hours, 2)} ساعت کار روزانه",
+    )
+
+
+@rule("info_gross", "جمع ناخالص")
+def info_gross(ctx: PayrollContext, component):
+    return _info(
+        component.name, ctx.gross,
+        f"جمع همهٔ مزایای این فیش = {fa_money(ctx.gross)} ریال",
+    )
+
+
+@rule("info_employer_cost", "کل هزینه کارفرما")
+def info_employer_cost(ctx: PayrollContext, component):
+    """ناخالص + هر قلمی که نوعش «هزینه کارفرما» است.
+
+    جمع از `ctx.employer_cost` می‌آید که هنگام ثبت هر سطر پر شده، نه از حدس زدن
+    روی کد اقلام: هر قلم هزینهٔ کارفرمای تازه‌ای هم خودبه‌خود اینجا می‌آید.
+    """
+    total = ctx.gross + ctx.employer_cost
+    return _info(
+        component.name, total,
+        f"ناخالص {fa_money(ctx.gross)} + هزینه کارفرما {fa_money(ctx.employer_cost)} "
+        f"= {fa_money(total)} ریال",
+    )
+
+
+@rule("info_paid_days", "روز کارکرد قابل پرداخت")
+def info_paid_days(ctx: PayrollContext, component):
+    return _info(
+        component.name, ctx.paid_days,
+        f"کارکرد اولیه {fa_number(ctx.initial_days, 2)} − روزهای بی‌حقوق "
+        f"{fa_number(ctx.unpaid_days, 2)} = {fa_number(ctx.paid_days, 2)} روز",
+        quantity=ctx.paid_days,
+        money=False,
+    )

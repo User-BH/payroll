@@ -166,6 +166,7 @@ def calculate_payslip(ctx: PayrollContext, components, run=None) -> Payslip:
         SalaryComponent.Kind.EARNING: [],
         SalaryComponent.Kind.DEDUCTION: [],
         SalaryComponent.Kind.EMPLOYER_COST: [],
+        SalaryComponent.Kind.INFO: [],
     }
     for component in components:
         if component.code == ROUNDING_COMPONENT_CODE:
@@ -200,11 +201,16 @@ def calculate_payslip(ctx: PayrollContext, components, run=None) -> Payslip:
             result = func(ctx, component)
             if result is None:
                 continue
-            # سطر با مبلغ صفر معمولاً حذف می‌شود، ولی اقلامی که واحد نمایششان
-            # «روز» یا «ساعت» است عمداً مبلغ ندارند و باید روی فیش بمانند.
-            if result.amount == ZERO and (
-                component.display_unit == SalaryComponent.DisplayUnit.RIAL
-                or not result.quantity
+            # سطر با مبلغ صفر معمولاً حذف می‌شود، ولی دو استثنا دارد: اقلامی که
+            # واحد نمایششان «روز» یا «ساعت» است عمداً مبلغ ندارند، و اقلام
+            # اطلاعی که صفر بودنشان خودش خبر است («مشمول بیمه نیست»).
+            if (
+                result.amount == ZERO
+                and component.kind != SalaryComponent.Kind.INFO
+                and (
+                    component.display_unit == SalaryComponent.DisplayUnit.RIAL
+                    or not result.quantity
+                )
             ):
                 continue
             ctx.register(component, result)
@@ -248,6 +254,12 @@ def calculate_payslip(ctx: PayrollContext, components, run=None) -> Payslip:
         ),
         ZERO,
     )
+
+    # پاس چهارم: اقلام اطلاعی. **آخر از همه**، چون مبناهای محاسبه فقط وقتی
+    # نهایی‌اند که هر سه پاس دیگر و گرد کردن تمام شده باشند. `register` برای
+    # نوع «اطلاعی» هیچ جمعی را تغییر نمی‌دهد، پس این پاس روی هیچ عددی اثر
+    # نمی‌گذارد و فقط سطر اضافه می‌کند.
+    run_pass(SalaryComponent.Kind.INFO)
 
     payslip = Payslip.objects.create(
         period=ctx.period,

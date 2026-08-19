@@ -94,6 +94,18 @@ COMPONENTS = [
     # ---------- هزینه کارفرما
     ("INSURANCE_EMPLOYER", "بیمه سهم کارفرما", "EMPLOYER_COST", "insurance_employer",     400, False, False, False, False, GREY, True),
     ("UNEMPLOYMENT",       "بیمه بیکاری",      "EMPLOYER_COST", "unemployment_insurance", 410, False, False, False, False, GREY, True),
+
+    # ---------- مبناهای محاسبه (اطلاعی)
+    # عدد پرداختی نیستند و در هیچ جمعی وارد نمی‌شوند؛ فقط نشان می‌دهند هر
+    # محاسبه روی چه عددی نشسته است. روی فیش چاپ نمی‌شوند (print_on_payslip
+    # پایین‌تر False می‌شود) چون مبنای محاسبه‌اند نه قلم حقوق.
+    ("INFO_PAID_DAYS",     "روز کارکرد قابل پرداخت", "INFO", "info_paid_days",     500, False, False, False, False, GREY, True),
+    ("INFO_DAILY_WAGE",    "مزد روزانه",       "INFO", "info_daily_wage",    510, False, False, False, False, GREY, True),
+    ("INFO_HOURLY_WAGE",   "مزد ساعتی",        "INFO", "info_hourly_wage",   520, False, False, False, False, GREY, True),
+    ("INFO_GROSS",         "جمع ناخالص",       "INFO", "info_gross",         530, False, False, False, False, GREY, True),
+    ("INFO_INS_BASE",      "ماخذ بیمه",        "INFO", "info_insurance_base", 540, False, False, False, False, GREY, True),
+    ("INFO_TAX_BASE",      "ماخذ مالیات",      "INFO", "info_tax_base",      550, False, False, False, False, GREY, True),
+    ("INFO_EMPLOYER_COST", "کل هزینه کارفرما", "INFO", "info_employer_cost", 560, False, False, False, False, GREY, True),
 ]
 
 # اقلامی که فقط به یک مرکز هزینه یا سمت تعلق می‌گیرند
@@ -104,7 +116,7 @@ SCOPED = [
 ]
 # اقلامی که روی فیش فقط تعداد روز نشان می‌دهند، نه مبلغ ریالی: اثر مالی‌شان
 # قبلاً با کم شدن از روز کارکرد اعمال شده و مبلغ ریالی یعنی کسر مضاعف.
-DAY_UNIT_CODES = {"ABSENCE_DED", "SICK", "UNPAID_LEAVE"}
+DAY_UNIT_CODES = {"ABSENCE_DED", "SICK", "UNPAID_LEAVE", "INFO_PAID_DAYS"}
 
 DRIVER_ONLY = ("VEHICLE_FINE", "جرائم و خلافی خودرو", 330, "راننده")
 
@@ -229,6 +241,8 @@ class Command(BaseCommand):
                 is_insurable=ins, is_taxable=tax,
                 affects_eid=eid, affects_severance=sev,
                 color=color, is_system=system,
+                # مبنای محاسبه روی فیش کارگر چاپ نمی‌شود؛ جایش صفحهٔ محاسبه است.
+                print_on_payslip=(kind != "INFO"),
             )
 
         sales = CostCenter.objects.get(company=company, name="فروش")

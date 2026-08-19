@@ -75,6 +75,33 @@
   </div>
 </div>
 
+{% if bases %}
+<div class="panel">
+  <div class="panel-head">
+    <h3>مبناهای محاسبه</h3>
+    <span class="hint">در هیچ جمعی وارد نمی‌شوند و روی فیش چاپ نمی‌شوند — فقط نشان می‌دهند هر عدد از کجا آمده</span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>شرح</th><th>مقدار</th><th>توضیح</th></tr></thead>
+      <tbody>
+        {% for line in bases %}
+        <tr>
+          <td><b>{{ line.component_name }}</b></td>
+          <td class="num" style="font-weight:800; white-space:nowrap;">
+            {% if line.display_unit == 'DAY' %}{{ line.quantity|fadec }} روز
+            {% elif line.display_unit == 'HOUR' %}{{ line.quantity|fadec }} ساعت
+            {% else %}{{ line.amount|rial }}{% endif %}
+          </td>
+          <td style="color:var(--muted);">{{ line.explanation }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
 <div class="grid-2-even">
   <div class="panel">
     <div class="panel-head"><h3>هزینه کارفرما</h3><span class="hint">در فیش پرسنل چاپ نمی‌شود</span></div>

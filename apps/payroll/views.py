@@ -419,7 +419,7 @@ def payslip_detail(request, pk):
         ),
         pk=pk,
     )
-    lines = payslip.lines.all().order_by("sequence", "id")
+    lines = payslip.lines.select_related("component").order_by("sequence", "id")
     return render(
         request,
         "payslips/detail.html",
@@ -428,6 +428,7 @@ def payslip_detail(request, pk):
             "earnings": [l for l in lines if l.kind == SalaryComponent.Kind.EARNING],
             "deductions": [l for l in lines if l.kind == SalaryComponent.Kind.DEDUCTION],
             "employer_costs": [l for l in lines if l.kind == SalaryComponent.Kind.EMPLOYER_COST],
+            "bases": [l for l in lines if l.kind == SalaryComponent.Kind.INFO],
         },
     )
 
@@ -447,7 +448,7 @@ def payslip_batch_print(request, pk):
     payslips = (
         Payslip.objects.filter(period=period)
         .select_related("employee", "contract", "contract__job_title", "department", "cost_center")
-        .prefetch_related("lines")
+        .prefetch_related("lines__component")
         .order_by("employee__personnel_code")
     )
     if node is not None:
@@ -455,7 +456,10 @@ def payslip_batch_print(request, pk):
 
     slips = []
     for payslip in payslips:
-        lines = list(payslip.lines.all())
+        lines = [
+            line for line in payslip.lines.all()
+            if line.component is None or line.component.print_on_payslip
+        ]
         slips.append({
             "payslip": payslip,
             "earnings": [l for l in lines if l.kind == SalaryComponent.Kind.EARNING],
@@ -487,7 +491,12 @@ def payslip_print(request, pk):
     payslip = get_object_or_404(
         Payslip.objects.select_related("period", "employee", "contract", "department"), pk=pk
     )
-    lines = payslip.lines.all().order_by("sequence", "id")
+    # تیک «چاپ در فیش» فقط روی نسخهٔ چاپی اثر دارد؛ صفحهٔ داخلی همه را نشان می‌دهد.
+    lines = [
+        line
+        for line in payslip.lines.select_related("component").order_by("sequence", "id")
+        if line.component is None or line.component.print_on_payslip
+    ]
     return render(
         request,
         "payslips/print.html",

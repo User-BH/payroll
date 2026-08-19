@@ -24,6 +24,19 @@ WIRING = {
     "SENIORITY": "seniority",
 }
 
+# مبناهای محاسبه (اقلام اطلاعی). در جمع‌ها وارد نمی‌شوند و روی فیش چاپ
+# نمی‌شوند؛ فقط نشان می‌دهند هر محاسبه روی چه عددی نشسته است.
+# (کد، نام، کلید قاعده، ترتیب، واحد نمایش)
+INFO_COMPONENTS = [
+    ("INFO_PAID_DAYS", "روز کارکرد قابل پرداخت", "info_paid_days", 500, "DAY"),
+    ("INFO_DAILY_WAGE", "مزد روزانه", "info_daily_wage", 510, "RIAL"),
+    ("INFO_HOURLY_WAGE", "مزد ساعتی", "info_hourly_wage", 520, "RIAL"),
+    ("INFO_GROSS", "جمع ناخالص", "info_gross", 530, "RIAL"),
+    ("INFO_INS_BASE", "ماخذ بیمه", "info_insurance_base", 540, "RIAL"),
+    ("INFO_TAX_BASE", "ماخذ مالیات", "info_tax_base", 550, "RIAL"),
+    ("INFO_EMPLOYER_COST", "کل هزینه کارفرما", "info_employer_cost", 560, "RIAL"),
+]
+
 
 class Command(BaseCommand):
     help = "اتصال اقلام ثابتِ بی‌مبلغ به قاعدهٔ پارامتر سال"
@@ -53,7 +66,16 @@ class Command(BaseCommand):
                     continue
                 planned.append((component, rule_key))
 
-        if not planned:
+        missing = []
+        for company in {c.company for c in SalaryComponent.objects.all()}:
+            existing = set(
+                SalaryComponent.objects.filter(company=company).values_list("code", flat=True)
+            )
+            for code, name, rule_key, seq, unit in INFO_COMPONENTS:
+                if code not in existing:
+                    missing.append((company, code, name, rule_key, seq, unit))
+
+        if not planned and not missing:
             self.stdout.write(self.style.SUCCESS("همهٔ اقلام درست وصل‌اند؛ کاری لازم نبود."))
             return
 
@@ -62,6 +84,9 @@ class Command(BaseCommand):
                 f"  {component.name} ({component.code}): "
                 f"{component.get_calc_type_display()} → قاعده موتور «{rule_key}»"
             )
+
+        for _, code, name, *_ in missing:
+            self.stdout.write(f"  + قلم اطلاعی تازه: {name} ({code})")
 
         if not apply:
             self.stdout.write(
@@ -75,7 +100,20 @@ class Command(BaseCommand):
                 component.engine_rule_key = rule_key
                 component.save(update_fields=["calc_type", "engine_rule_key"])
 
-        self.stdout.write(self.style.SUCCESS(f"\n{len(planned)} قلم وصل شد."))
+            for company, code, name, rule_key, seq, unit in missing:
+                SalaryComponent.objects.create(
+                    company=company, code=code, name=name,
+                    kind=SalaryComponent.Kind.INFO,
+                    calc_type=SalaryComponent.CalcType.ENGINE_RULE,
+                    engine_rule_key=rule_key, sequence=seq, display_unit=unit,
+                    is_insurable=False, is_taxable=False,
+                    affects_eid=False, affects_severance=False,
+                    print_on_payslip=False, is_system=True, color="#8A8175",
+                )
+
+        self.stdout.write(
+            self.style.SUCCESS(f"\n{len(planned)} قلم وصل شد · {len(missing)} قلم اطلاعی ساخته شد.")
+        )
         self.stdout.write(
             "دوره‌های باز را دوباره محاسبه کنید تا این اقلام روی فیش بنشینند. "
             "دوره‌های قفل‌شده تغییر نمی‌کنند."

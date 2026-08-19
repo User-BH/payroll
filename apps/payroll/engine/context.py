@@ -50,6 +50,7 @@ class PayrollContext:
     insurable_base: Decimal = ZERO
     taxable_base: Decimal = ZERO
     total_deductions: Decimal = ZERO
+    employer_cost: Decimal = ZERO
 
     # ---------------------------------------------------------------- زمان
 
@@ -202,12 +203,27 @@ class PayrollContext:
                 self.taxable_base += result.amount
         elif component.kind == SalaryComponent.Kind.DEDUCTION:
             self.total_deductions += result.amount
+        elif component.kind == SalaryComponent.Kind.EMPLOYER_COST:
+            self.employer_cost += result.amount
 
     @property
     def capped_insurable(self) -> Decimal:
         """مبنای بیمه پس از اعمال سقف قانونی."""
         ceiling = self.params.insurance_ceiling
         return min(self.insurable_base, ceiling) if ceiling else self.insurable_base
+
+    @property
+    def taxable_after_insurance(self) -> Decimal:
+        """درآمد مشمول مالیات — همان عددی که مالیات روی آن حساب می‌شود.
+
+        اینجاست نه داخل قاعدهٔ مالیات، چون قلم اطلاعیِ «ماخذ مالیات» هم باید
+        **همین** عدد را نشان دهد. دو جا حساب کردنش یعنی روزی که پرچم کسر بیمه
+        عوض شود، عددِ نمایش‌داده‌شده با عددی که مالیات از آن درآمده فرق کند.
+        """
+        taxable = self.taxable_base
+        if self.params.deduct_insurance_from_tax_base:
+            taxable -= self.amount_of("INSURANCE_EMP")
+        return taxable
 
     @property
     def net_payable(self) -> Decimal:
