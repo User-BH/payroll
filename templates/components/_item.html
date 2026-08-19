@@ -17,6 +17,9 @@
     {% if component.engine_rule_key %}
     <div class="explain" style="direction:ltr; text-align:right;">{{ component.engine_rule_key }}</div>
     {% endif %}
+    {% if component.formula_label %}
+    <div class="explain">{{ component.formula_label }}</div>
+    {% endif %}
   </td>
   <td data-label="ضریب / مبلغ" class="num">
     {% if component.calc_type == 'FIXED' %}{{ component.fixed_amount|rial }}

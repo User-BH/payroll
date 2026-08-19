@@ -132,6 +132,8 @@ def _rule_for(component):
     """انتخاب قاعده بر اساس نحوه محاسبه قلم."""
     if component.calc_type == SalaryComponent.CalcType.ENGINE_RULE:
         return get_rule(component.engine_rule_key)
+    if component.calc_type == SalaryComponent.CalcType.PARAMETRIC:
+        return rules_module.parametric
     if component.calc_type == SalaryComponent.CalcType.FIXED:
         return rules_module.fixed_amount
     if component.calc_type == SalaryComponent.CalcType.PERCENTAGE:

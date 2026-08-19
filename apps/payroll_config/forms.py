@@ -85,12 +85,30 @@ class SalaryComponentForm(BootstrapMixin, forms.ModelForm):
         model = SalaryComponent
         fields = [
             "code", "name", "kind", "calc_type", "engine_rule_key",
-            "base_component", "rate", "fixed_amount",
-            "is_insurable", "is_taxable", "affects_eid", "affects_severance",
+            "base_source", "quantity_source", "base_component", "rate", "fixed_amount",
+            "display_unit", "is_insurable", "is_taxable",
+            "affects_eid", "affects_severance",
             "sequence", "gl_account", "color", "print_on_payslip",
             "is_active", "description",
         ]
         widgets = {"color": forms.TextInput(attrs={"type": "color"})}
+
+    GROUPS = [
+        ("شناسه و نوع", ["code", "name", "kind", "sequence"]),
+        ("نحوه محاسبه", [
+            "calc_type", "base_source", "quantity_source", "base_component",
+            "rate", "fixed_amount", "engine_rule_key",
+        ]),
+        ("رفتار در فیش و گزارش", [
+            "display_unit", "is_insurable", "is_taxable",
+            "affects_eid", "affects_severance", "print_on_payslip",
+        ]),
+        ("نمایش و سایر", ["gl_account", "color", "is_active", "description"]),
+    ]
+
+    def grouped(self):
+        for title, names in self.GROUPS:
+            yield title, [self[name] for name in names]
 
     def __init__(self, *args, company=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -102,6 +120,13 @@ class SalaryComponentForm(BootstrapMixin, forms.ModelForm):
             self.fields["base_component"].queryset = queryset
         self.fields["engine_rule_key"].help_text = (
             "فقط وقتی «نحوه محاسبه» روی قاعده موتور است — نام قاعده در rules.py"
+        )
+        self.fields["calc_type"].help_text = (
+            "«قاعده پارامتری» بدون کدنویسی ساخته می‌شود: مبنا × مقدار × ضریب"
+        )
+        self.fields["rate"].help_text = "ضریب فرمول؛ خالی یا ۱ یعنی بدون ضریب"
+        self.fields["base_component"].help_text = (
+            "وقتی مبنا «مبلغ یک قلم دیگر» است — آن قلم باید ترتیب کوچک‌تری داشته باشد"
         )
 
     def clean_code(self):
@@ -130,7 +155,33 @@ class SalaryComponentForm(BootstrapMixin, forms.ModelForm):
                 )
         if calc_type == SalaryComponent.CalcType.PERCENTAGE and not cleaned.get("base_component"):
             self.add_error("base_component", "برای قلم درصدی، انتخاب قلم مبنا اجباری است.")
+
+        if calc_type == SalaryComponent.CalcType.PARAMETRIC:
+            self._clean_parametric(cleaned)
+
+        # قلمی که به قلم دیگری بسته است باید **بعد از** آن محاسبه شود، وگرنه
+        # موقع محاسبه مبنایش هنوز صفر است و سطر بی‌سروصدا صفر می‌شود.
+        base = cleaned.get("base_component")
+        sequence = cleaned.get("sequence")
+        if base is not None and sequence is not None and base.sequence >= sequence:
+            self.add_error(
+                "sequence",
+                f"ترتیب باید بزرگ‌تر از ترتیب «{base.name}» ({base.sequence}) باشد، "
+                "وگرنه قلم مبنا هنوز محاسبه نشده و این قلم صفر می‌شود.",
+            )
         return cleaned
+
+    def _clean_parametric(self, cleaned):
+        """قاعدهٔ پارامتری فقط وقتی معنا دارد که هر سه جزئش کامل باشند."""
+        base_source = cleaned.get("base_source")
+        if not base_source:
+            self.add_error("base_source", "برای قاعده پارامتری، مبنای محاسبه اجباری است.")
+        if not cleaned.get("quantity_source"):
+            self.add_error("quantity_source", "برای قاعده پارامتری، مقدار اجباری است.")
+        if base_source == SalaryComponent.BaseSource.FIXED and not cleaned.get("fixed_amount"):
+            self.add_error("fixed_amount", "مبنای «مبلغ ثابت» بدون مبلغ، همیشه صفر می‌شود.")
+        if base_source == SalaryComponent.BaseSource.COMPONENT and not cleaned.get("base_component"):
+            self.add_error("base_component", "مبنای «مبلغ یک قلم دیگر» بدون انتخاب قلم، معنا ندارد.")
 
 
 class ComponentScopeForm(BootstrapMixin, forms.ModelForm):

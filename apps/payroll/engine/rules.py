@@ -353,6 +353,74 @@ def percentage_of(ctx: PayrollContext, component):
     ).rounded()
 
 
+@rule("parametric", "قاعده پارامتری")
+def parametric(ctx: PayrollContext, component):
+    """قلمی که کاربر بدون کدنویسی ساخته است — بند ۳ سند.
+
+        مبلغ = مبنا × مقدار × ضریب
+
+    مبنا یکی از چهار چیز است (حداقل دستمزد، مزد خود پرسنل، مبلغ ثابت، مبلغ قلم
+    دیگر) و مقدار یکی از سه حالت (روز کارکرد، نسبت کارکرد به ماه، ثابت). با
+    همین ترکیب، شکل همهٔ قواعد دست‌نویسِ موجود قابل بیان است.
+
+    عمداً «زبان فرمول» نیست: هر ترکیب ممکن اینجا از پیش تست‌شده و قابل ممیزی
+    است، و هر عدد توضیح خودش را با همان اجزا می‌سازد.
+    """
+    from apps.payroll_config.models import SalaryComponent
+
+    base_kind = component.base_source
+    Base = SalaryComponent.BaseSource
+    Quantity = SalaryComponent.QuantitySource
+
+    if base_kind == Base.MIN_WAGE:
+        base = ctx.params.min_daily_wage or ZERO
+        base_label = "حداقل دستمزد روزانه"
+    elif base_kind == Base.PERSON_WAGE:
+        base = ctx.daily_base
+        base_label = f"مزد روزانه ({ctx.wage_basis_label})"
+    elif base_kind == Base.FIXED:
+        base = component.fixed_amount or ZERO
+        base_label = "مبلغ ثابت"
+    elif base_kind == Base.COMPONENT:
+        if not component.base_component_id:
+            return None
+        base = ctx.amount_of(component.base_component.code)
+        base_label = component.base_component.name
+    else:
+        return None
+
+    if not base:
+        return None
+
+    if component.quantity_source == Quantity.PAID_DAYS:
+        quantity = ctx.paid_days
+        quantity_text = f"{fa_number(quantity, 2)} روز کارکرد"
+    elif component.quantity_source == Quantity.DAY_RATIO:
+        quantity = ctx.day_ratio
+        quantity_text = (
+            f"{fa_number(ctx.paid_days, 2)} ÷ {fa_number(ctx.month_days, 2)} روز ماه"
+        )
+    else:
+        quantity = Decimal("1")
+        quantity_text = ""
+
+    factor = component.rate if component.rate else Decimal("1")
+
+    pieces = [f"{fa_money(base)} ریال {base_label}"]
+    if quantity_text:
+        pieces.append(quantity_text)
+    if factor != 1:
+        pieces.append(f"ضریب {fa_number(factor, 4)}")
+
+    return LineResult(
+        amount=base * quantity * factor,
+        base_amount=base,
+        quantity=quantity,
+        rate=factor,
+        explanation=f"{component.name}: " + " × ".join(pieces),
+    ).rounded()
+
+
 @rule("fixed_amount", "مبلغ ثابت")
 def fixed_amount(ctx: PayrollContext, component):
     if not component.fixed_amount:

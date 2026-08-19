@@ -182,9 +182,30 @@ class SalaryComponent(models.Model):
 
     class CalcType(models.TextChoices):
         ENGINE_RULE = "ENGINE_RULE", "قاعده موتور"
+        PARAMETRIC = "PARAMETRIC", "قاعده پارامتری (بدون کدنویسی)"
         FIXED = "FIXED", "مبلغ ثابت"
         PERCENTAGE = "PERCENTAGE", "درصدی از قلم دیگر"
         MANUAL = "MANUAL", "ورود دستی در هر دوره"
+
+    class BaseSource(models.TextChoices):
+        """مبنای قاعدهٔ پارامتری — عددی که در مقدار و ضریب ضرب می‌شود.
+
+        چهار مبنا، چون بند ۳ سند همین چهار تا را می‌خواهد و هر کدام معنای
+        روشنی روی فیش دارند. زبان فرمولِ باز عمداً ساخته نشد: عبارتی که کاربر
+        می‌نویسد نه تست می‌شود نه ممیزی، و اشتباهش تا فیش پنهان می‌ماند.
+        """
+
+        MIN_WAGE = "MIN_WAGE", "حداقل دستمزد روزانه سال"
+        PERSON_WAGE = "PERSON_WAGE", "مزد روزانه خود پرسنل"
+        FIXED = "FIXED", "مبلغ ثابت"
+        COMPONENT = "COMPONENT", "مبلغ یک قلم دیگر"
+
+    class QuantitySource(models.TextChoices):
+        """مقدار قاعدهٔ پارامتری."""
+
+        PAID_DAYS = "PAID_DAYS", "روز کارکرد قابل پرداخت"
+        DAY_RATIO = "DAY_RATIO", "به نسبت کارکرد ماه"
+        ONE = "ONE", "ثابت (بدون ضرب در کارکرد)"
 
     class DisplayUnit(models.TextChoices):
         """واحد نمایش سطر در فیش.
@@ -215,6 +236,14 @@ class SalaryComponent(models.Model):
     base_component = models.ForeignKey(
         "self", on_delete=models.PROTECT, null=True, blank=True,
         related_name="derived_components", verbose_name="قلم مبنا",
+    )
+    base_source = models.CharField(
+        "مبنای محاسبه", max_length=12, choices=BaseSource.choices, blank=True,
+        help_text="فقط برای قاعده پارامتری",
+    )
+    quantity_source = models.CharField(
+        "مقدار", max_length=10, choices=QuantitySource.choices, blank=True,
+        help_text="فقط برای قاعده پارامتری",
     )
     rate = models.DecimalField("نرخ / ضریب", max_digits=9, decimal_places=4, default=Decimal("0"))
     fixed_amount = models.DecimalField(
@@ -272,6 +301,28 @@ class SalaryComponent(models.Model):
         if self.is_insurable:
             return "مشمول بیمه، معاف از مالیات"
         return "معاف از بیمه و مالیات"
+
+    @property
+    def formula_label(self) -> str:
+        """فرمول قلم به زبان آدم — همان چیزی که روی فیش هم توضیح داده می‌شود."""
+        from apps.payroll.utils import fa_money, fa_number
+
+        if self.calc_type != self.CalcType.PARAMETRIC:
+            return ""
+        if self.base_source == self.BaseSource.FIXED:
+            base = f"{fa_money(self.fixed_amount)} ریال"
+        elif self.base_source == self.BaseSource.COMPONENT:
+            base = self.base_component.name if self.base_component_id else "قلم مبنا"
+        else:
+            base = self.get_base_source_display()
+        parts = [base]
+        if self.quantity_source == self.QuantitySource.PAID_DAYS:
+            parts.append("× روز کارکرد")
+        elif self.quantity_source == self.QuantitySource.DAY_RATIO:
+            parts.append("× کارکرد ÷ روز ماه")
+        if self.rate and self.rate != 1:
+            parts.append(f"× {fa_number(self.rate, 4)}")
+        return " ".join(parts)
 
     def applies_to(self, contract) -> bool:
         """آیا این قلم به قرارداد داده‌شده تعلق می‌گیرد؟"""

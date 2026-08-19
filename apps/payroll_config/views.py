@@ -52,6 +52,19 @@ def component_toggle(request, pk):
     return render(request, "components/_item.html", {"component": component})
 
 
+def _preview(component, company):
+    """محاسبهٔ آزمایشی قلم روی یک ماه نمونه — فقط برای قاعدهٔ پارامتری."""
+    from apps.payroll.engine.preview import explain_empty, preview_component, sample_for
+
+    if component is None or component.calc_type != SalaryComponent.CalcType.PARAMETRIC:
+        return None
+    sample = sample_for(company)
+    result = preview_component(component, sample)
+    if result is None:
+        return {"sample": sample, "result": None, "reason": explain_empty(component, sample)}
+    return {"sample": sample, "result": result, "reason": ""}
+
+
 @can_edit_required
 def component_create(request):
     company = Company.objects.first()
@@ -98,6 +111,7 @@ def component_edit(request, pk):
             "component": component,
             "scope_form": scope_form,
             "scopes": component.scopes.all(),
+            "preview": _preview(component, component.company),
             "title": f"ویرایش {component.name}",
         },
     )

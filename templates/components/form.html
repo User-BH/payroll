@@ -2,7 +2,7 @@
 {% load payroll_extras %}
 {% block title %}{{ title }}{% endblock %}
 {% block heading %}{{ title }}{% endblock %}
-{% block subheading %}منطق محاسبه در کد است؛ اینجا فقط ضریب، ترتیب و شمول تعیین می‌شود{% endblock %}
+{% block subheading %}قاعده پارامتری بدون کدنویسی ساخته می‌شود؛ قواعد پیچیده‌تر همچنان در کد می‌مانند{% endblock %}
 
 {% block content %}
 <div class="grid-2">
@@ -12,10 +12,22 @@
     <div class="msg error" style="margin-bottom:16px;">{{ form.non_field_errors|striptags }}</div>
     {% endif %}
 
+    {% for title, fields in form.grouped %}
     <div class="panel">
-      <div class="panel-head"><h3>مشخصات قلم</h3></div>
+      <div class="panel-head"><h3>{{ title }}</h3></div>
+      {% if title == 'نحوه محاسبه' %}
+      <div class="panel-body" style="padding-bottom:0;">
+        <div class="note-box" style="margin:0;">
+          <b>قاعده پارامتری</b> بدون کدنویسی ساخته می‌شود:
+          <b>مبلغ = مبنا × مقدار × ضریب</b>. مبنا یکی از حداقل دستمزد، مزد خود
+          پرسنل، مبلغ ثابت یا مبلغ قلم دیگر است؛ مقدار یعنی ضرب در روز کارکرد،
+          تقسیم به نسبت ماه، یا هیچ‌کدام. بقیهٔ فیلدهای این بخش فقط برای همان
+          حالتی به کار می‌آیند که انتخاب کرده‌اید.
+        </div>
+      </div>
+      {% endif %}
       <div class="panel-body" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:0 18px;">
-        {% for field in form %}
+        {% for field in fields %}
         <div class="field">
           <label for="{{ field.id_for_label }}">{{ field.label }}</label>
           {{ field }}
@@ -25,6 +37,7 @@
         {% endfor %}
       </div>
     </div>
+    {% endfor %}
 
     <div style="display:flex; gap:10px;">
       <button class="btn btn-primary" type="submit">ذخیره</button>
@@ -33,6 +46,38 @@
   </form>
 
   <div>
+    {% if preview %}
+    <div class="panel">
+      <div class="panel-head">
+        <h3>محاسبه آزمایشی</h3>
+        <span class="hint">{{ component.formula_label }}</span>
+      </div>
+      <div class="panel-body">
+        {% if preview.sample %}
+        <div class="slip-meta" style="margin-bottom:12px;">
+          <b>ماه نمونه</b>
+          <span>{{ preview.sample.paid_days|fadec }} روز کارکرد از {{ preview.sample.month_days|fadec }} روز ماه ·
+            مزد روزانه {{ preview.sample.daily_base|rial }} ریال ({{ preview.sample.wage_basis_label }})</span>
+        </div>
+        {% endif %}
+        {% if preview.result %}
+        <div style="font-size:20px; font-weight:800;">{{ preview.result.amount|rial }} <small style="font-size:12px; color:var(--muted);">ریال</small></div>
+        <div class="explain" style="margin-top:8px;">{{ preview.result.explanation }}</div>
+        {% else %}
+        <div style="font-size:20px; font-weight:800; color:var(--muted);">۰ <small style="font-size:12px;">ریال</small></div>
+        <div class="explain" style="margin-top:8px; color:var(--amber);">{{ preview.reason }}</div>
+        {% endif %}
+      </div>
+      <div class="panel-body" style="border-top:1px solid var(--line); padding-top:12px;">
+        <div class="note-box" style="margin:0;">
+          این عدد برای یک ماه نمونه است، نه فیش کسی. همین توضیح، عیناً روی فیش
+          واقعی هر پرسنل با اعداد خودش چاپ می‌شود. سطری که مبلغش صفر شود اصلاً
+          روی فیش نمی‌آید.
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
     {% if component %}
     <div class="panel">
       <div class="panel-head">
