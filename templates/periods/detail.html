@@ -31,15 +31,12 @@
       کارکرد تأییدشده: {{ progress.done|fanum }} از {{ progress.total|fanum }} نفر
     </p>
   </div>
+  {% comment %}
+    دکمه‌های رفتن به کارکرد و فیش و خروجی از اینجا برداشته شدند: همان‌ها حالا
+    در نوار زبانهٔ بالای صفحه‌اند. اینجا فقط «کار»هایی می‌مانند که وضعیت دوره
+    را عوض می‌کنند.
+  {% endcomment %}
   <div class="status-right">
-    <a class="btn btn-ghost" href="{% url 'timesheet_grid' period.pk %}">کارکرد ماهانه</a>
-    <a class="btn btn-ghost" href="{% url 'manual_inputs' period.pk %}">مبالغ دستی</a>
-    {% if payslip_count %}
-    <a class="btn btn-ghost" href="{% url 'period_sheet' period.pk %}">برگه محاسبه</a>
-    <a class="btn btn-ghost" href="{% url 'payslip_list' period.pk %}">فیش‌ها</a>
-    <a class="btn btn-ghost" href="{% url 'export_center' period.pk %}">خروجی‌های قانونی</a>
-    {% endif %}
-
     {% if user.can_edit_payroll %}
       {% if period.can_calculate %}
       <form method="post" action="{% url 'period_calculate' period.pk %}">

@@ -583,3 +583,28 @@ input.jdate{font-variant-numeric:tabular-nums;}
   }
 }
 @media print{.small-screen{display:none !important;}}
+
+/* ================================================================== زبانه‌ها
+   تودرتویی سامانه فقط یک لایه است و همان یک لایه دیده می‌شود: نوار زبانه زیر
+   عنوان صفحه، به‌جای شش ورودی جدا در منوی کناری که هر کدام دوباره می‌پرسیدند
+   «کدام دوره؟». */
+.tabbar{
+  display:flex; gap:4px; flex-wrap:wrap; margin-bottom:18px;
+  border-bottom:1px solid var(--line); padding-bottom:0;
+}
+.tabbar .tab{
+  padding:9px 14px; font-size:12.5px; font-weight:700; color:var(--muted);
+  border-bottom:2px solid transparent; margin-bottom:-1px; white-space:nowrap;
+}
+.tabbar .tab:hover{color:var(--ink);}
+.tabbar .tab.active{color:var(--red); border-bottom-color:var(--red);}
+
+/* کارت‌های صفحهٔ تنظیمات */
+.setting-cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(270px,1fr)); gap:14px;}
+.setting-card{
+  display:block; background:var(--paper-2); border:1px solid var(--line);
+  border-radius:var(--radius); padding:20px 22px; box-shadow:var(--shadow);
+}
+.setting-card:hover{border-color:var(--red);}
+.setting-card b{display:block; font-size:15px; margin-bottom:6px;}
+.setting-card p{font-size:12.5px; line-height:1.9; color:var(--muted); margin:0 0 10px;}

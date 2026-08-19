@@ -1,96 +1,21 @@
-from apps.payroll.models import PayrollPeriod
+"""متغیرهای مشترک همهٔ صفحه‌ها: دورهٔ جاری و ساختار منو.
 
-# نگاشت نام مسیر به بخش منو. با این کار هیچ ویویی لازم نیست section را دستی
-# بفرستد و صفحات زیرمجموعه (مثل جزئیات یک فیش) هم منوی درستشان روشن می‌ماند.
-NAV_SECTIONS = {
-    "dashboard": "dashboard",
-    "employee_list": "employees",
-    "employee_rows": "employees",
-    "employee_detail": "employees",
-    "employee_create": "employees",
-    "employee_edit": "employees",
-    "employee_import": "employees",
-    "contract_create": "employees",
-    "contract_edit": "employees",
-    "bank_account_create": "employees",
-    "dependent_create": "employees",
-    "employee_timesheet_save": "employees",
-    "employee_terminate": "employees",
-    "employee_reactivate": "employees",
-    "period_create": "periods",
-    "monthly_parameters": "monthly",
-    "monthly_parameters_save": "monthly",
-    "commission_allocations": "commission",
-    "commission_allocations_save": "commission",
-    "manual_inputs": "manual",
-    "manual_input_save": "manual",
-    "period_list": "periods",
-    "period_detail": "periods",
-    "period_calculate": "periods",
-    "period_transition": "periods",
-    "timesheet_grid": "timesheets",
-    "timesheet_rows": "timesheets",
-    "timesheet_save": "timesheets",
-    "timesheet_import": "timesheets",
-    "timesheet_approve_all": "timesheets",
-    "payslip_batch_print": "payslips",
-    "loan_list": "loans",
-    "loan_create": "loans",
-    "loan_detail": "loans",
-    "loan_edit": "loans",
-    "org_settings": "org",
-    "company_edit": "org",
-    "org_item_create": "org",
-    "org_item_edit": "org",
-    "payslip_list": "payslips",
-    "payslip_detail": "payslips",
-    "payslip_print": "payslips",
-    "dispute_list": "disputes",
-    "dispute_resolve": "disputes",
-    "component_list": "components",
-    "component_toggle": "components",
-    "reports": "reports",
-    "report_insurance": "reports",
-    "report_tax": "reports",
-    "report_bank": "reports",
-    "report_export": "reports",
-    "export_center": "reports",
-    "export_generate": "reports",
-    "export_update_status": "reports",
-    "fiscal_settings": "fiscal",
-    "legal_parameter_edit": "fiscal",
-    "tax_brackets_edit": "fiscal",
-    "component_create": "components",
-    "component_edit": "components",
-    "component_scope_add": "components",
-    "leave_desk": "leave_desk",
-    "leave_record_create": "leave_desk",
-    "leave_record_edit": "leave_desk",
-    "leave_record_cancel": "leave_desk",
-    "leave_sync_period": "leave_desk",
-    "entitlement_list": "leave",
-    "entitlement_save": "leave",
-    "entitlement_fill_all": "leave",
-    "portal_accounts": "portal_accounts",
-    "staff_users": "staff_users",
-    "staff_user_create": "staff_users",
-    "staff_user_edit": "staff_users",
-    "portal_accounts_create": "portal_accounts",
-    "portal_account_reset": "portal_accounts",
-}
+نگاشت مسیر به منو در `apps/payroll/navigation.py` است، نه اینجا: منو دو چیز
+لازم دارد (بخش فعال و زبانه‌های همان بخش) و هر دو از یک جا می‌آیند تا نتوانند
+با هم ناهماهنگ شوند.
+"""
+
+from apps.payroll import navigation
+from apps.payroll.models import PayrollPeriod
 
 
 def current_period(request):
-    """دوره جاری و بخش فعال منو، برای همه صفحات."""
     if not request.user.is_authenticated:
         return {}
-
-    match = getattr(request, "resolver_match", None)
-    section = NAV_SECTIONS.get(match.url_name) if match else None
 
     period = (
         PayrollPeriod.objects.select_related("company")
         .order_by("-year", "-month")
         .first()
     )
-    return {"current_period": period, "section": section}
+    return {"current_period": period, **navigation.build(request, period)}

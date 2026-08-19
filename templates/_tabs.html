@@ -1,0 +1,13 @@
+{% comment %}
+نوار زبانهٔ هر بخش. تودرتویی سامانه فقط همین یک لایه است و عمداً دیده می‌شود:
+کاربر باید بداند کنارِ صفحه‌ای که بازکرده چه چیزهای دیگری هست، بدون اینکه
+دوباره از منو رد شود و دوباره دوره را انتخاب کند.
+{% endcomment %}
+{% if tabs %}
+<nav class="tabbar no-print">
+  {% for key, title, route, args in tabs %}
+  <a class="tab {% if tab == key %}active{% endif %}"
+     href="{% if args %}{% url route args.0 %}{% else %}{% url route %}{% endif %}">{{ title }}</a>
+  {% endfor %}
+</nav>
+{% endif %}

@@ -20,6 +20,58 @@ from apps.payroll_config.models import (
 
 
 @payroll_staff_required
+def settings_home(request):
+    """صفحهٔ خانهٔ تنظیمات — کارت‌های بخش‌های پیکربندی.
+
+    این بخش کم به آن سر می‌زنند، پس یک صفحهٔ فهرست‌وار که خودش توضیح می‌دهد
+    هر بخش برای چیست، بهتر از پرتاب مستقیم به اولین زیربخش است.
+    """
+    from apps.employees.models import EmploymentContract
+    from apps.org.models import Company, CostCenter, Department
+    from apps.payroll_config.models import FiscalYear
+
+    company = Company.objects.first()
+    cards = [
+        {
+            "title": "اقلام حقوقی", "route": "component_list",
+            "note": "استحقاقی، کسورات و مبناهای محاسبه — نحوه محاسبه و دامنه شمول هر قلم",
+            "count": SalaryComponent.objects.filter(is_active=True).count(),
+            "unit": "قلم فعال",
+        },
+        {
+            "title": "سال مالی و مالیات", "route": "fiscal_settings",
+            "note": "حداقل دستمزد، حق مسکن، بن، نرخ‌های بیمه و پلکان مالیات هر سال",
+            "count": FiscalYear.objects.count(), "unit": "سال مالی",
+        },
+        {
+            "title": "شرکت و چارت سازمانی", "route": "org_settings",
+            "note": "اطلاعات شرکت، مراکز هزینه، واحدها و پست‌های سازمانی",
+            "count": CostCenter.objects.count() + Department.objects.count(),
+            "unit": "گره چارت",
+        },
+    ]
+    if getattr(request.user, "can_edit_payroll", False):
+        from apps.accounts.models import User
+
+        cards += [
+            {
+                "title": "کاربران سامانه", "route": "staff_users",
+                "note": "دسترسی کارگزینی و مالی به سامانه",
+                "count": User.objects.filter(is_active=True).count(), "unit": "کاربر",
+            },
+            {
+                "title": "حساب‌های پرتال", "route": "portal_accounts",
+                "note": "دسترسی خود پرسنل به فیش و مانده مرخصی",
+                "count": EmploymentContract.objects.filter(
+                    status=EmploymentContract.Status.ACTIVE
+                ).count(),
+                "unit": "قرارداد فعال",
+            },
+        ]
+    return render(request, "settings/home.html", {"company": company, "cards": cards})
+
+
+@payroll_staff_required
 def component_list(request):
     components = (
         SalaryComponent.objects.select_related("base_component")

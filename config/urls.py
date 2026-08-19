@@ -119,6 +119,7 @@ urlpatterns = [
     path("disputes/", payroll_views.dispute_list, name="dispute_list"),
     path("disputes/<int:pk>/resolve/", payroll_views.dispute_resolve, name="dispute_resolve"),
     # ---- پیکربندی
+    path("settings/", config_views.settings_home, name="settings_home"),
     path("components/", config_views.component_list, name="component_list"),
     path("components/new/", config_views.component_create, name="component_create"),
     path("components/<int:pk>/edit/", config_views.component_edit, name="component_edit"),

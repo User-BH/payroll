@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% load payroll_extras %}
+{% block title %}تنظیمات{% endblock %}
+{% block heading %}تنظیمات سامانه{% endblock %}
+{% block subheading %}{{ company.name }} — پیکربندی محاسبه، ساختار سازمانی و دسترسی‌ها{% endblock %}
+
+{% block content %}
+<div class="setting-cards">
+  {% for card in cards %}
+  <a class="setting-card" href="{% url card.route %}">
+    <b>{{ card.title }}</b>
+    <p>{{ card.note }}</p>
+    <span class="hint">{{ card.count|fanum }} {{ card.unit }}</span>
+  </a>
+  {% endfor %}
+</div>
+{% endblock %}
