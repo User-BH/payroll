@@ -34,6 +34,7 @@
   <div class="panel-head">
     <h3>ریز کارکرد</h3>
     <span class="hint">مانده مرخصی با هر تغییر خودکار به‌روز می‌شود — جایی ذخیره نمی‌شود که از واقعیت جا بماند</span>
+    <a class="btn btn-outline btn-sm" href="{% url 'timesheet_items' %}">ستون‌های این جدول</a>
   </div>
   <div class="table-wrap">
     <table>
@@ -49,6 +50,9 @@
           <th>کارکرد قابل پرداخت</th>
           <th>حق مأموریت (روز)</th>
           <th style="text-align:center;">اضافه‌کاری<br><span style="font-weight:500; opacity:.7;">دقیقه : ساعت : روز</span></th>
+          {% for item in extra_items %}
+          <th title="{{ item.description }}">{{ item.name }}<br><span style="font-weight:500; opacity:.7;">{{ item.unit_label }}</span></th>
+          {% endfor %}
           <th>وضعیت</th>
         </tr>
       </thead>

@@ -16,6 +16,7 @@ from django.db import transaction
 
 from apps.attendance.leave import DEFAULT_DAY_MINUTES
 from apps.attendance.models import LeaveEntitlement, Timesheet
+from apps.attendance.standard_items import ensure_standard_items
 from apps.employees.models import (
     BankAccount,
     ContractAllowance,
@@ -187,6 +188,10 @@ class Command(BaseCommand):
             ("تکنسین", 7), ("کارگر انبار", 4),
         ]:
             JobTitle.objects.create(company=company, name=name, job_group=group)
+
+        # ستون‌های جدول کارکرد — مثل نصب عملیاتی، چون شرکت بعد از migrate
+        # ساخته می‌شود و مهاجرت آن موقع چیزی برای seed کردن نداشته.
+        ensure_standard_items(company)
         return company
 
     def _create_users(self):

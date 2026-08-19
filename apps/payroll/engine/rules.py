@@ -11,7 +11,7 @@
 from decimal import Decimal
 
 from apps.payroll.engine.context import ZERO, LineResult, PayrollContext
-from apps.payroll.utils import fa_money, fa_number
+from apps.payroll.utils import fa_money, fa_number, fa_wage
 
 RULES = {}
 
@@ -45,8 +45,8 @@ def base_salary(ctx: PayrollContext, component):
     daily = ctx.daily_base
     unpaid = ctx.unpaid_days
     unpaid_note = (
-        f" (کارکرد اولیه {fa_number(ctx.initial_days)} روز − "
-        f"{fa_number(unpaid)} روز بدون حقوق)"
+        f" (کارکرد اولیه {fa_number(ctx.initial_days, 2)} روز − "
+        f"{fa_number(unpaid, 2)} روز بدون حقوق)"
         if unpaid
         else ""
     )
@@ -56,7 +56,7 @@ def base_salary(ctx: PayrollContext, component):
         quantity=days,
         rate=Decimal("1"),
         explanation=(
-            f"حقوق ثابت: {fa_number(days)} روز × {fa_money(daily)} ریال مزد روزانه "
+            f"حقوق ثابت: {fa_number(days, 2)} روز × {fa_wage(daily)} ریال مزد روزانه "
             f"بر مبنای {ctx.wage_basis_label}{unpaid_note}"
         ),
     ).rounded()
@@ -74,7 +74,7 @@ def seniority(ctx: PayrollContext, component):
         quantity=days,
         rate=Decimal("1"),
         explanation=(
-            f"پایه سنوات: {fa_number(days)} روز × {fa_money(daily)} ریال "
+            f"پایه سنوات: {fa_number(days, 2)} روز × {fa_wage(daily)} ریال "
             f"(سابقه {fa_number(ctx.contract.seniority_years)} سال)"
         ),
     ).rounded()
@@ -103,7 +103,7 @@ def _prorated(ctx: PayrollContext, monthly_amount: Decimal, label: str):
         rate=ratio,
         explanation=(
             f"{label}: {fa_money(monthly_amount)} ریال × "
-            f"{fa_number(ctx.paid_days)} ÷ {fa_number(ctx.month_days)} روز"
+            f"{fa_number(ctx.paid_days, 2)} ÷ {fa_number(ctx.month_days, 2)} روز"
         ),
     ).rounded()
 
@@ -128,7 +128,7 @@ def child_allowance(ctx: PayrollContext, component):
         rate=ratio,
         explanation=(
             f"حق اولاد: {fa_number(effective)} فرزند × {fa_money(per_child)} ریال × "
-            f"{fa_number(ctx.paid_days)} ÷ {fa_number(ctx.month_days)} روز{note}"
+            f"{fa_number(ctx.paid_days, 2)} ÷ {fa_number(ctx.month_days, 2)} روز{note}"
         ),
     ).rounded()
 
@@ -144,7 +144,7 @@ def _hourly_rule(ctx: PayrollContext, hours: Decimal, factor: Decimal, label: st
         quantity=hours,
         rate=factor,
         explanation=(
-            f"{label}: {fa_number(hours, 2)} ساعت × {fa_money(hourly)} ریال "
+            f"{label}: {fa_number(hours, 2)} ساعت × {fa_wage(hourly)} ریال "
             f"مزد ساعتی × {fa_number(factor, 3)}"
         ),
     ).rounded()
@@ -175,7 +175,7 @@ def overtime(ctx: PayrollContext, component):
     if hours and hours > 0:
         rate_note = "" if monthly_rate else f" × {fa_number(factor, 3)}"
         parts.append(
-            f"اضافه‌کاری: {fa_number(hours, 2)} ساعت × {fa_money(hourly)} ریال "
+            f"اضافه‌کاری: {fa_number(hours, 2)} ساعت × {fa_wage(hourly)} ریال "
             f"{basis}{rate_note}"
         )
 
@@ -392,7 +392,16 @@ def parametric(ctx: PayrollContext, component):
     if not base:
         return None
 
-    if component.quantity_source == Quantity.PAID_DAYS:
+    if component.quantity_source == Quantity.TIMESHEET_ITEM:
+        # مقدار از جدول کارکرد می‌آید، به واحد خودِ همان قلم (روز/ساعت/دقیقه).
+        # با همین، افزودن «جمعه‌کاری» یا هر قلم کارکرد تازه هیچ کد جدیدی لازم
+        # ندارد: یک ستون در کارکرد، یک قلم پارامتری، تمام.
+        item = component.timesheet_item
+        if item is None or ctx.timesheet is None:
+            return None
+        quantity = ctx.timesheet.value_of(item)
+        quantity_text = f"{fa_number(quantity, 2)} {item.unit_label} {item.name}"
+    elif component.quantity_source == Quantity.PAID_DAYS:
         quantity = ctx.paid_days
         quantity_text = f"{fa_number(quantity, 2)} روز کارکرد"
     elif component.quantity_source == Quantity.DAY_RATIO:
@@ -406,7 +415,7 @@ def parametric(ctx: PayrollContext, component):
 
     factor = component.rate if component.rate else Decimal("1")
 
-    pieces = [f"{fa_money(base)} ریال {base_label}"]
+    pieces = [f"{fa_wage(base)} ریال {base_label}"]
     if quantity_text:
         pieces.append(quantity_text)
     if factor != 1:
@@ -697,7 +706,7 @@ def info_tax_base(ctx: PayrollContext, component):
 def info_daily_wage(ctx: PayrollContext, component):
     return _info(
         component.name, ctx.daily_base,
-        f"مزد روزانه بر مبنای {ctx.wage_basis_label}: {fa_money(ctx.daily_base)} ریال",
+        f"مزد روزانه بر مبنای {ctx.wage_basis_label}: {fa_wage(ctx.daily_base)} ریال",
     )
 
 
@@ -706,7 +715,8 @@ def info_hourly_wage(ctx: PayrollContext, component):
     hours = ctx.params.daily_work_hours or Decimal("7.33")
     return _info(
         component.name, ctx.hourly_base,
-        f"مزد ساعتی: {fa_money(ctx.daily_base)} ÷ {fa_number(hours, 2)} ساعت کار روزانه",
+        f"مزد ساعتی: {fa_wage(ctx.daily_base)} ÷ {fa_number(hours, 2)} ساعت کار روزانه "
+        f"= {fa_wage(ctx.hourly_base)} ریال",
     )
 
 

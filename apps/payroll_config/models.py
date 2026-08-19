@@ -205,6 +205,7 @@ class SalaryComponent(models.Model):
 
         PAID_DAYS = "PAID_DAYS", "روز کارکرد قابل پرداخت"
         DAY_RATIO = "DAY_RATIO", "به نسبت کارکرد ماه"
+        TIMESHEET_ITEM = "TIMESHEET_ITEM", "یک قلم از جدول کارکرد"
         ONE = "ONE", "ثابت (بدون ضرب در کارکرد)"
 
     class DisplayUnit(models.TextChoices):
@@ -242,8 +243,13 @@ class SalaryComponent(models.Model):
         help_text="فقط برای قاعده پارامتری",
     )
     quantity_source = models.CharField(
-        "مقدار", max_length=10, choices=QuantitySource.choices, blank=True,
+        "مقدار", max_length=16, choices=QuantitySource.choices, blank=True,
         help_text="فقط برای قاعده پارامتری",
+    )
+    timesheet_item = models.ForeignKey(
+        "attendance.TimesheetItem", on_delete=models.PROTECT, null=True, blank=True,
+        related_name="components", verbose_name="قلم کارکرد",
+        help_text="وقتی مقدار از جدول کارکرد می‌آید — مثل ساعت جمعه‌کاری",
     )
     rate = models.DecimalField("نرخ / ضریب", max_digits=9, decimal_places=4, default=Decimal("0"))
     fixed_amount = models.DecimalField(
@@ -320,6 +326,10 @@ class SalaryComponent(models.Model):
             parts.append("× روز کارکرد")
         elif self.quantity_source == self.QuantitySource.DAY_RATIO:
             parts.append("× کارکرد ÷ روز ماه")
+        elif self.quantity_source == self.QuantitySource.TIMESHEET_ITEM:
+            label = self.timesheet_item.name if self.timesheet_item_id else "قلم کارکرد"
+            unit = self.timesheet_item.unit_label if self.timesheet_item_id else ""
+            parts.append(f"× {label}" + (f" ({unit})" if unit else ""))
         if self.rate and self.rate != 1:
             parts.append(f"× {fa_number(self.rate, 4)}")
         return " ".join(parts)

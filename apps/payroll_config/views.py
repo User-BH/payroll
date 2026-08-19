@@ -26,6 +26,7 @@ def settings_home(request):
     این بخش کم به آن سر می‌زنند، پس یک صفحهٔ فهرست‌وار که خودش توضیح می‌دهد
     هر بخش برای چیست، بهتر از پرتاب مستقیم به اولین زیربخش است.
     """
+    from apps.attendance.models import TimesheetItem
     from apps.employees.models import EmploymentContract
     from apps.org.models import Company, CostCenter, Department
     from apps.payroll_config.models import FiscalYear
@@ -37,6 +38,12 @@ def settings_home(request):
             "note": "استحقاقی، کسورات و مبناهای محاسبه — نحوه محاسبه و دامنه شمول هر قلم",
             "count": SalaryComponent.objects.filter(is_active=True).count(),
             "unit": "قلم فعال",
+        },
+        {
+            "title": "اقلام کارکرد", "route": "timesheet_items",
+            "note": "ستون‌های جدول کارکرد ماهانه — جمعه‌کاری و هر قلم تازه با یک تیک اضافه می‌شود",
+            "count": TimesheetItem.objects.filter(is_active=True).count(),
+            "unit": "ستون فعال",
         },
         {
             "title": "سال مالی و مالیات", "route": "fiscal_settings",

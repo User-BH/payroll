@@ -92,6 +92,8 @@ SECTIONS = {
     "component_toggle": ("settings", "components"),
     "component_scope_add": ("settings", "components"),
     "component_scope_delete": ("settings", "components"),
+    "timesheet_items": ("settings", "timesheet_items"),
+    "timesheet_item_toggle": ("settings", "timesheet_items"),
     "fiscal_settings": ("settings", "fiscal"),
     "legal_parameter_edit": ("settings", "fiscal"),
     "tax_brackets_edit": ("settings", "fiscal"),
@@ -156,6 +158,7 @@ def _tabs_for(section, period, user):
         tabs = [
             ("home", "همه تنظیمات", "settings_home", []),
             ("components", "اقلام حقوقی", "component_list", []),
+            ("timesheet_items", "اقلام کارکرد", "timesheet_items", []),
             ("fiscal", "سال مالی و مالیات", "fiscal_settings", []),
             ("org", "شرکت و چارت", "org_settings", []),
         ]

@@ -99,6 +99,30 @@ class Timesheet(models.Model):
     def __str__(self):
         return f"کارکرد {self.employee.full_name} — {self.period.title}"
 
+    def value_of(self, item):
+        """مقدار یک قلم کارکرد — چه ستون قدیمی باشد چه رکورد تازه.
+
+        تنها راه خواندن اقلام کارکرد. بقیهٔ سامانه نباید بداند کدام قلم ستون
+        دارد و کدام رکورد؛ همین یک تابع آن تفاوت را می‌پوشاند.
+        """
+        if item.source_field:
+            return Decimal(str(getattr(self, item.source_field, 0) or 0))
+        entry = next(
+            (e for e in self.entries.all() if e.item_id == item.pk), None
+        )
+        return entry.value if entry else Decimal("0")
+
+    def set_value(self, item, value):
+        """ثبت مقدار یک قلم — روی ستون قدیمی یا رکورد تازه."""
+        number = Decimal(str(value or 0))
+        if item.source_field:
+            setattr(self, item.source_field, number)
+            return None
+        entry, _ = TimesheetEntry.objects.update_or_create(
+            timesheet=self, item=item, defaults={"value": number}
+        )
+        return entry
+
     @property
     def day_minutes(self) -> int:
         """طول یک روز کاری بر حسب دقیقه، از پارامتر قانونی همان دوره.
@@ -346,3 +370,94 @@ class TimesheetImport(models.Model):
         verbose_name = "ورود کارکرد از فایل"
         verbose_name_plural = "ورود کارکرد از فایل"
         ordering = ["-created_at"]
+
+
+class TimesheetItem(models.Model):
+    """قلم کارکرد — یک ستون از جدول کارکرد ماهانه، به‌صورت داده نه کد.
+
+    مسئله‌ای که این جدول حل می‌کند: تا امروز ستون‌های جدول کارکرد در مدل
+    سخت‌کد شده بودند، پس افزودن «جمعه‌کاری» یا هر قلم تازه یعنی یک مهاجرت
+    دیتابیس، یک تغییر در فرم، و یک قاعدهٔ تازه در موتور. حالا هر ستون یک سطر
+    است و افزودن قلم تازه یعنی یک رکورد.
+
+    **دادهٔ موجود جابه‌جا نشد.** ستون‌هایی که از قبل روی `Timesheet` بودند
+    (کارکرد، غیبت، مرخصی، اضافه‌کاری، مأموریت، جمعه‌کاری…) همان‌جا می‌مانند و
+    این جدول فقط با `source_field` به آن‌ها اشاره می‌کند. قلم‌های تازه در
+    `TimesheetEntry` ذخیره می‌شوند. هر دو از یک راه خوانده می‌شوند
+    (`Timesheet.value_of`)، پس بقیهٔ سامانه فرقشان را نمی‌فهمد.
+
+    این تقسیم عمدی است: بازنویسی ستون‌های موجود یعنی دست بردن در چیزی که
+    فیش‌های چند ماه رویش حساب شده‌اند، بی‌آنکه چیزی به کاربر اضافه کند.
+    """
+
+    class Unit(models.TextChoices):
+        DAY = "DAY", "روز"
+        HOUR = "HOUR", "ساعت"
+        MINUTE = "MINUTE", "دقیقه"
+
+    company = models.ForeignKey(
+        "org.Company", on_delete=models.PROTECT,
+        related_name="timesheet_items", verbose_name="شرکت",
+    )
+    code = models.CharField("کد", max_length=40)
+    name = models.CharField("نام ستون", max_length=60)
+    unit = models.CharField("واحد", max_length=8, choices=Unit.choices, default=Unit.HOUR)
+
+    source_field = models.CharField(
+        "ستون قدیمی", max_length=40, blank=True,
+        help_text="اگر این قلم روی خود جدول کارکرد ستون دارد، نام همان فیلد. "
+                  "خالی یعنی مقدارش در جدول مقادیر کارکرد ذخیره می‌شود.",
+    )
+    reduces_work_days = models.BooleanField(
+        "از کارکرد قابل پرداخت کم می‌شود", default=False,
+        help_text="مثل غیبت و مرخصی بدون حقوق. مرخصی استحقاقی و مأموریت کم نمی‌شوند.",
+    )
+
+    sequence = models.PositiveSmallIntegerField("ترتیب ستون", default=100)
+    is_active = models.BooleanField("در جدول کارکرد نمایش داده شود", default=True)
+    is_system = models.BooleanField(
+        "سیستمی", default=False,
+        help_text="اقلامی که موتور مستقیم به آن‌ها وابسته است و حذف نمی‌شوند",
+    )
+    description = models.CharField("توضیح", max_length=160, blank=True)
+
+    class Meta:
+        verbose_name = "قلم کارکرد"
+        verbose_name_plural = "اقلام کارکرد"
+        unique_together = [("company", "code")]
+        ordering = ["sequence", "id"]
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def unit_label(self) -> str:
+        return self.get_unit_display()
+
+
+class TimesheetEntry(models.Model):
+    """مقدار یک قلم کارکردِ **تازه** برای یک پرسنل در یک ماه.
+
+    فقط برای اقلامی که `source_field` ندارند؛ اقلام قدیمی همان ستون خودشان را
+    روی `Timesheet` دارند و اینجا رکوردی نمی‌سازند.
+
+    مقدار همیشه به کوچک‌ترین واحد ذخیره می‌شود — دقیقه برای ساعت و دقیقه،
+    صدم‌روز برای روز — به همان دلیلی که مرخصی و اضافه‌کاری به دقیقه ذخیره
+    می‌شوند: نگهداری اعشاری، خطای گرد کردن جمع می‌کند.
+    """
+
+    timesheet = models.ForeignKey(
+        Timesheet, on_delete=models.CASCADE, related_name="entries", verbose_name="کارکرد"
+    )
+    item = models.ForeignKey(
+        TimesheetItem, on_delete=models.PROTECT, related_name="entries", verbose_name="قلم"
+    )
+    value = models.DecimalField("مقدار", max_digits=10, decimal_places=2, default=0)
+
+    class Meta:
+        verbose_name = "مقدار قلم کارکرد"
+        verbose_name_plural = "مقادیر اقلام کارکرد"
+        unique_together = [("timesheet", "item")]
+
+    def __str__(self):
+        return f"{self.item.name}: {self.value}"

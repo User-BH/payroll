@@ -73,6 +73,14 @@
     </div>
   </td>
 
+  {% comment %} ستون‌های تازه — از جدول اقلام کارکرد می‌آیند، نه از این قالب {% endcomment %}
+  {% for cell in ts.extra_cells %}
+  <td data-label="{{ cell.item.name }}"><input class="input-cell" name="{{ cell.field }}"
+             value="{{ cell.value|floatformat:"-2" }}"
+             {% if not period.is_editable %}readonly{% endif %} inputmode="decimal"
+             title="{{ cell.item.name }} ({{ cell.item.unit_label }})"></td>
+  {% endfor %}
+
   <td>
     {% if error %}
       <span class="badge wait"><span class="dot"></span>{{ error }}</span>

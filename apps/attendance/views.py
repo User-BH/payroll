@@ -8,6 +8,7 @@ from django.views.decorators.http import require_POST
 
 from apps.accounts.decorators import can_edit_required, payroll_staff_required
 from apps.attendance.importer import build_template, import_timesheets
+from apps.attendance.items import RENDERED_FIELDS, attach_cells, extra_items, save_cells
 from apps.attendance.leave import DEFAULT_DAY_MINUTES, balances_for, compute_balance
 from apps.attendance.models import Timesheet
 from apps.attendance.services import default_work_days
@@ -82,7 +83,7 @@ def _rows(request, period):
     # اضافه می‌زند (۱۴۶ ردیف = ۲۹۲ کوئری).
     timesheets = Timesheet.objects.filter(period=period).select_related(
         "employee", "contract", "contract__department", "period", "period__legal_parameter"
-    )
+    ).prefetch_related("entries")
     if query:
         timesheets = timesheets.filter(
             Q(employee__first_name__icontains=query)
@@ -98,15 +99,19 @@ def timesheet_grid(request, pk):
     if period.is_editable:
         _ensure_timesheets(period)
     timesheets, query = _rows(request, period)
+    approved = timesheets.filter(status=Timesheet.Status.APPROVED).count()
+    total = timesheets.count()
+    items = extra_items(period.company)
     return render(
         request,
         "timesheets/grid.html",
         {
             "period": period,
-            "timesheets": timesheets,
+            "timesheets": attach_cells(timesheets, items),
+            "extra_items": items,
             "q": query,
-            "approved_count": timesheets.filter(status=Timesheet.Status.APPROVED).count(),
-            "total": timesheets.count(),
+            "approved_count": approved,
+            "total": total,
             "balances": balances_for(period, _day_minutes(period)),
         },
     )
@@ -116,12 +121,14 @@ def timesheet_grid(request, pk):
 def timesheet_rows(request, pk):
     period = get_object_or_404(PayrollPeriod, pk=pk)
     timesheets, query = _rows(request, period)
+    items = extra_items(period.company)
     return render(
         request,
         "timesheets/_rows.html",
         {
             "period": period,
-            "timesheets": timesheets,
+            "timesheets": attach_cells(timesheets, items),
+            "extra_items": items,
             "q": query,
             "balances": balances_for(period, _day_minutes(period)),
         },
@@ -251,11 +258,18 @@ def timesheet_save(request, pk):
     )
     period = timesheet.period
 
+    items = extra_items(period.company)
+
     if not period.is_editable:
         return render(
             request,
             "timesheets/_row.html",
-            {"ts": timesheet, "period": period, "error": "دوره قابل ویرایش نیست."},
+            {
+                "ts": attach_cells([timesheet], items)[0],
+                "period": period,
+                "extra_items": items,
+                "error": "دوره قابل ویرایش نیست.",
+            },
         )
 
     from apps.attendance.services import minutes_from_parts
@@ -283,14 +297,20 @@ def timesheet_save(request, pk):
         timesheet.approved_by = None
         timesheet.approved_at = None
 
+    # اقلام تازه: آن‌هایی که ستون قدیمی دارند روی خودِ سطر می‌نشینند و با
+    # همین save ذخیره می‌شوند؛ بقیه رکورد جدا می‌سازند و به یک سطرِ ذخیره‌شده
+    # نیاز دارند، پس بعد از save دوباره صدا زده می‌شود.
+    save_cells(timesheet, request.POST, [i for i in items if i.source_field])
     timesheet.entered_by = request.user
     timesheet.save()
+    save_cells(timesheet, request.POST, [i for i in items if not i.source_field])
 
     return render(
         request,
         "timesheets/_row.html",
         {
-            "ts": timesheet,
+            "ts": attach_cells([timesheet], items)[0],
+            "extra_items": items,
             "period": period,
             "saved": True,
             "balance": compute_balance(
@@ -300,3 +320,110 @@ def timesheet_save(request, pk):
             ),
         },
     )
+
+
+# ==================================================== اقلام کارکرد (ستون‌ها)
+
+
+class TimesheetItemForm(forms.ModelForm):
+    """تعریف یک ستون تازه برای جدول کارکرد.
+
+    `source_field` عمداً در فرم نیست: ستون‌های قدیمی از پیش تعریف شده‌اند و
+    قلم تازه‌ای که کاربر می‌سازد باید مقدارش را در جدول مقادیر بگذارد، نه در
+    یک فیلد دلخواه روی مدل. اجازهٔ نوشتن نام فیلد یعنی اجازهٔ نوشتن روی هر
+    ستون دیگری از کارکرد.
+    """
+
+    class Meta:
+        from apps.attendance.models import TimesheetItem as _Item
+
+        model = _Item
+        fields = ["code", "name", "unit", "reduces_work_days", "sequence",
+                  "is_active", "description"]
+
+    def __init__(self, *args, company=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.company = company
+        for field in self.fields.values():
+            widget = field.widget
+            if isinstance(widget, forms.CheckboxInput):
+                continue
+            widget.attrs.setdefault("class", "input")
+
+    def clean_code(self):
+        from apps.attendance.models import TimesheetItem
+
+        code = (self.cleaned_data.get("code") or "").strip().upper()
+        queryset = TimesheetItem.objects.filter(company=self.company, code=code)
+        if self.instance.pk:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        if queryset.exists():
+            raise forms.ValidationError("این کد قبلاً برای قلم کارکرد دیگری استفاده شده است.")
+        return code
+
+
+@payroll_staff_required
+def timesheet_items(request):
+    """فهرست ستون‌های جدول کارکرد، با امکان افزودن ستون تازه.
+
+    این صفحه پاسخ همان خواستهٔ «هر وقت خواستیم جمعه‌کاری را اضافه کنیم» است:
+    یک تیک، و ستون در جدول کارکرد ظاهر می‌شود. برای اینکه آن ستون به پول
+    تبدیل شود، یک قلم حقوقی پارامتری هم لازم است که مقدارش را از همین قلم
+    بگیرد — لینک ساختش در همین صفحه است.
+    """
+    from apps.attendance.models import TimesheetItem
+    from apps.org.models import Company
+
+    company = Company.objects.first()
+    can_edit = getattr(request.user, "can_edit_payroll", False)
+    form = TimesheetItemForm(
+        request.POST or None, company=company
+    ) if can_edit else None
+
+    if request.method == "POST" and can_edit and form.is_valid():
+        item = form.save(commit=False)
+        item.company = company
+        item.save()
+        messages.success(
+            request,
+            f"ستون «{item.name}» به جدول کارکرد اضافه شد. برای اینکه به مبلغ تبدیل شود، "
+            "یک قلم حقوقی با مقدارِ «یک قلم جدول کارکرد» بسازید.",
+        )
+        return redirect("timesheet_items")
+
+    items = TimesheetItem.objects.filter(company=company)
+    used_by = {}
+    from apps.payroll_config.models import SalaryComponent
+
+    for component in SalaryComponent.objects.filter(
+        timesheet_item__isnull=False
+    ).select_related("timesheet_item"):
+        used_by.setdefault(component.timesheet_item_id, []).append(component)
+
+    rows = []
+    for item in items:
+        rows.append({
+            "item": item,
+            "components": used_by.get(item.pk, []),
+            "in_grid": item.source_field not in RENDERED_FIELDS,
+        })
+
+    return render(
+        request,
+        "timesheets/items.html",
+        {"rows": rows, "form": form, "company": company},
+    )
+
+
+@can_edit_required
+@require_POST
+def timesheet_item_toggle(request, pk):
+    """روشن/خاموش کردن یک ستون — همان یک تیکی که قلم تازه را به جدول می‌آورد."""
+    from apps.attendance.models import TimesheetItem
+
+    item = get_object_or_404(TimesheetItem, pk=pk)
+    item.is_active = not item.is_active
+    item.save(update_fields=["is_active"])
+    state = "به جدول کارکرد اضافه شد" if item.is_active else "از جدول کارکرد برداشته شد"
+    messages.success(request, f"ستون «{item.name}» {state}.")
+    return redirect("timesheet_items")

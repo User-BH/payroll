@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django import forms
 from django.forms import modelformset_factory
 
@@ -85,7 +87,8 @@ class SalaryComponentForm(BootstrapMixin, forms.ModelForm):
         model = SalaryComponent
         fields = [
             "code", "name", "kind", "calc_type", "engine_rule_key",
-            "base_source", "quantity_source", "base_component", "rate", "fixed_amount",
+            "base_source", "quantity_source", "base_component", "timesheet_item",
+            "rate", "fixed_amount",
             "display_unit", "is_insurable", "is_taxable",
             "affects_eid", "affects_severance",
             "sequence", "gl_account", "color", "print_on_payslip",
@@ -97,7 +100,7 @@ class SalaryComponentForm(BootstrapMixin, forms.ModelForm):
         ("شناسه و نوع", ["code", "name", "kind", "sequence"]),
         ("نحوه محاسبه", [
             "calc_type", "base_source", "quantity_source", "base_component",
-            "rate", "fixed_amount", "engine_rule_key",
+            "timesheet_item", "rate", "fixed_amount", "engine_rule_key",
         ]),
         ("رفتار در فیش و گزارش", [
             "display_unit", "is_insurable", "is_taxable",
@@ -118,16 +121,37 @@ class SalaryComponentForm(BootstrapMixin, forms.ModelForm):
             if self.instance.pk:
                 queryset = queryset.exclude(pk=self.instance.pk)
             self.fields["base_component"].queryset = queryset
+            # فقط اقلام کارکردِ فعال؛ قلمی که در جدول کارکرد نیست همیشه صفر
+            # می‌ماند و سطر حقوقی‌اش بی‌سروصدا نمی‌آید.
+            from apps.attendance.models import TimesheetItem
+
+            self.fields["timesheet_item"].queryset = TimesheetItem.objects.filter(
+                company=company, is_active=True
+            )
         self.fields["engine_rule_key"].help_text = (
             "فقط وقتی «نحوه محاسبه» روی قاعده موتور است — نام قاعده در rules.py"
         )
         self.fields["calc_type"].help_text = (
             "«قاعده پارامتری» بدون کدنویسی ساخته می‌شود: مبنا × مقدار × ضریب"
         )
+        # هر دو روی مدل `default=0` دارند، پس خالی گذاشتنشان یعنی صفر — نه
+        # «فیلد لازم است». بدون این، ساختن یک قلم پارامتریِ ساده هم به پر کردن
+        # دو خانهٔ بی‌ربط گیر می‌کرد.
+        for name in ("rate", "fixed_amount"):
+            self.fields[name].required = False
         self.fields["rate"].help_text = "ضریب فرمول؛ خالی یا ۱ یعنی بدون ضریب"
         self.fields["base_component"].help_text = (
             "وقتی مبنا «مبلغ یک قلم دیگر» است — آن قلم باید ترتیب کوچک‌تری داشته باشد"
         )
+        self.fields["timesheet_item"].help_text = (
+            "وقتی مقدار «یک قلم جدول کارکرد» است — همان ستونی که اپراتور پر می‌کند"
+        )
+
+    def clean_rate(self):
+        return self.cleaned_data.get("rate") or Decimal("0")
+
+    def clean_fixed_amount(self):
+        return self.cleaned_data.get("fixed_amount") or Decimal("0")
 
     def clean_code(self):
         code = (self.cleaned_data.get("code") or "").strip().upper()
@@ -182,6 +206,14 @@ class SalaryComponentForm(BootstrapMixin, forms.ModelForm):
             self.add_error("fixed_amount", "مبنای «مبلغ ثابت» بدون مبلغ، همیشه صفر می‌شود.")
         if base_source == SalaryComponent.BaseSource.COMPONENT and not cleaned.get("base_component"):
             self.add_error("base_component", "مبنای «مبلغ یک قلم دیگر» بدون انتخاب قلم، معنا ندارد.")
+        if (
+            cleaned.get("quantity_source") == SalaryComponent.QuantitySource.TIMESHEET_ITEM
+            and not cleaned.get("timesheet_item")
+        ):
+            self.add_error(
+                "timesheet_item",
+                "مقدار «یک قلم جدول کارکرد» بدون انتخاب آن قلم، همیشه صفر می‌شود.",
+            )
 
 
 class ComponentScopeForm(BootstrapMixin, forms.ModelForm):

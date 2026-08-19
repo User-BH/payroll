@@ -81,6 +81,12 @@ urlpatterns = [
     path("periods/<int:pk>/timesheets/", attendance_views.timesheet_grid, name="timesheet_grid"),
     path("periods/<int:pk>/timesheets/rows/", attendance_views.timesheet_rows, name="timesheet_rows"),
     path("timesheets/<int:pk>/save/", attendance_views.timesheet_save, name="timesheet_save"),
+    path("settings/timesheet-items/", attendance_views.timesheet_items, name="timesheet_items"),
+    path(
+        "settings/timesheet-items/<int:pk>/toggle/",
+        attendance_views.timesheet_item_toggle,
+        name="timesheet_item_toggle",
+    ),
     path("periods/<int:pk>/timesheets/import/", attendance_views.timesheet_import, name="timesheet_import"),
     path(
         "periods/<int:pk>/timesheets/template/",

@@ -16,6 +16,8 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from apps.attendance.leave import DEFAULT_DAY_MINUTES
+from apps.attendance.models import TimesheetItem
+from apps.attendance.standard_items import ensure_standard_items
 from apps.org.models import Company, CostCenter, Department, JobTitle
 from apps.payroll.utils import jalali_to_gregorian, jalali_month_range
 from apps.payroll_config.models import (
@@ -153,6 +155,10 @@ class Command(BaseCommand):
         for name in JOB_TITLES:
             JobTitle.objects.create(company=company, name=name)
 
+        # ستون‌های جدول کارکرد. مهاجرت روی دیتابیس خالی چیزی نساخته بود، چون
+        # آن موقع هنوز شرکتی نبود.
+        ensure_standard_items(company)
+
         fiscal_year = self._fiscal_year(company, year)
         self._components(company)
 
@@ -162,6 +168,7 @@ class Command(BaseCommand):
             f"  مرکز هزینه   : {CostCenter.objects.count()}\n"
             f"  پست سازمانی  : {JobTitle.objects.count()}\n"
             f"  اقلام حقوقی  : {SalaryComponent.objects.count()}\n"
+            f"  اقلام کارکرد : {TimesheetItem.objects.count()}\n"
             f"  پله مالیاتی  : {TaxBracket.objects.filter(fiscal_year=fiscal_year).count()}\n"
         )
         self.stdout.write(self.style.WARNING(

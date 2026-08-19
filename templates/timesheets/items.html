@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% load payroll_extras %}
+{% block title %}اقلام کارکرد{% endblock %}
+{% block heading %}اقلام کارکرد — ستون‌های جدول کارکرد ماهانه{% endblock %}
+{% block subheading %}هر سطر این جدول یک ستون در «کارکرد ماهانه» است. برای افزودن قلمی مثل جمعه‌کاری کافی است تیکش را روشن کنید — کدنویسی لازم نیست.{% endblock %}
+
+{% block content %}
+<div class="note-box">
+  <b>یک قلم کارکرد به‌تنهایی پول نمی‌شود.</b>
+  این جدول فقط می‌گوید اپراتور چه عددی وارد کند. برای تبدیل آن عدد به مبلغ، یک
+  <a href="{% url 'component_create' %}">قلم حقوقی</a> بسازید که «نحوه محاسبه»‌اش
+  <b>قاعده پارامتری</b> و «مقدار»ش <b>یک قلم جدول کارکرد</b> باشد؛ آنگاه
+  <bdi>مبلغ = مبنا × مقدارِ همین ستون × ضریب</bdi>.
+</div>
+
+<div class="panel">
+  <div class="panel-head">
+    <h3>ستون‌های تعریف‌شده</h3>
+    <span class="hint">ستون‌های سیستمی ویجت اختصاصی خودشان را دارند و همیشه در جدول هستند</span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>نام ستون</th>
+          <th>کد</th>
+          <th>واحد</th>
+          <th>از کارکرد کم می‌شود</th>
+          <th>اقلام حقوقی وابسته</th>
+          <th>وضعیت</th>
+          {% if user.can_edit_payroll %}<th></th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td data-label="نام ستون">
+            <b>{{ row.item.name }}</b>
+            {% if row.item.is_system %}<span class="badge" title="موتور مستقیم به این ستون وابسته است">سیستمی</span>{% endif %}
+            {% if row.item.description %}<small style="display:block; color:var(--muted);">{{ row.item.description }}</small>{% endif %}
+          </td>
+          <td data-label="کد"><code>{{ row.item.code }}</code></td>
+          <td data-label="واحد">{{ row.item.unit_label }}</td>
+          <td data-label="از کارکرد کم می‌شود">{% if row.item.reduces_work_days %}بله{% else %}—{% endif %}</td>
+          <td data-label="اقلام حقوقی وابسته">
+            {% for component in row.components %}
+              <a href="{% url 'component_edit' component.pk %}">{{ component.name }}</a>{% if not forloop.last %}، {% endif %}
+            {% empty %}
+              {% if row.item.is_system %}
+              <span class="hint">موتور مستقیم از این ستون استفاده می‌کند</span>
+              {% else %}
+              <span class="hint">به هیچ قلم حقوقی وصل نیست — مقدارش وارد فیش نمی‌شود</span>
+              {% endif %}
+            {% endfor %}
+          </td>
+          <td data-label="وضعیت">
+            {% if row.item.is_active %}
+              <span class="badge ok"><span class="dot"></span>در جدول کارکرد</span>
+            {% else %}
+              <span class="badge wait"><span class="dot"></span>غیرفعال</span>
+            {% endif %}
+          </td>
+          {% if user.can_edit_payroll %}
+          <td>
+            {% if row.item.is_system %}
+              <span class="hint">قابل خاموش کردن نیست</span>
+            {% else %}
+            <form method="post" action="{% url 'timesheet_item_toggle' row.item.pk %}">
+              {% csrf_token %}
+              <button class="btn btn-outline btn-sm" type="submit">
+                {% if row.item.is_active %}برداشتن از جدول{% else %}افزودن به جدول{% endif %}
+              </button>
+            </form>
+            {% endif %}
+          </td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if form %}
+<div class="panel">
+  <div class="panel-head">
+    <h3>افزودن ستون تازه</h3>
+    <span class="hint">مقدار ستون‌های تازه در جدول مقادیر کارکرد ذخیره می‌شود؛ فیش‌های قفل‌شده دست نمی‌خورند</span>
+  </div>
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+    <div class="msg error" style="margin:16px;">{{ form.non_field_errors|striptags }}</div>
+    {% endif %}
+    <div class="panel-body" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:0 18px;">
+      {% for field in form %}
+      <div class="field">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.help_text %}<div class="explain">{{ field.help_text }}</div>{% endif %}
+        {% if field.errors %}<div style="color:var(--red); font-size:11.5px; margin-top:5px; font-weight:600;">{{ field.errors|striptags }}</div>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    <div style="display:flex; gap:10px; padding:0 16px 16px;">
+      <button class="btn btn-primary" type="submit">افزودن ستون</button>
+    </div>
+  </form>
+</div>
+{% endif %}
+{% endblock %}
