@@ -19,6 +19,7 @@ from apps.org.tree import (
     subtree_department_ids,
     walk,
 )
+from apps.payroll.engine.health import component_warnings
 from apps.payroll.engine.runner import CalculationError, calculate_period
 from apps.payroll.exports import generate_export
 from apps.payroll.models import (
@@ -299,6 +300,8 @@ def period_detail(request, pk):
     period = get_object_or_404(PayrollPeriod.objects.select_related("company", "fiscal_year"), pk=pk)
     progress = _period_progress(period)
     runs = period.runs.select_related("run_by").order_by("-started_at")[:5]
+    # اقلامی که با پیکربندی امروز هیچ عددی تولید نمی‌کنند — پیش از اجرا، نه بعدش.
+    warnings = component_warnings(period.company, period.legal_parameter)
 
     by_department = (
         Payslip.objects.filter(period=period)
@@ -321,6 +324,7 @@ def period_detail(request, pk):
             "progress": progress,
             "runs": runs,
             "by_department": by_department,
+            "warnings": warnings,
             "payslip_count": Payslip.objects.filter(period=period).count(),
         },
     )

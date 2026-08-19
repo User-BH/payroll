@@ -60,11 +60,14 @@ GREEN, RED, AMBER, GREY = "#3E8E5B", "#E2231A", "#B57B14", "#8A8175"
 COMPONENTS = [
     # ---------- پرداختی‌ها
     ("BASE_SALARY",  "حقوق ثابت",       "EARNING", "base_salary",     10,  True,  True,  True,  True,  GREEN, True),
-    ("SENIORITY",    "پایه سنوات",      "EARNING", "fixed",           20,  True,  True,  True,  True,  GREEN, False),
-    ("HOUSING",      "حق مسکن",         "EARNING", "fixed",           30,  True,  True,  True,  False, GREEN, False),
+    # مقدار این سه قلم در «پارامترهای سال» ثبت می‌شود، پس به همان قاعده وصل‌اند
+    # نه به مبلغ ثابتِ خودشان: یک عدد نباید دو جا زندگی کند، وگرنه یکی‌شان صفر
+    # می‌ماند و قلم بی‌سروصدا از فیش غایب می‌شود.
+    ("SENIORITY",    "پایه سنوات",      "EARNING", "seniority",       20,  True,  True,  True,  True,  GREEN, False),
+    ("HOUSING",      "حق مسکن",         "EARNING", "housing_allowance", 30, True, True,  True,  False, GREEN, False),
     ("CHILD",        "حق اولاد",        "EARNING", "child_allowance", 40,  False, True,  False, False, AMBER, False),
     ("MARRIAGE",     "حق تاهل",         "EARNING", "fixed",           50,  True,  True,  False, False, GREEN, False),
-    ("FOOD",         "وجه بن",          "EARNING", "fixed",           60,  True,  True,  True,  False, GREEN, False),
+    ("FOOD",         "وجه بن",          "EARNING", "food_allowance",  60,  True,  True,  True,  False, GREEN, False),
     ("OVERTIME",     "اضافه کار",       "EARNING", "overtime",        70,  True,  True,  False, False, GREEN, False),
     ("MISSION",      "حق ماموریت",      "EARNING", "mission_allowance",          80,  False, False, False, False, AMBER, False),
     ("PREV_CLAIM",   "طلب ماه قبل",     "EARNING", "manual",          90,  True,  True,  False, False, GREEN, False),
