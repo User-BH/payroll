@@ -14,6 +14,40 @@
 
 <div class="overlay" id="overlay"></div>
 
+{# ---------------------------------------------------------------------------
+   سامانهٔ کارگزینی روی گوشی باز نمی‌شود: جدول کارکرد، برگهٔ محاسبه و فیش‌ها
+   ده‌ها ستون دارند و روی صفحهٔ کوچک نه خوانا می‌شوند نه قابل اعتماد. به‌جای
+   فشرده کردنشان، صریح می‌گوییم روی رایانه باز شود.
+
+   پرتال پرسنل قالب جداگانه‌ای دارد و این پیام آن‌جا نمی‌آید — پرسنل باید
+   بتواند فیشش را روی گوشی ببیند. لینک پایین همان‌جا می‌برد.
+
+   با CSS نمایش داده می‌شود نه با JS، تا پیش از بارگذاری اسکریپت‌ها هم درست
+   کار کند. #}
+<div class="small-screen" id="smallScreen">
+  <div class="small-screen-box">
+    <div class="brand-mark" style="margin:0 auto 18px;">
+      <img src="{% static 'img/logo.png' %}" alt="نشان تامین کالا باختر">
+    </div>
+    <h2>روی رایانه باز کنید</h2>
+    <p>
+      این بخش، سامانهٔ کارگزینی و حقوق و دستمزد است. جدول کارکرد، برگهٔ محاسبه و
+      فیش‌ها ده‌ها ستون دارند و روی صفحهٔ گوشی نه خوانا می‌شوند نه قابل اعتماد.
+    </p>
+    <p class="hint">
+      اگر ناچارید از گوشی استفاده کنید، در مرورگر گزینهٔ <b>«نمایش نسخهٔ رایانه»</b>
+      (Desktop site) را روشن کنید.
+    </p>
+    <div class="small-screen-actions">
+      <a class="btn btn-primary" href="{% url 'portal_home' %}">پرتال کارکنان</a>
+      <button class="btn btn-outline" type="button"
+              onclick="document.getElementById('smallScreen').remove()">
+        به هر حال ادامه می‌دهم
+      </button>
+    </div>
+  </div>
+</div>
+
 <div class="app">
   <aside class="sidebar" id="sidebar">
     <div class="brand">

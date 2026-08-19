@@ -1,4 +1,5 @@
 import io
+from decimal import Decimal
 
 from django.contrib import messages
 from django.core.paginator import Paginator
@@ -31,6 +32,8 @@ from apps.payroll.models import (
     Payslip,
 )
 from apps.payroll.utils import fa_money, jalali_str, parse_decimal
+
+ZERO = Decimal("0")
 from apps.payroll_config.models import SalaryComponent
 
 
@@ -431,6 +434,145 @@ def payslip_detail(request, pk):
             "bases": [l for l in lines if l.kind == SalaryComponent.Kind.INFO],
         },
     )
+
+
+def _sheet_data(period):
+    """داده‌های برگهٔ محاسبه — مشترک بین صفحهٔ وب و خروجی اکسل.
+
+    سطر: پرسنل · ستون: قلم. ستون‌ها از روی سطرهای واقعی فیش‌ها ساخته می‌شوند نه
+    از فهرست اقلام، پس قلمی که این ماه به کسی تعلق نگرفته ستون خالی نمی‌سازد.
+
+    هیچ محاسبهٔ تازه‌ای اینجا انجام نمی‌شود: همهٔ اعداد از `PayslipLine` می‌آیند
+    که مبنا، تعداد، ضریب و متن توضیحِ لحظهٔ محاسبه را جدا نگه داشته است. برگه
+    یک **نما**ست، نه موتور دوم — وگرنه دو عدد متفاوت می‌داشتیم.
+    """
+    payslips = list(
+        Payslip.objects.filter(period=period)
+        .select_related("employee", "department")
+        .prefetch_related("lines__component")
+        .order_by("employee__personnel_code")
+    )
+
+    # ---- ستون‌ها، به ترتیب ترتیبِ محاسبه و گروه‌بندی‌شده بر اساس نوع
+    seen = {}
+    for payslip in payslips:
+        for line in payslip.lines.all():
+            seen.setdefault(line.component_code, line)
+    ordered = sorted(seen.values(), key=lambda line: (line.sequence, line.component_code))
+
+    Kind = SalaryComponent.Kind
+    group_titles = [
+        (Kind.EARNING, "استحقاقی", "var(--green)"),
+        (Kind.DEDUCTION, "کسورات", "var(--red)"),
+        (Kind.EMPLOYER_COST, "هزینه کارفرما", "var(--blue)"),
+        (Kind.INFO, "مبناهای محاسبه", "var(--muted)"),
+    ]
+    groups = []
+    columns = []
+    for kind, title, color in group_titles:
+        members = [line for line in ordered if line.kind == kind]
+        if not members:
+            continue
+        groups.append({"title": title, "color": color, "span": len(members), "kind": kind})
+        columns.extend(
+            {"code": line.component_code, "name": line.component_name,
+             "unit": line.display_unit, "kind": kind}
+            for line in members
+        )
+
+    # ---- سطرها و جمع ستون‌ها
+    rows, totals = [], {column["code"]: ZERO for column in columns}
+    for payslip in payslips:
+        cells = {}
+        for line in payslip.lines.all():
+            cells[line.component_code] = line
+            totals[line.component_code] = totals.get(line.component_code, ZERO) + line.amount
+        rows.append({"payslip": payslip, "cells": [cells.get(c["code"]) for c in columns]})
+
+    return {
+        "groups": groups,
+        "columns": columns,
+        "rows": rows,
+        "totals": [totals.get(column["code"], ZERO) for column in columns],
+        "count": len(payslips),
+    }
+
+
+@payroll_staff_required
+def period_sheet(request, pk):
+    """برگهٔ محاسبهٔ دوره — همان شیت اکسل، ولی هر سلول می‌داند از کجا آمده."""
+    period = get_object_or_404(
+        PayrollPeriod.objects.select_related("company", "fiscal_year"), pk=pk
+    )
+    return render(
+        request, "periods/sheet.html", {"period": period, **_sheet_data(period)}
+    )
+
+
+@payroll_staff_required
+def period_sheet_export(request, pk):
+    """همان برگه، عیناً، در اکسل — تا بشود ستون‌به‌ستون با فایل خودشان مقایسه کرد.
+
+    ستون‌ها و ترتیبشان دقیقاً همان صفحهٔ وب است؛ اگر روزی برگه عوض شود این هم
+    خودبه‌خود عوض می‌شود، چون هر دو از یک تابع می‌آیند.
+    """
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font, PatternFill
+    from openpyxl.utils import get_column_letter
+
+    period = get_object_or_404(
+        PayrollPeriod.objects.select_related("company"), pk=pk
+    )
+    data = _sheet_data(period)
+
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "برگه محاسبه"
+    sheet.sheet_view.rightToLeft = True
+
+    head = ["کد پرسنلی", "نام و نام خانوادگی", "واحد"] + [c["name"] for c in data["columns"]]
+    sheet.append([f"برگه محاسبه {period.title} — {period.company.name}"])
+    sheet.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(head))
+    sheet.cell(row=1, column=1).font = Font(bold=True, size=13)
+    sheet.cell(row=1, column=1).alignment = Alignment(horizontal="center")
+
+    sheet.append(head)
+    fill = PatternFill("solid", fgColor="F3EEE4")
+    for cell in sheet[2]:
+        cell.font = Font(bold=True)
+        cell.fill = fill
+        cell.alignment = Alignment(horizontal="center", wrap_text=True)
+
+    for row in data["rows"]:
+        employee = row["payslip"].employee
+        values = [employee.personnel_code, employee.full_name, row["payslip"].department.name]
+        for line in row["cells"]:
+            if line is None:
+                values.append(None)
+            elif line.display_unit in ("DAY", "HOUR"):
+                values.append(line.quantity)
+            else:
+                values.append(line.amount)
+        sheet.append(values)
+
+    total_row = ["", f"جمع {data['count']} نفر", ""] + list(data["totals"])
+    sheet.append(total_row)
+    for cell in sheet[sheet.max_row]:
+        cell.font = Font(bold=True)
+
+    sheet.freeze_panes = "D3"  # سه ستون هویتی و دو سطر عنوان می‌چسبند
+    for index in range(1, len(head) + 1):
+        letter = get_column_letter(index)
+        sheet.column_dimensions[letter].width = 26 if index == 2 else 16
+
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = (
+        f'attachment; filename="sheet-{period.year}-{period.month:02d}.xlsx"'
+    )
+    workbook.save(response)
+    return response
 
 
 @payroll_staff_required

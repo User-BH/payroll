@@ -556,3 +556,30 @@ tfoot td{padding:13px 20px; font-size:12.8px; font-weight:800; border-top:2px so
 }
 .jdate-foot button:hover{border-color:var(--red); color:var(--red);}
 input.jdate{font-variant-numeric:tabular-nums;}
+
+/* ===================================================== صفحهٔ کوچک (کارگزینی)
+   سامانهٔ کارگزینی برای رایانه است. زیر ۹۰۰ پیکسل، به‌جای فشرده کردنِ جدول‌های
+   ده‌ها‌ستونی، صریح می‌گوییم روی رایانه باز شود. با CSS نمایش داده می‌شود تا
+   پیش از بارگذاری اسکریپت‌ها هم کار کند. پرتال پرسنل قالب جدا دارد و این
+   پیام آن‌جا نمی‌آید. */
+.small-screen{display:none;}
+@media (max-width:900px){
+  .small-screen{
+    display:flex; position:fixed; inset:0; z-index:9999;
+    align-items:center; justify-content:center; padding:24px;
+    background:var(--paper); overflow-y:auto;
+  }
+  .small-screen-box{
+    max-width:420px; width:100%; text-align:center;
+    background:var(--paper-2); border:1px solid var(--line); border-radius:var(--radius);
+    padding:32px 26px; box-shadow:var(--shadow);
+  }
+  .small-screen-box h2{font-size:19px; margin:0 0 12px;}
+  .small-screen-box p{font-size:13px; line-height:2; color:var(--muted); margin:0 0 12px;}
+  .small-screen-box p.hint{font-size:12px;}
+  .small-screen-box .brand-mark{width:52px; height:52px;}
+  .small-screen-actions{
+    display:flex; gap:10px; flex-direction:column; margin-top:20px;
+  }
+}
+@media print{.small-screen{display:none !important;}}

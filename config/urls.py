@@ -105,6 +105,8 @@ urlpatterns = [
     path("org/<str:kind>/<int:pk>/edit/", org_views.org_item_form, name="org_item_edit"),
     path("org/<str:kind>/<int:pk>/delete/", org_views.org_item_delete, name="org_item_delete"),
     # ---- فیش حقوقی
+    path("periods/<int:pk>/sheet/", payroll_views.period_sheet, name="period_sheet"),
+    path("periods/<int:pk>/sheet/export/", payroll_views.period_sheet_export, name="period_sheet_export"),
     path("periods/<int:pk>/payslips/", payroll_views.payslip_list, name="payslip_list"),
     path("payslips/<int:pk>/", payroll_views.payslip_detail, name="payslip_detail"),
     path("payslips/<int:pk>/print/", payroll_views.payslip_print, name="payslip_print"),
