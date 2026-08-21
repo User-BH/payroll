@@ -22,6 +22,25 @@
 </div>
 {% endif %}
 
+{% if unreachable %}
+<div class="note-box">
+  <b>{{ unreachable|length|fanum }} قلم فعال است ولی امروز به هیچ پرسنلی نمی‌رسد.</b>
+  این لزوماً ایراد نیست — قلمی که به یک واحد محدود است تا وقتی کسی در آن واحد
+  نباشد مصداقی ندارد. ولی اگر انتظار دارید این اقلام روی فیش بیایند، دامنه
+  شمولشان را ببینید:
+  <ul style="margin:8px 0 0; padding-inline-start:18px;">
+    {% for item in unreachable %}
+    <li style="margin-bottom:4px;">
+      {% if user.can_edit_payroll %}
+      <a href="{% url 'component_edit' item.component.pk %}"><b>{{ item.component.name }}</b></a>
+      {% else %}<b>{{ item.component.name }}</b>{% endif %}
+      — {{ item.reason }}
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
 <div class="status-card">
   <div class="status-left">
     <div class="status-badge"><span class="dot"></span>{{ period.get_status_display }}</div>

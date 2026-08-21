@@ -89,7 +89,7 @@
         <div class="comp-item">
           <div class="comp-item-l">
             <span class="comp-dot" style="background:var(--red);"></span>
-            <div><b>{{ scope.get_scope_type_display }}</b><small>شناسه {{ scope.scope_id }}</small></div>
+            <div><b>{{ scope.target_label }}</b><small>{{ scope.get_scope_type_display }}</small></div>
           </div>
           <form method="post" action="{% url 'component_scope_delete' scope.pk %}">
             {% csrf_token %}

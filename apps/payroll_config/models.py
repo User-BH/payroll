@@ -387,6 +387,45 @@ class ComponentScope(models.Model):
     def __str__(self):
         return f"{self.component} → {self.get_scope_type_display()}"
 
+    def target_label(self) -> str:
+        """نام مقصد، نه شناسه‌اش.
+
+        تا امروز صفحهٔ قلم «مرکز هزینه · شناسه ۷» نشان می‌داد. کسی که دنبال
+        این می‌گردد که چرا یک قلم به کسی نمی‌رسد، از عدد ۷ چیزی نمی‌فهمد —
+        و همین باعث شد یک دامنهٔ اشتباه مدت‌ها دیده نشود.
+        """
+        kind = self.scope_type
+        if kind == self.ScopeType.ALL:
+            return "همه پرسنل"
+        if kind == self.ScopeType.CONTRACT_TYPE:
+            from apps.employees.models import EmploymentContract
+
+            return dict(EmploymentContract.ContractType.choices).get(
+                self.scope_id, self.scope_id
+            )
+
+        from apps.employees.models import Employee
+        from apps.org.models import CostCenter, Department, JobTitle
+
+        models = {
+            self.ScopeType.DEPARTMENT: Department,
+            self.ScopeType.COST_CENTER: CostCenter,
+            self.ScopeType.JOB_TITLE: JobTitle,
+            self.ScopeType.EMPLOYEE: Employee,
+        }
+        model = models.get(kind)
+        if model is None:
+            return self.scope_id
+        try:
+            target = model.objects.filter(pk=int(self.scope_id)).first()
+        except (TypeError, ValueError):
+            return self.scope_id
+        if target is None:
+            # مقصدی که حذف شده — سکوت اینجا یعنی قلمی که به هیچ‌کس نمی‌رسد و
+            # کسی نمی‌فهمد چرا.
+            return f"{self.get_scope_type_display()} حذف‌شده (شناسه {self.scope_id})"
+        return getattr(target, "full_name", None) or str(target)
+
     def matches(self, contract) -> bool:
         kind = self.scope_type
         if kind == self.ScopeType.ALL:

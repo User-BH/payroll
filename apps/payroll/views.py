@@ -20,6 +20,7 @@ from apps.org.tree import (
     subtree_department_ids,
     walk,
 )
+from apps.payroll.engine import health
 from apps.payroll.engine.health import component_warnings
 from apps.payroll.engine.runner import CalculationError, calculate_period
 from apps.payroll.exports import generate_export
@@ -304,7 +305,11 @@ def period_detail(request, pk):
     progress = _period_progress(period)
     runs = period.runs.select_related("run_by").order_by("-started_at")[:5]
     # اقلامی که با پیکربندی امروز هیچ عددی تولید نمی‌کنند — پیش از اجرا، نه بعدش.
-    warnings = component_warnings(period.company, period.legal_parameter)
+    # دو دسته‌اند و جدا نشان داده می‌شوند: خرابیِ پیکربندی، و قلمی که سالم است
+    # ولی امروز مصداقی ندارد. یکی‌کردنشان یعنی هشدار واقعی زیر اطلاعیه‌ها گم شود.
+    all_warnings = component_warnings(period.company, period.legal_parameter)
+    warnings = [w for w in all_warnings if w["kind"] == health.BROKEN]
+    unreachable = [w for w in all_warnings if w["kind"] == health.UNREACHABLE]
 
     by_department = (
         Payslip.objects.filter(period=period)
@@ -328,6 +333,7 @@ def period_detail(request, pk):
             "runs": runs,
             "by_department": by_department,
             "warnings": warnings,
+            "unreachable": unreachable,
             "payslip_count": Payslip.objects.filter(period=period).count(),
         },
     )

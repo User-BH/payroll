@@ -14,6 +14,12 @@ from decimal import Decimal
 
 ZERO = Decimal("0")
 
+# قلمی که پیکربندی‌اش ایراد دارد و باید درست شود.
+BROKEN = "BROKEN"
+# قلمی که سالم است ولی امروز مصداقی ندارد — مثل پورسانت فروش وقتی هنوز کسی در
+# فروش نیست. اطلاع‌دادنی است، نه خرابی.
+UNREACHABLE = "UNREACHABLE"
+
 
 def _rule_warning(component, params):
     """قلم وصل‌شده به قاعدهٔ موتور: آیا پارامتر سالش پر است؟
@@ -59,6 +65,41 @@ def _parametric_warning(component):
     return ""
 
 
+def _scope_warning(component, contracts):
+    """قلمی که دامنه شمولش به هیچ قرارداد فعالی نمی‌خورد.
+
+    این هم یک باگ واقعی است: روی دیتابیس عملیاتی، «حق تاهل» به نوع قرارداد
+    «موقت» محدود شده بود در حالی که همهٔ پرسنل قرارداد «دائم» داشتند. نتیجه
+    این بود که کاربر تیک «متأهل» را می‌زد و هیچ اتفاقی نمی‌افتاد — بدون هیچ
+    پیامی، هیچ‌جا.
+
+    دامنه شمول تنها جایی است که یک قلمِ کاملاً درست هم می‌تواند به هیچ‌کس
+    نرسد، پس باید جداگانه دیده شود.
+    """
+    scopes = list(component.scopes.all())
+    if not scopes:
+        return ""
+    if any(component.applies_to(c) for c in contracts):
+        return ""
+    targets = "، ".join(f"«{s.target_label()}»" for s in scopes)
+    return (
+        f"دامنه شمولش ({targets}) است و هیچ‌کدام از {len(contracts)} قرارداد "
+        "فعال چنین مشخصه‌ای ندارند."
+    )
+
+
+def _active_contracts(company):
+    from apps.employees.models import Employee, EmploymentContract
+
+    return list(
+        EmploymentContract.objects.filter(
+            employee__company=company,
+            employee__status=Employee.Status.ACTIVE,
+            status=EmploymentContract.Status.ACTIVE,
+        ).select_related("employee")
+    )
+
+
 def component_warnings(company, params=None):
     """اقلام فعالی که با پیکربندی امروز هیچ عددی تولید نمی‌کنند.
 
@@ -83,8 +124,10 @@ def component_warnings(company, params=None):
         # «تعدیل گرد کردن» عمداً صفر است تا وقتی واحد گرد کردن ۱ باشد؛ هشدارش
         # هر ماه تکرار می‌شد و بقیهٔ هشدارها را بی‌ارزش می‌کرد.
         .exclude(code=ROUNDING_COMPONENT_CODE)
+        .prefetch_related("scopes")
         .order_by("sequence", "id")
     )
+    contracts = _active_contracts(company)
     Calc = SalaryComponent.CalcType
     for component in components:
         reason = ""
@@ -104,6 +147,21 @@ def component_warnings(company, params=None):
         elif component.calc_type == Calc.ENGINE_RULE and params is None:
             reason = "برای این سال پارامتر قانونی ثبت نشده است."
 
+        # دامنه شمول مستقل از نحوهٔ محاسبه است: قلمی که فرمولش هم درست باشد
+        # می‌تواند به هیچ‌کس نرسد. دو ایراد جدا هستند و **هر دو با هم** گزارش
+        # می‌شوند — وگرنه کاربر اولی را درست می‌کند، دوباره محاسبه می‌گیرد، و
+        # تازه می‌فهمد ایراد دومی هم بوده. یک بار دیدن بهتر از دو بار است.
+        scope_note = _scope_warning(component, contracts) if contracts else ""
+
         if reason:
-            warnings.append({"component": component, "reason": reason})
+            if scope_note:
+                reason = f"{reason} ضمناً {scope_note}"
+            warnings.append({"component": component, "reason": reason, "kind": BROKEN})
+        elif scope_note:
+            # سالم است ولی امروز مصداقی ندارد — مثل پورسانت فروش وقتی هنوز
+            # کسی در فروش نیست. جدا دسته‌بندی می‌شود تا هشدار واقعی زیر
+            # اطلاعیه‌ها گم نشود.
+            warnings.append(
+                {"component": component, "reason": scope_note, "kind": UNREACHABLE}
+            )
     return warnings
