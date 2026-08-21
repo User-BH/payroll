@@ -124,6 +124,59 @@ class PayrollContext:
         return "حداقل دستمزد" if self.uses_minimum_wage else "دستمزد قرارداد"
 
     @property
+    def overtime_hourly_base(self) -> Decimal:
+        """مبنای هر ساعت اضافه‌کاری — پیش از اعمال ضریب.
+
+        دو روش، چون بین شرکت‌ها فرق می‌کند و بک‌تست تیر ۱۴۰۵ نشان داد فایل
+        واقعی شرکت روش دوم را به کار می‌برد:
+
+          مزد ساعتی    : مزد روزانه ÷ ساعات کار روزانه
+          مبنای ماهانه : (مزد روزانه × ۳۰ + پایه سنوات روزانه × کارکرد) ÷ ۲۲۰
+
+        عدد ۳۰ در روش دوم عمدی است و طول واقعی ماه نیست: قرارداد کار حقوق
+        ماهانه را «مزد روزانه × ۳۰» تعریف می‌کند و فایل شرکت هم همین را مبنای
+        اضافه‌کاری گرفته. ولی پایهٔ سنوات روی **کارکرد واقعی** ضرب می‌شود، نه
+        ۳۰ — این ناهمگونی در خود فایل هست و عمداً حفظ شده.
+        """
+        if getattr(self.params, "overtime_base", "HOURLY_WAGE") != "MONTHLY_BASE":
+            return self.hourly_base
+        hours = self.params.monthly_work_hours or Decimal("220")
+        if not hours:
+            return self.hourly_base
+        monthly = self.daily_base * Decimal("30") + self.seniority_daily * self.paid_days
+        return monthly / hours
+
+    @property
+    def seniority_years(self) -> int:
+        """سابقهٔ این پرسنل **در پایان همین دوره**، نه امروز.
+
+        از تاریخ استخدام + سابقهٔ قبلی ساخته می‌شود، نه از عددی که کسی یک بار
+        تایپ کرده و بعد کهنه شده. سابقهٔ قبلی همان چیزی است که استخدام مجددِ
+        بعد از خروج را ممکن می‌کند: کسی که برمی‌گردد، سابقهٔ کارگاه را با خود
+        دارد.
+        """
+        return self.employee.seniority_years_at(self.period.end_date)
+
+    @property
+    def seniority_daily(self) -> Decimal:
+        """پایهٔ سنوات روزانه — صفر برای کسی که هنوز یک سال سابقه ندارد."""
+        if self.seniority_years < 1:
+            return ZERO
+        return Decimal(self.params.seniority_daily or ZERO)
+
+    @property
+    def mission_daily_base(self) -> Decimal:
+        """مبنای روزانهٔ حق مأموریت.
+
+        یا عددِ مشترکِ ثبت‌شده در آیتم‌های ماهانه، یا مزد خودِ پرسنل به‌علاوهٔ
+        پایهٔ سنوات روزانه‌اش. دومی در فایل شرکت به کار می‌رود و چون به مزد هر
+        نفر بسته است، با یک عدد مشترک قابل بیان نبود.
+        """
+        if getattr(self.params, "mission_base", "MONTHLY_RATE") == "PERSON_WAGE":
+            return self.daily_base + self.seniority_daily
+        return Decimal(self.params.mission_daily_rate or ZERO)
+
+    @property
     def hourly_base(self) -> Decimal:
         hours = self.params.daily_work_hours or Decimal("7.33")
         return self.daily_base / hours

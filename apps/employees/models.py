@@ -92,6 +92,17 @@ class Employee(models.Model):
         "بدون بیمه", default=False,
         help_text="حق بیمه برایش محاسبه نمی‌شود و در لیست تأمین اجتماعی نمی‌آید",
     )
+    # سابقهٔ کارِ پیش از این استخدام. روی **شخص** است نه قرارداد، چون ویژگی
+    # خودِ اوست: اگر خارج شود و برگردد، همان سابقه با او می‌ماند.
+    #
+    # سابقهٔ کل هیچ‌وقت ذخیره نمی‌شود؛ در موتور و نسبت به **دورهٔ حقوقی** حساب
+    # می‌شود. عددِ ذخیره‌شده هر سال کهنه می‌شد و کسی به‌روزش نمی‌کرد — در
+    # دیتابیس عملیاتی یک نفر ۳ سال ثبت شده بود در حالی که ۴ سال سر کار بود.
+    prior_service_months = models.PositiveSmallIntegerField(
+        "سابقهٔ قبلی (ماه)", default=0,
+        help_text="سابقهٔ پیش از این استخدام — در همین کارگاه یا جای دیگر. "
+                  "به سابقهٔ محاسبه‌شده از تاریخ استخدام اضافه می‌شود.",
+    )
     insurance_exempt_reason = models.CharField(
         "علت نداشتن بیمه", max_length=120, blank=True,
         help_text="مثلاً «بازنشسته» یا «انصراف کتبی» — روی پرونده می‌ماند تا بعداً معلوم باشد چرا",
@@ -202,6 +213,25 @@ class Employee(models.Model):
     @property
     def default_bank_account(self):
         return self.bank_accounts.filter(is_default=True, is_active=True).first()
+
+
+    def seniority_months_at(self, on_date) -> int:
+        """سابقهٔ کل به ماه، تا یک تاریخ مشخص — نه «امروز».
+
+        «امروز» غلط است: محاسبهٔ دوبارهٔ یک ماه قدیمی نباید سابقهٔ امروز را در
+        فیش دیروز بنشاند.
+        """
+        if not self.hire_date or not on_date or on_date < self.hire_date:
+            return int(self.prior_service_months or 0)
+        months = (on_date.year - self.hire_date.year) * 12 + (
+            on_date.month - self.hire_date.month
+        )
+        if on_date.day < self.hire_date.day:
+            months -= 1
+        return max(0, months) + int(self.prior_service_months or 0)
+
+    def seniority_years_at(self, on_date) -> int:
+        return self.seniority_months_at(on_date) // 12
 
 
 class Dependent(models.Model):
@@ -345,7 +375,6 @@ class EmploymentContract(models.Model):
         "مزد روزانه (ریال)", max_digits=18, decimal_places=0, default=Decimal("0"),
         help_text="خالی یا صفر یعنی از «حداقل دستمزد روزانه» سال مالی استفاده شود",
     )
-    seniority_years = models.PositiveSmallIntegerField("سابقه (سال) برای پایه سنوات", default=0)
     weekly_hours = models.DecimalField("ساعت کار هفتگی", max_digits=5, decimal_places=2, default=Decimal("44"))
 
     is_insured = models.BooleanField("مشمول بیمه", default=True)

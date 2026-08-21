@@ -35,7 +35,7 @@ class EmployeeForm(BootstrapMixin, forms.ModelForm):
             "national_id", "id_number", "birth_date", "gender", "marital_status",
             "insurance_number", "mobile", "email", "address", "postal_code",
             "hire_date", "termination_date", "rehire_date", "status",
-            "is_insurance_exempt", "insurance_exempt_reason",
+            "is_insurance_exempt", "insurance_exempt_reason", "prior_service_months",
         ]
         widgets = {"address": forms.Textarea(attrs={"rows": 2})}
 
@@ -183,7 +183,7 @@ class ContractForm(BootstrapMixin, forms.ModelForm):
         fields = [
             "contract_number", "contract_type", "department", "cost_center",
             "job_title", "effective_from", "effective_to", "daily_wage",
-            "seniority_years", "weekly_hours", "is_insured", "is_taxable",
+            "weekly_hours", "is_insured", "is_taxable",
             "tax_exemption", "status", "notes",
         ]
         widgets = {"notes": forms.Textarea(attrs={"rows": 2})}

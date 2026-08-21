@@ -37,7 +37,7 @@ COLUMNS = [
     ("cost_center", "مرکز هزینه", True),
     ("job_title", "پست سازمانی", True),
     ("daily_wage", "مزد روزانه (ریال)", True),
-    ("seniority_years", "سابقه (سال)", False),
+    ("prior_service_months", "سابقه قبلی (ماه)", False),
     ("bank_name", "بانک", False),
     ("account_number", "شماره حساب", False),
     ("iban", "شماره شبا (اختیاری)", False),
@@ -182,6 +182,7 @@ def import_employees(file_obj, company, create_contracts=True) -> dict:
             birth_date=birth_date,
             gender=GENDERS.get(str(data["gender"] or "").strip(), "M"),
             marital_status=MARITAL.get(str(data["marital_status"] or "").strip(), "SINGLE"),
+            prior_service_months=int(parse_decimal(data["prior_service_months"], Decimal("0"))),
             insurance_number=str(data["insurance_number"] or "").strip().replace(".0", ""),
             mobile=str(data["mobile"] or "").strip().replace(".0", ""),
             hire_date=hire_date,
@@ -227,7 +228,6 @@ def import_employees(file_obj, company, create_contracts=True) -> dict:
                 job_title=job_title,
                 effective_from=hire_date,
                 daily_wage=parse_decimal(data["daily_wage"], Decimal("0")),
-                seniority_years=int(parse_decimal(data["seniority_years"], Decimal("0"))),
                 status=EmploymentContract.Status.ACTIVE,
             )
         created += 1

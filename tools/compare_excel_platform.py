@@ -45,11 +45,14 @@ LINES = [
     ("MARRIAGE", "حق تاهل قابل پرداخت"),
     ("FOOD", "وجه بن قابل پرداخت"),
     ("OVERTIME", "مبلغ اضافه كاري کل"),
-    ("MISSION", "مبلغ ماموریت"),
+    # مأموریت ممکن است به چند قلم شکسته شده باشد (مثلاً ضریب متفاوت برای یک
+    # واحد). ستون اکسل یکی است، پس همه با هم جمع می‌شوند.
+    (("MISSION", "MISSION_SALES"), "مبلغ ماموریت"),
     ("COMM_1", "پورسانت یک قابل پرداخت"),
     ("COMM_2", "پورسانت قابل پرداخت دو"),
     ("COMM_3", "پورسانت قابل پرداخت سه"),
     ("LATE", "مبلغ کسر کار - دیر کرد"),
+    ("STORE", "کسر انبار"),
     ("INSURANCE_EMP", "سهم کارگر"),
     ("INCOME_TAX", "روند مالیات"),
     ("INSURANCE_EMPLOYER", "سهم کارفرما"),
@@ -132,16 +135,18 @@ def main(path, title):
         amounts = {line.component_code: D(line.amount) for line in slip.lines.all()}
         row = {"name": name, "unit": sheet.s("واحد", r), "diffs": {}}
         for lcode, column in LINES:
+            codes = lcode if isinstance(lcode, tuple) else (lcode,)
+            label = codes[0] if len(codes) == 1 else " + ".join(codes)
             excel = sheet.n(column, r)
-            got = amounts.get(lcode, D("0"))
-            stat = stats.setdefault(lcode, {"column": column, "ok": 0, "bad": 0,
+            got = sum((amounts.get(c, D("0")) for c in codes), D("0"))
+            stat = stats.setdefault(label, {"column": column, "ok": 0, "bad": 0,
                                             "delta": D("0"), "worst": None})
             if abs(got - excel) <= 1:
                 stat["ok"] += 1
             else:
                 stat["bad"] += 1
                 stat["delta"] += got - excel
-                row["diffs"][lcode] = (excel, got)
+                row["diffs"][label] = (excel, got)
                 if stat["worst"] is None or abs(got - excel) > abs(stat["worst"][2]):
                     stat["worst"] = (name, excel, got - excel)
         for label, field, column in TOTALS:

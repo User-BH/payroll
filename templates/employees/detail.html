@@ -98,7 +98,7 @@
   <div class="stat"><b>مرکز هزینه</b><span style="font-size:14px;">{{ current_contract.cost_center.name|default:"—" }}</span></div>
   <div class="stat"><b>مزد روزانه جاری</b><span>{{ current_contract.daily_wage|rial }}</span></div>
   <div class="stat"><b>تاریخ استخدام</b><span style="font-size:14px;">{{ employee.hire_date|jalali }}</span></div>
-  <div class="stat"><b>سابقه</b><span>{{ current_contract.seniority_years|default:0|fanum }} سال</span></div>
+  <div class="stat"><b>سابقه</b><span>{{ seniority_years|fanum }} سال</span></div>
 </div>
 
 <div class="grid-2">

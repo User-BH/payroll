@@ -1,4 +1,5 @@
 from django.contrib import messages
+from django.utils import timezone
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db.models import Q
@@ -414,5 +415,10 @@ def employee_detail(request, pk):
             "open_period": open_period,
             "timesheet": timesheet,
             "min_daily_wage": min_daily_wage,
+            # سابقه ذخیره نمی‌شود؛ نسبت به پایان دورهٔ باز (یا امروز) حساب
+            # می‌شود تا هیچ‌وقت کهنه نشود.
+            "seniority_years": employee.seniority_years_at(
+                open_period.end_date if open_period else timezone.localdate()
+            ),
         },
     )

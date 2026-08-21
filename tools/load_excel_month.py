@@ -204,7 +204,6 @@ def load_people(company, sheet, departments, centers, jobs, period):
         contract.job_title = jobs[job]
         contract.effective_from = hire
         contract.daily_wage = sheet.n("مزدروزانه", r)
-        contract.seniority_years = years
         contract.status = EmploymentContract.Status.ACTIVE
         contract.save()
     return created, updated
@@ -258,6 +257,7 @@ MANUAL = {
     "جرائم وخلافی خودروها": "VEHICLE_FINE",
     "آزمایش وطب کار": "MEDICAL",
     "مبلغ کسر کار - دیر کرد": "LATE",
+    "کسر انبار": "STORE",
 }
 
 

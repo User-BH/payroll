@@ -64,7 +64,7 @@ def base_salary(ctx: PayrollContext, component):
 
 @rule("seniority", "پایه سنوات")
 def seniority(ctx: PayrollContext, component):
-    if ctx.contract.seniority_years < 1:
+    if ctx.seniority_years < 1:
         return None
     daily = ctx.params.seniority_daily
     days = ctx.paid_days
@@ -75,7 +75,7 @@ def seniority(ctx: PayrollContext, component):
         rate=Decimal("1"),
         explanation=(
             f"پایه سنوات: {fa_number(days, 2)} روز × {fa_wage(daily)} ریال "
-            f"(سابقه {fa_number(ctx.contract.seniority_years)} سال)"
+            f"(سابقه {fa_number(ctx.seniority_years)} سال)"
         ),
     ).rounded()
 
@@ -181,7 +181,7 @@ def overtime(ctx: PayrollContext, component):
     ساعتی خود پرسنل. مبلغ منتقل‌شده از پورسانت در `commission.py` و با رعایت
     سقف ساعت همان ماه حساب شده و اینجا فقط به سطر اضافه می‌شود.
     """
-    hours = ctx.timesheet.overtime_hours if ctx.timesheet else ZERO
+    hours = ctx.timesheet.exact_overtime_hours if ctx.timesheet else ZERO
     monthly_rate = Decimal(ctx.params.overtime_hourly_rate or ZERO)
 
     # مبنای ساعتیِ ماه، **مبلغ نهایی هر ساعت** است و ضریب روی آن اعمال نمی‌شود:
@@ -190,8 +190,12 @@ def overtime(ctx: PayrollContext, component):
     if monthly_rate:
         hourly, factor, basis = monthly_rate, Decimal("1"), "مبنای ساعتی این ماه"
     else:
-        hourly, factor = ctx.hourly_base, ctx.params.overtime_factor
-        basis = "مزد ساعتی"
+        hourly, factor = ctx.overtime_hourly_base, ctx.params.overtime_factor
+        basis = (
+            "مبنای ساعتی ماهانه"
+            if getattr(ctx.params, "overtime_base", "") == "MONTHLY_BASE"
+            else "مزد ساعتی"
+        )
 
     amount = hourly * factor * hours if hours and hours > 0 else ZERO
     parts = []
@@ -241,17 +245,22 @@ def mission_allowance(ctx: PayrollContext, component):
     حساب کردن. (در فایل اکسل، تبدیل پورسانت به مأموریت خودش با همین ضریب
     بازی می‌کند — بخش ۵ سند EXCEL-1405 — که هنوز به سامانه نیامده.)
     """
-    rate = Decimal(ctx.params.mission_daily_rate or ZERO)
+    rate = ctx.mission_daily_base
     days = (ctx.timesheet.mission_days if ctx.timesheet else ZERO) or ZERO
     factor = component.rate if component.rate else Decimal("1")
+    basis = (
+        "مزد روزانه + پایه سنوات"
+        if getattr(ctx.params, "mission_base", "") == "PERSON_WAGE"
+        else "مبنای روزانهٔ این ماه"
+    )
 
     amount = rate * days * factor
     parts = []
     if amount:
         factor_note = f" × ضریب {fa_number(factor, 3)}" if factor != 1 else ""
         parts.append(
-            f"حق مأموریت: {fa_number(days, 2)} روز × {fa_money(rate)} ریال "
-            f"مبنای روزانهٔ این ماه{factor_note}"
+            f"حق مأموریت: {fa_number(days, 2)} روز × {fa_wage(rate)} ریال "
+            f"{basis}{factor_note}"
         )
 
     transferred = ctx.commission_to_mission

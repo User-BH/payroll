@@ -62,7 +62,7 @@ class Timesheet(models.Model):
     overtime_minutes = models.IntegerField("اضافه‌کاری (دقیقه)", default=0)
     overtime_hours = models.DecimalField(
         "اضافه‌کاری (ساعت)", max_digits=6, decimal_places=2, default=0,
-        help_text="خودکار از روی دقیقه محاسبه می‌شود",
+        help_text="خودکار از روی دقیقه محاسبه می‌شود — فقط برای نمایش",
     )
     # شب‌کاری و جمعه‌کاری از فرم کارکرد ماهانه برداشته شده‌اند (فیش‌های واقعی
     # شرکت چنین قلمی ندارند). ستون‌ها می‌مانند تا داده و فیش‌های گذشته سالم
@@ -151,6 +151,19 @@ class Timesheet(models.Model):
         from apps.attendance.leave import format_dhm
 
         return format_dhm(self.leave_minutes, self.day_minutes)
+
+    @property
+    def exact_overtime_hours(self) -> Decimal:
+        """ساعت اضافه‌کاری بدون گرد کردن — همان که موتور باید ضرب کند.
+
+        `overtime_hours` دو رقم اعشار دارد و برای نمایش است. موتور اگر از آن
+        استفاده کند، ۲۷۴ دقیقه می‌شود ۴٫۵۷ ساعت به‌جای ۴٫۵۶۶۶…، و با نرخ‌های
+        میلیونیِ هر ساعت، همان دو رقم چند هزار ریال خطا می‌سازد. در بک‌تست تیر
+        ۱۴۰۵ همین یک مورد، ۹ فیش را از فایل جدا می‌کرد.
+
+        دقیقه مبناست — همان قاعده‌ای که بالای این کلاس نوشته شده.
+        """
+        return Decimal(self.overtime_minutes or 0) / Decimal("60")
 
     @property
     def leave_parts(self):

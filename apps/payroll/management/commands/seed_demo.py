@@ -391,6 +391,8 @@ class Command(BaseCommand):
 
             hire_year = random.choice([1398, 1399, 1400, 1401, 1402, 1403])
             hire_date = jalali_to_gregorian(hire_year, random.randint(1, 12), random.randint(1, 28))
+            # سابقه دیگر ذخیره نمی‌شود؛ از تاریخ استخدام حساب می‌شود.
+            # این متغیر فقط برای انتخاب مزد استفاده می‌شود.
             seniority = max(1404 - hire_year, 0)
 
             employee = Employee.objects.create(
@@ -446,7 +448,6 @@ class Command(BaseCommand):
                 job_title=random.choice(job_titles),
                 effective_from=hire_date,
                 daily_wage=Decimal(base),
-                seniority_years=seniority,
                 status="ACTIVE",
             )
 

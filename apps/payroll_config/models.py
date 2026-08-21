@@ -101,6 +101,33 @@ class LegalParameter(models.Model):
     daily_work_hours = models.DecimalField(
         "ساعات کار روزانه", max_digits=5, decimal_places=2, default=Decimal("7.33")
     )
+    monthly_work_hours = models.DecimalField(
+        "ساعات کار ماهانه", max_digits=6, decimal_places=2, default=Decimal("220"),
+        help_text="مبنای اضافه‌کاری وقتی «مبنای ساعتی» روی حالت ماهانه باشد",
+    )
+
+    # --- روشِ محاسبه‌ای که بین شرکت‌ها فرق می‌کند
+    #
+    # این دو کلید از بک‌تست تیر ۱۴۰۵ آمدند: فایل واقعی شرکت هر دو را جور دیگری
+    # حساب می‌کرد و اختلافش روی ۲۴ نفر دیده می‌شد. سخت‌کد کردنِ روشِ این شرکت
+    # یعنی خراب کردن کار شرکت بعدی، پس هر دو انتخابی شدند و پیش‌فرضشان همان
+    # رفتار قبلی سامانه است.
+    overtime_base = models.CharField(
+        "مبنای اضافه‌کاری", max_length=16, default="HOURLY_WAGE",
+        choices=[
+            ("HOURLY_WAGE", "مزد ساعتی خود پرسنل (مزد روزانه ÷ ساعات کار روزانه)"),
+            ("MONTHLY_BASE", "حقوق و سنوات ماهانه ÷ ساعات کار ماهانه"),
+        ],
+        help_text="حالت دوم: (مزد روزانه × ۳۰ + پایه سنوات روزانه × کارکرد) ÷ ۲۲۰",
+    )
+    mission_base = models.CharField(
+        "مبنای حق مأموریت", max_length=16, default="MONTHLY_RATE",
+        choices=[
+            ("MONTHLY_RATE", "مبنای روزانهٔ ثبت‌شده در آیتم‌های ماهانه"),
+            ("PERSON_WAGE", "مزد روزانه + پایه سنوات روزانهٔ خود پرسنل"),
+        ],
+        help_text="حالت دوم برای هر نفر عدد خودش را می‌گیرد، نه یک عدد مشترک",
+    )
 
     rounding_unit = models.PositiveIntegerField(
         "واحد گرد کردن (ریال)", default=1,
@@ -135,7 +162,8 @@ class LegalParameter(models.Model):
             "min_daily_wage", "housing_allowance", "food_allowance", "child_allowance",
             "marriage_allowance", "seniority_daily", "ins_employee_rate", "ins_employer_rate", "unemployment_rate",
             "ins_ceiling_factor", "overtime_factor", "night_factor", "friday_factor",
-            "holiday_factor", "monthly_days", "daily_work_hours", "rounding_unit",
+            "holiday_factor", "monthly_days", "daily_work_hours", "monthly_work_hours",
+            "overtime_base", "mission_base", "rounding_unit",
         ]
         data = {name: str(getattr(self, name)) for name in fields}
         data["shift_rates"] = self.shift_rates
