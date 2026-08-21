@@ -28,7 +28,7 @@ class Employee(models.Model):
     """پرسنل.
 
     توجه: این مدل عمداً هیچ اطلاعات شغلی یا مالی ندارد. واحد، مرکز هزینه، پست و
-    حقوق پایه همگی روی EmploymentContract هستند چون همه در طول زمان عوض می‌شوند
+    مزد روزانه همگی روی EmploymentContract هستند چون همه در طول زمان عوض می‌شوند
     و تاریخِ تغییرشان باید ثبت بماند.
     """
 
@@ -329,8 +329,21 @@ class EmploymentContract(models.Model):
         "پایان اعتبار", null=True, blank=True, help_text="خالی یعنی قرارداد جاری"
     )
 
-    base_salary = models.DecimalField(
-        "حقوق پایه ماهانه (ریال)", max_digits=18, decimal_places=0, default=Decimal("0")
+    # مبنای مزد **روزانه** است، نه ماهانه. سه دلیل:
+    #
+    # ۱) فایل واقعی شرکت همین است: مزد روزانه ثبت می‌شود و حقوق ماهانه از روی
+    #    آن ساخته می‌شود، نه برعکس.
+    # ۲) نگهداری ماهانه یعنی مزد روزانه باید هر ماه با تقسیم بر طول همان ماه
+    #    ساخته شود — و همان قرارداد در مرداد (۳۱ روزه) و مهر (۳۰ روزه) دو مزد
+    #    روزانهٔ متفاوت می‌داد.
+    # ۳) تقسیم، کسر متناوب می‌سازد؛ عددِ ثبت‌شده نمی‌سازد. با مزد روزانهٔ صحیح،
+    #    هر سطر فیش با ماشین‌حساب دقیقاً درمی‌آید.
+    #
+    # صفر یعنی «این پرسنل مزد اختصاصی ندارد» و مبنا حداقل دستمزد همان سال
+    # می‌شود — تصمیمش در `PayrollContext.daily_base` است، یک جا.
+    daily_wage = models.DecimalField(
+        "مزد روزانه (ریال)", max_digits=18, decimal_places=0, default=Decimal("0"),
+        help_text="خالی یا صفر یعنی از «حداقل دستمزد روزانه» سال مالی استفاده شود",
     )
     seniority_years = models.PositiveSmallIntegerField("سابقه (سال) برای پایه سنوات", default=0)
     weekly_hours = models.DecimalField("ساعت کار هفتگی", max_digits=5, decimal_places=2, default=Decimal("44"))
@@ -390,16 +403,11 @@ class EmploymentContract(models.Model):
                 "ابتدا قرارداد قبلی را پایان دهید."
             )
 
-    @property
-    def daily_base(self) -> Decimal:
-        """مزد روزانه = حقوق پایه ماهانه ÷ ۳۰."""
-        return (self.base_salary / Decimal("30")).quantize(Decimal("1"))
-
     def hourly_base(self, daily_work_hours: Decimal) -> Decimal:
         """مزد ساعتی = مزد روزانه ÷ ساعات کار روزانه (معمولاً ۷٫۳۳)."""
         if not daily_work_hours:
             return Decimal("0")
-        return self.daily_base / Decimal(daily_work_hours)
+        return self.daily_wage / Decimal(daily_work_hours)
 
 
 class ContractAllowance(models.Model):

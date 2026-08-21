@@ -36,7 +36,7 @@ COLUMNS = [
     ("department", "واحد سازمانی", True),
     ("cost_center", "مرکز هزینه", True),
     ("job_title", "پست سازمانی", True),
-    ("base_salary", "حقوق ثابت ماهانه (ریال)", True),
+    ("daily_wage", "مزد روزانه (ریال)", True),
     ("seniority_years", "سابقه (سال)", False),
     ("bank_name", "بانک", False),
     ("account_number", "شماره حساب", False),
@@ -226,7 +226,7 @@ def import_employees(file_obj, company, create_contracts=True) -> dict:
                 cost_center=cost_center,
                 job_title=job_title,
                 effective_from=hire_date,
-                base_salary=parse_decimal(data["base_salary"], Decimal("0")),
+                daily_wage=parse_decimal(data["daily_wage"], Decimal("0")),
                 seniority_years=int(parse_decimal(data["seniority_years"], Decimal("0"))),
                 status=EmploymentContract.Status.ACTIVE,
             )

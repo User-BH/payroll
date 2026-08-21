@@ -108,5 +108,8 @@ find "$BACKUP_DIR" -name 'payroll-*.sql.gz' -type f -printf '%T@ %p\n' \
   | sort -rn | tail -n +15 | cut -d' ' -f2- | xargs -r rm --
 
 say "به‌روزرسانی تمام شد"
+echo "    برخی تغییرها به ورود دستی داده از پنل نیاز دارند و با این اسکریپت"
+echo "    کامل نمی‌شوند. فهرستشان:  docs/DEPLOY-STEPS.md"
+echo
 echo "    اگر چیزی خراب شد، بازگردانی دیتابیس:"
 echo "    gunzip < $BACKUP_FILE | mysql -u$DB_USER -p $DB_NAME"

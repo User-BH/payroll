@@ -435,7 +435,8 @@ class Command(BaseCommand):
                         start_date=hire_date,
                     )
 
-            base = random.randrange(140, 310) * 1_000_000
+            # مزد روزانه، نه ماهانه — حدود ۵٫۵ تا ۱۰ میلیون ریال در روز
+            base = random.randrange(55, 105) * 100_000
             contract = EmploymentContract.objects.create(
                 employee=employee,
                 contract_number=f"C-{code}",
@@ -444,7 +445,7 @@ class Command(BaseCommand):
                 cost_center=cost_centers[cc_name],
                 job_title=random.choice(job_titles),
                 effective_from=hire_date,
-                base_salary=Decimal(base),
+                daily_wage=Decimal(base),
                 seniority_years=seniority,
                 status="ACTIVE",
             )

@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django import forms
 
 from apps.payroll.form_fields import JalaliDateField
@@ -94,7 +96,7 @@ class EmployeeCreateForm(EmployeeForm):
 
     عمداً فقط **نوع قرارداد** را می‌پرسد، نه ریز جزئیات قرارداد را: پرسنل باید
     با یک بار پر کردن همین صفحه فعال شود تا بشود رویش کلیک کرد، ویرایشش کرد و
-    خروجش را ثبت کرد. بقیهٔ فیلدهای قرارداد (واحد، حقوق پایه، …) پیش‌فرض
+    خروجش را ثبت کرد. بقیهٔ فیلدهای قرارداد (واحد، مزد روزانه، …) پیش‌فرض
     می‌گیرند و در «ویرایش قرارداد» تکمیل می‌شوند.
     """
 
@@ -180,7 +182,7 @@ class ContractForm(BootstrapMixin, forms.ModelForm):
         model = EmploymentContract
         fields = [
             "contract_number", "contract_type", "department", "cost_center",
-            "job_title", "effective_from", "effective_to", "base_salary",
+            "job_title", "effective_from", "effective_to", "daily_wage",
             "seniority_years", "weekly_hours", "is_insured", "is_taxable",
             "tax_exemption", "status", "notes",
         ]
@@ -197,6 +199,14 @@ class ContractForm(BootstrapMixin, forms.ModelForm):
         # employee_id خالی باشد، کنترل همپوشانی قراردادها بی‌صدا رد می‌شود.
         if self.employee and not self.instance.employee_id:
             self.instance.employee = self.employee
+
+        # مزد روزانه روی مدل `default=0` دارد و صفر معنای روشنی دارد: «مزد
+        # اختصاصی ندارد، از حداقل دستمزد سال استفاده کن». پس اجباری نیست —
+        # ستارهٔ قرمز کنارش کاربر را وادار می‌کرد عددی بنویسد که ندارد.
+        self.fields["daily_wage"].required = False
+
+    def clean_daily_wage(self):
+        return self.cleaned_data.get("daily_wage") or Decimal("0")
 
 
 def clean_iban_value(value):

@@ -41,7 +41,7 @@ def create_initial_contract(employee, contract_type, effective_from=None):
     """قرارداد اولیهٔ پرسنل تازه‌افزوده‌شده.
 
     فقط «نوع قرارداد» از کاربر پرسیده می‌شود؛ بقیهٔ فیلدها پیش‌فرض می‌گیرند تا
-    پرسنل بلافاصله فعال و قابل مشاهده باشد. حقوق پایه عمداً صفر می‌ماند —
+    پرسنل بلافاصله فعال و قابل مشاهده باشد. مزد روزانه عمداً صفر می‌ماند —
     عددِ حدسی به‌جای عددِ واقعی، اشتباهی است که تا فیش حقوقی پنهان می‌ماند،
     ولی صفر در همان صفحهٔ پرسنل با هشدار دیده می‌شود.
 
@@ -59,7 +59,7 @@ def create_initial_contract(employee, contract_type, effective_from=None):
         cost_center=cost_center,
         job_title=job_title,
         effective_from=effective_from or employee.hire_date,
-        base_salary=Decimal("0"),
+        daily_wage=Decimal("0"),
         status=EmploymentContract.Status.ACTIVE,
     )
     contract.full_clean(exclude=["employee"])

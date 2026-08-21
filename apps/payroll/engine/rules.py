@@ -52,7 +52,7 @@ def base_salary(ctx: PayrollContext, component):
     )
     return LineResult(
         amount=daily * days,
-        base_amount=ctx.contract.base_salary,
+        base_amount=daily,
         quantity=days,
         rate=Decimal("1"),
         explanation=(

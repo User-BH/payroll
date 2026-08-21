@@ -71,11 +71,11 @@ def sample_for(company, params=None):
         EmploymentContract.objects.filter(
             employee__company=company,
             status=EmploymentContract.Status.ACTIVE,
-            base_salary__gt=0,
-        ).aggregate(value=Avg("base_salary"))["value"]
+            daily_wage__gt=0,
+        ).aggregate(value=Avg("daily_wage"))["value"]
     )
     if average:
-        daily_base = Decimal(average) / Decimal(month_days)
+        daily_base = Decimal(average)
         basis = "دستمزد قرارداد"
     else:
         daily_base = params.min_daily_wage or ZERO

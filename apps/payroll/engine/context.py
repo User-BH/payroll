@@ -101,21 +101,23 @@ class PayrollContext:
     def uses_minimum_wage(self) -> bool:
         """آیا مبنای مزد این پرسنل «حداقل دستمزد» است؟
 
-        حقوق پایهٔ خالیِ قرارداد (صفر) یعنی «دستمزد واقعی ندارد، از حداقل
+        مزد روزانهٔ خالیِ قرارداد (صفر) یعنی «مزد اختصاصی ندارد، از حداقل
         دستمزد همان سال استفاده کن». هر که عدد اختصاصی دارد، همان ملاک است.
         """
-        return not self.contract.base_salary
+        return not self.contract.daily_wage
 
     @property
     def daily_base(self) -> Decimal:
         """مزد روزانهٔ این پرسنل — مبنای حقوق ثابت و هر قلمی که به «دستمزد فرد» بسته است.
 
-        `min_daily_wage` خودش روزانه است، پس تقسیمی در کار نیست؛ دستمزد واقعی
-        ماهانه است و بر طول همان ماه تقسیم می‌شود.
+        هر دو طرف روزانه‌اند، پس هیچ تقسیمی در کار نیست. تا پیش از این، مزد
+        قرارداد ماهانه بود و بر طول همان ماه تقسیم می‌شد — یعنی یک قرارداد در
+        مرداد (۳۱ روزه) و مهر (۳۰ روزه) دو مزد روزانهٔ متفاوت داشت، و حاصلِ
+        تقسیم هم کسر متناوب بود. حالا عددِ ثبت‌شده همان عددی است که ضرب می‌شود.
         """
         if self.uses_minimum_wage:
             return self.params.min_daily_wage or ZERO
-        return self.contract.base_salary / self.month_days
+        return self.contract.daily_wage
 
     @property
     def wage_basis_label(self) -> str:

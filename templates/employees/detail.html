@@ -77,16 +77,16 @@
   <b>این پرسنل قرارداد فعال ندارد و در محاسبه حقوق لحاظ نمی‌شود.</b>
   برای ورود به چرخه حقوق، یک قرارداد با تاریخ شروع تعریف کنید.
 </div>
-{% elif not current_contract.base_salary %}
+{% elif not current_contract.daily_wage %}
 <div class="note-box">
   {% if min_daily_wage %}
   <b>این پرسنل دستمزد واقعی ندارد و با «حداقل دستمزد» حساب می‌شود</b>
   ({{ min_daily_wage|rial }} ریال در روز). اگر دستمزد توافقی متفاوتی دارد،
   آن را <a href="{% url 'contract_edit' current_contract.pk %}">در ویرایش قرارداد</a>
-  به‌عنوان حقوق پایه ماهانه ثبت کنید.
+  به‌عنوان مزد روزانه ثبت کنید.
   {% else %}
-  <b>نه حقوق پایهٔ قرارداد پر است و نه حداقل دستمزد سال.</b>
-  با این وضع حقوق ثابت این پرسنل صفر محاسبه می‌شود. یا حقوق پایه را
+  <b>نه مزد روزانهٔ قرارداد پر است و نه حداقل دستمزد سال.</b>
+  با این وضع حقوق ثابت این پرسنل صفر محاسبه می‌شود. یا مزد روزانه را
   <a href="{% url 'contract_edit' current_contract.pk %}">در قرارداد</a> بگذارید،
   یا حداقل دستمزد روزانه را در «تنظیمات سال مالی» ثبت کنید.
   {% endif %}
@@ -96,7 +96,7 @@
 <div class="stat-row">
   <div class="stat"><b>واحد سازمانی</b><span style="font-size:14px;">{{ current_contract.department.name|default:"—" }}</span></div>
   <div class="stat"><b>مرکز هزینه</b><span style="font-size:14px;">{{ current_contract.cost_center.name|default:"—" }}</span></div>
-  <div class="stat"><b>حقوق پایه جاری</b><span>{{ current_contract.base_salary|rial }}</span></div>
+  <div class="stat"><b>مزد روزانه جاری</b><span>{{ current_contract.daily_wage|rial }}</span></div>
   <div class="stat"><b>تاریخ استخدام</b><span style="font-size:14px;">{{ employee.hire_date|jalali }}</span></div>
   <div class="stat"><b>سابقه</b><span>{{ current_contract.seniority_years|default:0|fanum }} سال</span></div>
 </div>
@@ -111,7 +111,7 @@
       <div class="table-wrap">
         <table>
           <thead>
-            <tr><th>از تاریخ</th><th>تا تاریخ</th><th>نوع</th><th>واحد</th><th>حقوق پایه</th><th>وضعیت</th></tr>
+            <tr><th>از تاریخ</th><th>تا تاریخ</th><th>نوع</th><th>واحد</th><th>مزد روزانه</th><th>وضعیت</th></tr>
           </thead>
           <tbody>
             {% for contract in contracts %}
@@ -120,7 +120,7 @@
               <td class="num">{% if contract.effective_to %}{{ contract.effective_to|jalali }}{% else %}<span style="color:var(--muted);">جاری</span>{% endif %}</td>
               <td>{{ contract.get_contract_type_display }}</td>
               <td>{{ contract.department.name }}</td>
-              <td class="num">{{ contract.base_salary|rial }}</td>
+              <td class="num">{{ contract.daily_wage|rial }}</td>
               <td>
                 {% if contract.status == 'ACTIVE' %}<span class="badge ok"><span class="dot"></span>فعال</span>
                 {% else %}<span class="badge muted"><span class="dot"></span>{{ contract.get_status_display }}</span>{% endif %}
