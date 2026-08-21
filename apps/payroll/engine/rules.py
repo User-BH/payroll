@@ -108,6 +108,29 @@ def _prorated(ctx: PayrollContext, monthly_amount: Decimal, label: str):
     ).rounded()
 
 
+@rule("marriage_allowance", "حق تأهل")
+def marriage_allowance(ctx: PayrollContext, component):
+    """حق تأهل — فقط برای متأهل‌ها، به نسبت روز کارکرد.
+
+    برخلاف حق اولاد، این قلم **قانونی نیست**: سیاست شرکت است و مبلغش در
+    پارامترهای سال ثبت می‌شود. پس اگر شرکتی چنین قلمی ندارد، مبلغ را صفر
+    می‌گذارد و سطر اصلاً روی فیش نمی‌آید.
+
+    در فایل ۱۴۰۵ شرکت، این قلم مشمول بیمه و مالیات هر دو است (از ماخذ بیمه
+    فقط ماموریت و حق اولاد کم می‌شوند، نه حق تأهل) — و شمولش داده است، نه
+    کد: روی خودِ قلم تنظیم می‌شود.
+    """
+    from apps.employees.models import Employee
+
+    married = getattr(ctx.employee, "marital_status", None) == Employee.MaritalStatus.MARRIED
+    if not married:
+        return None
+    monthly = Decimal(ctx.params.marriage_allowance or ZERO)
+    if not monthly:
+        return None
+    return _prorated(ctx, monthly, "حق تأهل")
+
+
 @rule("child_allowance", "حق اولاد")
 def child_allowance(ctx: PayrollContext, component):
     count = ctx.children_count
@@ -205,16 +228,30 @@ def mission_allowance(ctx: PayrollContext, component):
 
     مبنای روزانه «آیتم محاسباتی ماهانه» است و هر ماه جداگانه ثبت می‌شود؛ اگر
     ثبت نشده باشد فقط مبلغ دستیِ همان قلم (اگر باشد) می‌ماند.
+
+    **ضریب قلم** در همین فرمول ضرب می‌شود، چون در فایل ۱۴۰۵ شرکت مأموریتِ واحد
+    فروش ضریب ۲ می‌خورَد و بقیه ضریب ۱ (هر پنج ماه، هر ۳۳ نفر، بدون استثنا).
+    با همین، آن تفاوت به‌جای کد شدن، با دو قلم مأموریت و دامنه شمول بیان
+    می‌شود: یکی با ضریب ۲ محدود به مرکز هزینهٔ فروش، یکی با ضریب ۱ برای بقیه.
+
+    ضریب خالی یا صفر یعنی ۱، پس اقلام موجود عوض نمی‌شوند.
+
+    **ضریب فقط روی روزهای جدول کارکرد اثر دارد**، نه روی مبلغ منتقل‌شده از
+    پورسانت: آن یکی از قبل مبلغ ریالیِ نهایی است و ضرب دوباره‌اش یعنی دوبار
+    حساب کردن. (در فایل اکسل، تبدیل پورسانت به مأموریت خودش با همین ضریب
+    بازی می‌کند — بخش ۵ سند EXCEL-1405 — که هنوز به سامانه نیامده.)
     """
     rate = Decimal(ctx.params.mission_daily_rate or ZERO)
     days = (ctx.timesheet.mission_days if ctx.timesheet else ZERO) or ZERO
+    factor = component.rate if component.rate else Decimal("1")
 
-    amount = rate * days
+    amount = rate * days * factor
     parts = []
     if amount:
+        factor_note = f" × ضریب {fa_number(factor, 3)}" if factor != 1 else ""
         parts.append(
             f"حق مأموریت: {fa_number(days, 2)} روز × {fa_money(rate)} ریال "
-            f"مبنای روزانهٔ این ماه"
+            f"مبنای روزانهٔ این ماه{factor_note}"
         )
 
     transferred = ctx.commission_to_mission

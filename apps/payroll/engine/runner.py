@@ -188,7 +188,7 @@ def compute_lines(ctx: PayrollContext, components):
         if component.kind in by_kind and component.applies_to(ctx.contract):
             by_kind[component.kind].append(component)
 
-    # بدون بیمه (قرارداد غیرمشمول، یا پرسنل بازنشسته):
+    # بدون بیمه (قرارداد غیرمشمول، یا پرسنلِ «بدون بیمه»):
     # نه کسر سهم کارگر، نه هزینه بیمه کارفرما
     if not ctx.insurance_applies:
         by_kind[SalaryComponent.Kind.DEDUCTION] = [

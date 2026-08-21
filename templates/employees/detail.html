@@ -64,9 +64,9 @@
 </div>
 {% endif %}
 
-{% if employee.is_retired %}
+{% if employee.is_insurance_exempt %}
 <div class="note-box">
-  <b>این پرسنل بازنشسته است.</b>
+  <b>این پرسنل بیمه ندارد{% if employee.insurance_exempt_reason %} — {{ employee.insurance_exempt_reason }}{% endif %}.</b>
   حق بیمه سهم کارگر و سهم کارفرما برایش محاسبه نمی‌شود، در فیشش هیچ ردیف بیمه‌ای
   نمی‌آید، و در لیست و فایل خروجی تأمین اجتماعی قرار نمی‌گیرد.
 </div>

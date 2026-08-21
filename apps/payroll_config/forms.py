@@ -21,7 +21,7 @@ class LegalParameterForm(BootstrapMixin, forms.ModelForm):
         fields = [
             "effective_from", "effective_to",
             "min_daily_wage", "housing_allowance", "food_allowance",
-            "child_allowance", "max_children", "seniority_daily",
+            "child_allowance", "max_children", "marriage_allowance", "seniority_daily",
             "ins_employee_rate", "ins_employer_rate", "unemployment_rate",
             "ins_ceiling_factor",
             "overtime_factor", "night_factor", "friday_factor", "holiday_factor",
@@ -36,7 +36,7 @@ class LegalParameterForm(BootstrapMixin, forms.ModelForm):
         ("اعتبار", ["effective_from", "effective_to"]),
         ("مزد و مزایای پایه", [
             "min_daily_wage", "housing_allowance", "food_allowance",
-            "child_allowance", "max_children", "seniority_daily",
+            "child_allowance", "max_children", "marriage_allowance", "seniority_daily",
         ]),
         ("بیمه", [
             "ins_employee_rate", "ins_employer_rate", "unemployment_rate", "ins_ceiling_factor",

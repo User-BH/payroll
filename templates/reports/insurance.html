@@ -14,8 +14,8 @@
 
 {% if excluded_count %}
 <div class="note-box">
-  <b>{{ excluded_count|fanum }} نفر در این لیست نیستند</b> چون بازنشسته‌اند یا قراردادشان
-  مشمول بیمه نیست. برای این افراد نه حق بیمه محاسبه شده و نه در فایل خروجی
+  <b>{{ excluded_count|fanum }} نفر در این لیست نیستند</b> چون «بدون بیمه» علامت خورده‌اند
+  یا قراردادشان مشمول بیمه نیست. برای این افراد نه حق بیمه محاسبه شده و نه در فایل خروجی
   تأمین اجتماعی می‌آیند:
   <span style="font-weight:700;">
     {% for slip in excluded %}{{ slip.employee.full_name }}{% if not forloop.last %} · {% endif %}{% endfor %}

@@ -42,7 +42,18 @@ class LegalParameter(models.Model):
     min_daily_wage = models.DecimalField("حداقل دستمزد روزانه", max_digits=18, decimal_places=0)
     housing_allowance = models.DecimalField("حق مسکن ماهانه", max_digits=18, decimal_places=0)
     food_allowance = models.DecimalField("بن کارگری ماهانه", max_digits=18, decimal_places=0)
-    child_allowance = models.DecimalField("حق اولاد (هر فرزند)", max_digits=18, decimal_places=0)
+    child_allowance = models.DecimalField(
+        "حق اولاد (هر فرزند)", max_digits=18, decimal_places=0,
+        help_text="طبق قانون = ۳ × حداقل دستمزد روزانه — مبنایش حداقل دستمزد است، "
+                  "نه مزد خودِ پرسنل، پس برای همه یک عدد است",
+    )
+    # حق تأهل قانونی نیست — سیاست شرکت است. در فایل ۱۴۰۵ مبلغی ثابت است که فقط
+    # به متأهل‌ها تعلق می‌گیرد و مثل حق مسکن به نسبت روز کارکرد تسهیم می‌شود.
+    # صفر یعنی شرکت چنین قلمی ندارد و سطرش اصلاً روی فیش نمی‌آید.
+    marriage_allowance = models.DecimalField(
+        "حق تأهل ماهانه", max_digits=18, decimal_places=0, default=Decimal("0"),
+        help_text="فقط به پرسنل متأهل تعلق می‌گیرد؛ صفر یعنی این قلم را ندارید",
+    )
     max_children = models.PositiveSmallIntegerField(
         "حداکثر فرزند مشمول", default=0, help_text="صفر یعنی بدون سقف"
     )
@@ -122,7 +133,7 @@ class LegalParameter(models.Model):
         """تصویر پارامترها برای ذخیره در خود فیش."""
         fields = [
             "min_daily_wage", "housing_allowance", "food_allowance", "child_allowance",
-            "seniority_daily", "ins_employee_rate", "ins_employer_rate", "unemployment_rate",
+            "marriage_allowance", "seniority_daily", "ins_employee_rate", "ins_employer_rate", "unemployment_rate",
             "ins_ceiling_factor", "overtime_factor", "night_factor", "friday_factor",
             "holiday_factor", "monthly_days", "daily_work_hours", "rounding_unit",
         ]
