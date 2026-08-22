@@ -5,7 +5,8 @@
     <thead>
       <tr>
         <th>پرسنل</th><th>واحد</th><th>روز کارکرد</th><th>ناخالص</th>
-        <th>مبنای بیمه</th><th>مبنای مالیات</th><th>بیمه</th><th>مالیات</th><th>خالص پرداختی</th>
+        <th>مبنای بیمه</th><th>مبنای مالیات</th><th>بیمه</th><th>مالیات</th>
+        <th>جمع کسورات</th><th>خالص پرداختی</th>
       </tr>
     </thead>
     <tbody>
@@ -24,6 +25,10 @@
         <td data-label="مبنای مالیات" class="num">{{ slip.taxable_base|rial }}</td>
         <td data-label="بیمه" class="num">{{ slip.ins_employee|rial }}</td>
         <td data-label="مالیات" class="num">{{ slip.tax_amount|rial }}</td>
+        {# بیمه و مالیات فقط دو قلم از کسورات‌اند؛ کسر کار، انبار، علی‌الحساب و
+           بقیه هم هستند. بدون این ستون، «ناخالص منهای خالص» روی سطر جور
+           درنمی‌آمد و باید فیش را باز می‌کردید. #}
+        <td data-label="جمع کسورات" class="num">{{ slip.total_deductions|rial }}</td>
         <td data-label="خالص پرداختی" class="num" style="font-weight:800;">{{ slip.net_payable|rial }}</td>
       </tr>
       {% endfor %}

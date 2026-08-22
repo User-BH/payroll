@@ -43,6 +43,19 @@
       {% if component.scopes.all %}فقط دامنه تعریف‌شده{% else %}همه پرسنل{% endif %}
     </span>
   </div>
+  {% if input_note %}
+  <div class="panel-body" style="padding-bottom:0;">
+    <div class="note-box" style="margin:0;">
+      {{ input_note }}
+      {% if component.absorbs.all %}
+      مبلغ
+      {% for item in component.absorbs.all %}«{{ item.name }}»{% if not forloop.last %} و {% endif %}{% endfor %}
+      را خود سامانه از همین قلم کم می‌کند و در توضیح سطرِ فیش می‌نویسد چقدر و
+      بابت چه چیزی کسر شد.
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
   <div class="table-wrap">
     <table>
       <thead>

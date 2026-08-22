@@ -195,14 +195,25 @@ def manual_inputs(request, pk):
 
     اقلامی که calc_type آن‌ها MANUAL است مبلغشان از اینجا می‌آید، نه از موتور.
     """
+    from apps.payroll.engine.rules import manual_input_note
+
     period = get_object_or_404(PayrollPeriod.objects.select_related("company"), pk=pk)
-    components = list(
-        SalaryComponent.objects.filter(
-            company=period.company, is_active=True, calc_type=SalaryComponent.CalcType.MANUAL
+    # قلمِ «ورود دستی» بدیهی است. ولی بعضی قواعد موتور هم مبلغی می‌خواهند که
+    # اپراتور وارد می‌کند (مثلاً پورسانت خام، پیش از جذب). اگر اینجا نیایند،
+    # هیچ جایی برای وارد کردن عددشان نیست و سطرشان بی‌سروصدا صفر می‌ماند.
+    components = [
+        component
+        for component in SalaryComponent.objects.filter(
+            company=period.company, is_active=True
         )
         .prefetch_related("scopes")
         .order_by("sequence")
-    )
+        if component.calc_type == SalaryComponent.CalcType.MANUAL
+        or (
+            component.calc_type == SalaryComponent.CalcType.ENGINE_RULE
+            and manual_input_note(component.engine_rule_key)
+        )
+    ]
     selected_code = request.GET.get("component") or (components[0].code if components else None)
     component = next((c for c in components if c.code == selected_code), None)
 
@@ -253,6 +264,13 @@ def manual_inputs(request, pk):
             "period": period,
             "components": components,
             "component": component,
+            # معنای عددی که وارد می‌شود، از خودِ قاعده — «همین مبلغ» یا
+            # «به‌علاوهٔ محاسبهٔ خودکار». اشتباه گرفتنشان یعنی پرداخت دوباره.
+            "input_note": (
+                manual_input_note(component.engine_rule_key)
+                if component and component.calc_type == SalaryComponent.CalcType.ENGINE_RULE
+                else ""
+            ),
             "rows": rows,
             "q": query,
             "total": sum((row["amount"] or 0) for row in rows),

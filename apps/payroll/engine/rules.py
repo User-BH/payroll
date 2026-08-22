@@ -16,10 +16,28 @@ from apps.payroll.utils import fa_money, fa_number, fa_wage
 RULES = {}
 
 
-def rule(key: str, label: str = ""):
+def rule(key: str, label: str = "", manual_input: str = ""):
+    """ثبت یک قاعده در موتور.
+
+    `manual_input` وقتی پر است یعنی این قاعده مبلغی را می‌خواند که اپراتور هر
+    دوره وارد می‌کند، و متنش می‌گوید آن عدد **چه معنایی دارد**. صفحهٔ «مبالغ
+    دستی» از همین نشانه می‌فهمد که باید این قلم را هم نشان بدهد و بالای جدول
+    چه توضیحی بدهد.
+
+    دو چیزِ متفاوت را از هم جدا می‌کند:
+
+    - عددی که **خودِ مبلغ** است (پورسانت، کسور موردی)
+    - عددی که **به محاسبهٔ خودکار اضافه می‌شود** (حق مأموریت، که پایه‌اش از
+      روز مأموریت می‌آید)
+
+    بدون این تفکیک، اپراتور مبلغ مأموریت را در خانه‌ای می‌نوشت که فقط
+    «اضافه» است و مأموریت دو بار پرداخت می‌شد.
+    """
+
     def decorator(func):
         func.rule_key = key
         func.rule_label = label or key
+        func.manual_input_note = manual_input
         RULES[key] = func
         return func
 
@@ -28,6 +46,12 @@ def rule(key: str, label: str = ""):
 
 def get_rule(key: str):
     return RULES.get(key)
+
+
+def manual_input_note(key: str) -> str:
+    """اگر این قاعده ورودی دستی می‌خواهد، توضیحِ معنای آن عدد؛ وگرنه رشتهٔ خالی."""
+    func = RULES.get(key)
+    return getattr(func, "manual_input_note", "") if func else ""
 
 
 # ==================================================================== مزایا
@@ -226,7 +250,9 @@ def overtime(ctx: PayrollContext, component):
     ).rounded()
 
 
-@rule("mission_allowance", "حق مأموریت")
+@rule("mission_allowance", "حق مأموریت",
+      manual_input="این عدد به‌علاوهٔ محاسبهٔ خودکار روی روز مأموریت است، نه به‌جای آن. "
+                   "برای مأموریت عادی خالی بگذارید و روزها را در جدول کارکرد ثبت کنید.")
 def mission_allowance(ctx: PayrollContext, component):
     """حق مأموریت = روزهای مأموریت جدول کارکرد + مبلغ منتقل‌شده از پورسانت.
 
@@ -342,7 +368,8 @@ def contract_allowance(ctx: PayrollContext, component):
     return _prorated(ctx, Decimal(monthly), component.name)
 
 
-@rule("manual_input", "ورود دستی دوره")
+@rule("manual_input", "ورود دستی دوره",
+      manual_input="عددی که وارد می‌کنید خودِ مبلغ این قلم است.")
 def manual_input(ctx: PayrollContext, component):
     """اقلامی مثل پورسانت فروش که مبلغشان از بیرون موتور می‌آید.
 
@@ -476,7 +503,8 @@ def parametric(ctx: PayrollContext, component):
     ).rounded()
 
 
-@rule("commission_net", "پورسانت پس از جذب")
+@rule("commission_net", "پورسانت پس از جذب",
+      manual_input="عددی که وارد می‌کنید پورسانت خام است، پیش از کسر.")
 def commission_net(ctx: PayrollContext, component):
     """پورسانت خام منهای اقلامی که در آن جذب می‌شوند.
 
@@ -645,7 +673,8 @@ def loan_installment(ctx: PayrollContext, component):
     ).rounded()
 
 
-@rule("deduction_manual", "کسور دستی")
+@rule("deduction_manual", "کسور دستی",
+      manual_input="عددی که وارد می‌کنید خودِ مبلغ کسور این دوره است.")
 def deduction_manual(ctx: PayrollContext, component):
     amount = ctx.manual_inputs.get(component.id)
     if not amount:
