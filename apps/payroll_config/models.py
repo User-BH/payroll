@@ -285,6 +285,22 @@ class SalaryComponent(models.Model):
         "مقدار", max_length=16, choices=QuantitySource.choices, blank=True,
         help_text="فقط برای قاعده پارامتری",
     )
+    # اقلامی که مبلغشان از این قلم **کسر** می‌شود، پیش از آنکه روی فیش بنشیند.
+    #
+    # نمونهٔ واقعی از فایل ۱۴۰۵ شرکت: پورسانت فروش، مبلغ مأموریت و مابه‌التفاوت
+    # پایه سنوات را در خودش جذب می‌کند تا بستهٔ توافقی فروشنده ثابت بماند:
+    #
+    #     پورسانت قابل پرداخت = پورسانت خام − (مأموریت + مابه‌التفاوت + ذخیره)
+    #
+    # این با «کسورات» فرق دارد: کسور از خالص کم می‌شود ولی ماخذ بیمه و مالیات
+    # را دست نمی‌زند. جذب، خودِ ناخالص را کم می‌کند — و همین تفاوت، دلیل وجود
+    # این مکانیزم است.
+    absorbs = models.ManyToManyField(
+        "self", symmetrical=False, blank=True, related_name="absorbed_by",
+        verbose_name="اقلامی که در این قلم جذب می‌شوند",
+        help_text="مبلغ این اقلام از این قلم کسر می‌شود، نه از خالص پرداختی",
+    )
+
     timesheet_item = models.ForeignKey(
         "attendance.TimesheetItem", on_delete=models.PROTECT, null=True, blank=True,
         related_name="components", verbose_name="قلم کارکرد",

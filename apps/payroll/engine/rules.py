@@ -476,6 +476,56 @@ def parametric(ctx: PayrollContext, component):
     ).rounded()
 
 
+@rule("commission_net", "پورسانت پس از جذب")
+def commission_net(ctx: PayrollContext, component):
+    """پورسانت خام منهای اقلامی که در آن جذب می‌شوند.
+
+    از فایل ۱۴۰۵ شرکت، برای گروه فروش (روی ۵۵ نفر-ماه ریال‌به‌ریال تأیید شد):
+
+        پورسانت قابل پرداخت = پورسانت خام
+                            − (مبلغ مأموریت + مابه‌التفاوت سنوات + ذخیره پورسانت)
+
+    منطقش این است که بستهٔ توافقی فروشنده ثابت است: وقتی سنوات انباشته بالا
+    می‌رود یا مأموریت بیشتری ثبت می‌شود، از سهم پورسانت خودش برداشته می‌شود نه
+    اینکه به جمع اضافه شود.
+
+    **چرا جذب، نه کسور؟** کسور از خالص کم می‌شود و ماخذ بیمه و مالیات را دست
+    نمی‌زند. جذب، خودِ ناخالص را کم می‌کند. همین تفاوت است که این مکانیزم را
+    لازم کرده.
+
+    اقلامِ جذب‌شونده داده‌اند نه کد (`SalaryComponent.absorbs`)، پس اگر فردا
+    قلم تازه‌ای اضافه شد، یک انتخاب در فرم کافی است.
+
+    نتیجه می‌تواند **منفی** شود و عمداً صفر نمی‌شود: در فایل شرکت هم می‌شود
+    (اردیبهشت، علی قاسمی: ۹۸۰٬۸۴۳− ریال). صفر کردنش یعنی پنهان کردن اینکه
+    جذب از خودِ پورسانت بیشتر بوده.
+    """
+    raw = Decimal(ctx.manual_inputs.get(component.id, ZERO) or ZERO)
+    absorbed = ZERO
+    pieces = []
+    for other in component.absorbs.all():
+        # قلمی که سطر ساخته، از سطرش خوانده می‌شود؛ قلمی که فقط ورودی دستی
+        # است (مثل ذخیره پورسانت که روی فیش نمی‌آید) از همان ورودی.
+        amount = ctx.amount_of(other.code)
+        if not amount:
+            amount = Decimal(ctx.manual_inputs.get(other.id, ZERO) or ZERO)
+        if amount:
+            absorbed += amount
+            pieces.append(f"{other.name} {fa_money(amount)}")
+
+    if not raw and not absorbed:
+        return None
+
+    note = f" − ({' + '.join(pieces)})" if pieces else ""
+    return LineResult(
+        amount=raw - absorbed,
+        base_amount=raw,
+        quantity=Decimal("1"),
+        rate=Decimal("1"),
+        explanation=f"{component.name}: {fa_money(raw)} ریال{note}",
+    ).rounded()
+
+
 @rule("fixed_amount", "مبلغ ثابت")
 def fixed_amount(ctx: PayrollContext, component):
     if not component.fixed_amount:

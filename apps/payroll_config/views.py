@@ -132,6 +132,9 @@ def component_create(request):
         component = form.save(commit=False)
         component.company = company
         component.save()
+        # بدون این، رابطهٔ چندبه‌چند «اقلام جذب‌شونده» بی‌سروصدا ذخیره نمی‌شود
+        # — فرم موفق برمی‌گردد و کاربر فکر می‌کند ثبت شده.
+        form.save_m2m()
         messages.success(
             request,
             f"قلم «{component.name}» ساخته شد. برای محدود کردنش به یک واحد یا سمت، "

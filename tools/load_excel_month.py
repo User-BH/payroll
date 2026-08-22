@@ -142,7 +142,10 @@ def load_people(company, sheet, departments, centers, jobs, period):
     for r in sheet.rows:
         full = sheet.s("نام ونام خانوادگي", r)
         first, _, last = full.partition(" ")
-        code = sheet.s("شماره پرسنلی", r) or f"X{r:03d}"
+        # چند سطر فایل شماره پرسنلی ندارند. شمارهٔ سطر به‌عنوان کد جایگزین
+        # **غلط** است: سطر همان آدم در ماه بعد جابه‌جا می‌شود و یک پرسنل تکراری
+        # ساخته می‌شود. نام، پایدارتر است.
+        code = sheet.s("شماره پرسنلی", r) or f"N-{full}"
         hire = jalali(sheet.get("تاریخ شروع بکار", r))
         gender = "F" if "خانم" in sheet.s("آقا / خانم", r) else "M"
         married = "متاهل" in sheet.s("وضعیت تاهل", r)
@@ -171,13 +174,19 @@ def load_people(company, sheet, departments, centers, jobs, period):
         created += is_new
         updated += not is_new
 
-        # فرزندان: فقط تعدادشان در فایل هست، پس همان تعداد رکورد ساخته می‌شود
+        # فرزندان: فقط تعدادشان در فایل هست، پس همان تعداد رکورد ساخته می‌شود.
+        #
+        # تاریخ شروع تکفل، **شروع همین دوره** است نه تاریخ استخدام: تعداد فرزند
+        # بین ماه‌ها فرق می‌کند و موتور حق اولاد را با تاریخ حساب می‌کند. اگر
+        # تاریخ استخدام بگذاریم، فرزندی که در اردیبهشت اضافه شده در فروردین هم
+        # حق اولاد می‌گیرد.
         want = int(sheet.n("تعداد اولاد", r))
         have = employee.dependents.filter(relation=Dependent.Relation.CHILD).count()
         for i in range(have, want):
             Dependent.objects.create(
                 employee=employee, first_name=f"فرزند {i + 1}", last_name=employee.last_name,
-                relation=Dependent.Relation.CHILD, start_date=hire, child_allowance_eligible=True,
+                relation=Dependent.Relation.CHILD, start_date=period.start_date,
+                child_allowance_eligible=True,
             )
         if have > want:
             for extra in employee.dependents.filter(
@@ -214,7 +223,7 @@ def load_people(company, sheet, departments, centers, jobs, period):
 def load_timesheets(sheet, period, params):
     day_minutes = params.leave_day_minutes or 440
     for r in sheet.rows:
-        code = sheet.s("شماره پرسنلی", r) or f"X{r:03d}"
+        code = sheet.s("شماره پرسنلی", r) or f"N-{sheet.s('نام ونام خانوادگي', r)}"
         employee = Employee.objects.get(company=period.company, personnel_code=code)
         contract = employee.contracts.filter(status="ACTIVE").first()
         timesheet, _ = Timesheet.objects.get_or_create(
@@ -244,7 +253,10 @@ def load_timesheets(sheet, period, params):
 # ستون اکسل → کد قلم حقوقی. فقط چیزهایی که سامانه قاعده‌ای برایشان ندارد.
 MANUAL = {
     "مابه التفاوت پایه سنوات تجمیعی قابل پرداخت": "DIFF",
+    # «مازاد ثابت» روی فیش سطر ندارد و فقط داخل فرمول پورسانت است، پس با
+    # پورسانت خام یک‌جا وارد می‌شود (ستون ترکیبی پایین‌تر ساخته می‌شود).
     "پورسانت یک": "COMM_1",
+    "ذخیره پورسانت فروش": "COMM_RESERVE",
     "پورسانت دو": "COMM_2",
     "پورسانت سه": "COMM_3",
     "طلب ماه قبل": "PREV_CLAIM",
@@ -265,7 +277,7 @@ def load_manual(sheet, period):
     codes = {c.code: c for c in SalaryComponent.objects.filter(company=period.company)}
     written = skipped = 0
     for r in sheet.rows:
-        pcode = sheet.s("شماره پرسنلی", r) or f"X{r:03d}"
+        pcode = sheet.s("شماره پرسنلی", r) or f"N-{sheet.s('نام ونام خانوادگي', r)}"
         employee = Employee.objects.get(company=period.company, personnel_code=pcode)
         for column, code in MANUAL.items():
             component = codes.get(code)
@@ -273,6 +285,9 @@ def load_manual(sheet, period):
                 skipped += 1
                 continue
             value = sheet.n(column, r)
+            if code == "COMM_1":
+                # پورسانت خام + مازاد ثابت — همان چیزی که فرمول اکسل جمع می‌کند
+                value += sheet.n("مازاد ثابت 1405", r)
             if not value:
                 PayrollInput.objects.filter(
                     period=period, employee=employee, component=component

@@ -90,7 +90,7 @@ class SalaryComponentForm(BootstrapMixin, forms.ModelForm):
         fields = [
             "code", "name", "kind", "calc_type", "engine_rule_key",
             "base_source", "quantity_source", "base_component", "timesheet_item",
-            "rate", "fixed_amount",
+            "rate", "fixed_amount", "absorbs",
             "display_unit", "is_insurable", "is_taxable",
             "affects_eid", "affects_severance",
             "sequence", "gl_account", "color", "print_on_payslip",
@@ -103,6 +103,7 @@ class SalaryComponentForm(BootstrapMixin, forms.ModelForm):
         ("نحوه محاسبه", [
             "calc_type", "base_source", "quantity_source", "base_component",
             "timesheet_item", "rate", "fixed_amount", "engine_rule_key",
+            "absorbs",
         ]),
         ("رفتار در فیش و گزارش", [
             "display_unit", "is_insurable", "is_taxable",
@@ -123,6 +124,7 @@ class SalaryComponentForm(BootstrapMixin, forms.ModelForm):
             if self.instance.pk:
                 queryset = queryset.exclude(pk=self.instance.pk)
             self.fields["base_component"].queryset = queryset
+            self.fields["absorbs"].queryset = queryset
             # فقط اقلام کارکردِ فعال؛ قلمی که در جدول کارکرد نیست همیشه صفر
             # می‌ماند و سطر حقوقی‌اش بی‌سروصدا نمی‌آید.
             from apps.attendance.models import TimesheetItem
@@ -147,6 +149,10 @@ class SalaryComponentForm(BootstrapMixin, forms.ModelForm):
         )
         self.fields["timesheet_item"].help_text = (
             "وقتی مقدار «یک قلم جدول کارکرد» است — همان ستونی که اپراتور پر می‌کند"
+        )
+        self.fields["absorbs"].help_text = (
+            "مبلغ این اقلام از همین قلم کسر می‌شود، نه از خالص — یعنی ناخالص را هم "
+            "پایین می‌آورد. فقط برای قاعدهٔ موتور «پورسانت پس از جذب»."
         )
 
     def clean_rate(self):
@@ -185,6 +191,8 @@ class SalaryComponentForm(BootstrapMixin, forms.ModelForm):
         if calc_type == SalaryComponent.CalcType.PARAMETRIC:
             self._clean_parametric(cleaned)
 
+        self._clean_absorbs(cleaned)
+
         # قلمی که به قلم دیگری بسته است باید **بعد از** آن محاسبه شود، وگرنه
         # موقع محاسبه مبنایش هنوز صفر است و سطر بی‌سروصدا صفر می‌شود.
         base = cleaned.get("base_component")
@@ -196,6 +204,40 @@ class SalaryComponentForm(BootstrapMixin, forms.ModelForm):
                 "وگرنه قلم مبنا هنوز محاسبه نشده و این قلم صفر می‌شود.",
             )
         return cleaned
+
+    def _clean_absorbs(self, cleaned):
+        """جذب فقط جایی معنا دارد که قاعده‌ای آن را بخواند و ترتیب درست باشد."""
+        absorbs = cleaned.get("absorbs")
+        if not absorbs:
+            return
+
+        # تنها قاعده‌ای که `absorbs` را می‌خواند همین است. اگر روی قلم دیگری
+        # پر شود، بی‌سروصدا هیچ کاری نمی‌کند — و این بدترین حالت است.
+        if (cleaned.get("calc_type") != SalaryComponent.CalcType.ENGINE_RULE
+                or (cleaned.get("engine_rule_key") or "").strip() != "commission_net"):
+            self.add_error(
+                "absorbs",
+                "جذب فقط با نحوهٔ محاسبهٔ «قاعده موتور» و کلید «commission_net» "
+                "خوانده می‌شود؛ روی اقلام دیگر هیچ اثری ندارد.",
+            )
+            return
+
+        # قلمِ *محاسبه‌شونده* باید پیش از این قلم بیاید، وگرنه موقع کسر هنوز
+        # صفر است و مبلغِ جذب‌نشده بی‌سروصدا در ناخالص می‌ماند. قلم «ورود
+        # دستی» از خودِ ورودی خوانده می‌شود، پس ترتیبش فرقی نمی‌کند.
+        sequence = cleaned.get("sequence")
+        if sequence is None:
+            return
+        late = [
+            c.name for c in absorbs
+            if c.sequence >= sequence and c.calc_type != SalaryComponent.CalcType.MANUAL
+        ]
+        if late:
+            self.add_error(
+                "sequence",
+                f"ترتیب باید بزرگ‌تر از ترتیب «{'، '.join(late)}» باشد، "
+                "وگرنه آن قلم هنوز محاسبه نشده و جذب نمی‌شود.",
+            )
 
     def _clean_parametric(self, cleaned):
         """قاعدهٔ پارامتری فقط وقتی معنا دارد که هر سه جزئش کامل باشند."""

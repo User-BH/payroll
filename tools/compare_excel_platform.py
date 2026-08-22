@@ -126,7 +126,7 @@ def main(path, title):
     stats = {}
     people = []
     for r in sheet.rows:
-        code = sheet.s("شماره پرسنلی", r) or f"X{r:03d}"
+        code = sheet.s("شماره پرسنلی", r) or f"N-{sheet.s('نام ونام خانوادگي', r)}"
         name = sheet.s("نام ونام خانوادگي", r)
         slip = slips.get(code)
         if slip is None:
