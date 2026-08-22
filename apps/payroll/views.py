@@ -21,7 +21,7 @@ from apps.org.tree import (
     walk,
 )
 from apps.payroll.engine import health
-from apps.payroll.engine.health import component_warnings
+from apps.payroll.engine.health import component_warnings, effective_params_for
 from apps.payroll.engine.runner import CalculationError, calculate_period
 from apps.payroll.exports import generate_export
 from apps.payroll.models import (
@@ -325,7 +325,11 @@ def period_detail(request, pk):
     # اقلامی که با پیکربندی امروز هیچ عددی تولید نمی‌کنند — پیش از اجرا، نه بعدش.
     # دو دسته‌اند و جدا نشان داده می‌شوند: خرابیِ پیکربندی، و قلمی که سالم است
     # ولی امروز مصداقی ندارد. یکی‌کردنشان یعنی هشدار واقعی زیر اطلاعیه‌ها گم شود.
-    all_warnings = component_warnings(period.company, period.legal_parameter)
+    # مقدار **مؤثر** همان دوره، نه مقدار سالانه — وگرنه قلمی که نرخ ماهانه‌اش
+    # ثبت شده، دروغین «بدون نرخ» گزارش می‌شود.
+    all_warnings = component_warnings(
+        period.company, effective_params_for(period.company, period)
+    )
     warnings = [w for w in all_warnings if w["kind"] == health.BROKEN]
     unreachable = [w for w in all_warnings if w["kind"] == health.UNREACHABLE]
 

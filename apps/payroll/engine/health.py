@@ -48,6 +48,21 @@ def _rule_warning(component, params):
                 f"«{label}» در پارامترهای سال صفر است، پس این قلم روی هیچ فیشی "
                 "نمی‌آید. از «تنظیمات سال مالی» مقدارش را ثبت کنید."
             )
+
+    # حق مأموریت دو مبنا دارد و یکی‌شان می‌تواند بی‌سروصدا صفر بدهد: اگر مبنا
+    # روی «نرخ ماهانه» باشد ولی نرخ آن ماه ثبت نشده باشد، هر روز مأموریت صفر
+    # ریال می‌شود. مبنای دیگر («مزد خود پرسنل») همیشه عدد دارد و این خطر را
+    # ندارد — به همین دلیل شرط فقط روی حالت اول است.
+    if key == "mission_allowance":
+        if getattr(params, "mission_base", "MONTHLY_RATE") != "PERSON_WAGE" and not (
+            getattr(params, "mission_daily_rate", None) or ZERO
+        ):
+            return (
+                "مبنای حق مأموریت روی «نرخ ماهانه» است ولی نرخ این ماه ثبت نشده، "
+                "پس هر روز مأموریت صفر ریال می‌شود. یا نرخ را در «آیتم‌های "
+                "محاسباتی ماهانه» ثبت کنید، یا مبنا را به «مزد روزانه + پایه "
+                "سنوات» تغییر دهید."
+            )
     return ""
 
 
@@ -97,6 +112,36 @@ def _active_contracts(company):
             employee__status=Employee.Status.ACTIVE,
             status=EmploymentContract.Status.ACTIVE,
         ).select_related("employee")
+    )
+
+
+def effective_params_for(company, period=None):
+    """پارامترهای **مؤثر** یک دوره — سالانه به‌علاوهٔ مقادیر ماهانهٔ همان ماه.
+
+    این تابع وجود دارد چون یک بار همین‌جا اشتباه شد: بررسی سلامت روی مقدار
+    *سالانه* قضاوت می‌کرد در حالی که موتور مقدار *مؤثر* را می‌خواند. نتیجه
+    هشدار دروغین بود — «نرخ مأموریت ثبت نشده» در حالی که نرخ ماهانه‌اش ثبت
+    شده بود و فیش‌ها درست درمی‌آمدند.
+
+    هشدار دروغین از نبودِ هشدار بدتر است: چند بار که تکرار شود، کاربر یاد
+    می‌گیرد کل این بخش را نادیده بگیرد.
+    """
+    from apps.payroll.engine.runner import resolve_effective_params
+    from apps.payroll.models import PayrollPeriod
+    from apps.payroll_config.models import LegalParameter
+
+    if period is None:
+        period = (
+            PayrollPeriod.objects.filter(company=company)
+            .order_by("-year", "-month")
+            .first()
+        )
+    if period is not None and period.legal_parameter_id:
+        return resolve_effective_params(period, period.legal_parameter)
+    return (
+        LegalParameter.objects.filter(fiscal_year__company=company)
+        .order_by("-effective_from")
+        .first()
     )
 
 
@@ -176,14 +221,10 @@ def component_warnings(company, params=None):
     خروجی: فهرست دیکشنری با `component` و `reason`. خالی بودنش یعنی هر قلم
     فعال، دست‌کم یک راه برای رسیدن به عدد دارد.
     """
-    from apps.payroll_config.models import LegalParameter, SalaryComponent
+    from apps.payroll_config.models import SalaryComponent
 
     if params is None:
-        params = (
-            LegalParameter.objects.filter(fiscal_year__company=company)
-            .order_by("-effective_from")
-            .first()
-        )
+        params = effective_params_for(company)
 
     from apps.payroll.engine.runner import ROUNDING_COMPONENT_CODE
 
