@@ -301,6 +301,24 @@ class SalaryComponent(models.Model):
         help_text="مبلغ این اقلام از این قلم کسر می‌شود، نه از خالص پرداختی",
     )
 
+    class AllocationRole(models.TextChoices):
+        ADD = "ADD", "به استخر مازاد اضافه می‌شود"
+        SUBTRACT = "SUBTRACT", "از استخر مازاد کم می‌شود"
+
+    # نقش این قلم در «زنجیرهٔ مازاد» — استخری از ریال که به روز مأموریت و
+    # ساعت اضافه‌کاری تبدیل می‌شود (apps/payroll/surplus.py).
+    #
+    # در فایل ۱۴۰۵ شرکت، گروه پشتیبانی ساعت اضافه‌کاری و روز مأموریتِ فیش را
+    # وارد نمی‌کند؛ آن‌ها خروجی این تبدیل‌اند. «مازاد ثابت» و «اضافه‌کار مازاد»
+    # به استخر اضافه می‌شوند و «مابه‌التفاوت پایه سنوات» — که سطر پرداختیِ خودش
+    # را دارد — از آن کم می‌شود تا دو بار پرداخت نشود.
+    allocation_role = models.CharField(
+        "نقش در استخر مازاد", max_length=10, blank=True,
+        choices=AllocationRole.choices,
+        help_text="فقط وقتی قلم اضافه‌کاری یا مأموریتِ همین پرسنل از زنجیرهٔ "
+                  "مازاد می‌آید؛ وگرنه بی‌اثر است",
+    )
+
     timesheet_item = models.ForeignKey(
         "attendance.TimesheetItem", on_delete=models.PROTECT, null=True, blank=True,
         related_name="components", verbose_name="قلم کارکرد",

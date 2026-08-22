@@ -100,6 +100,76 @@ def _active_contracts(company):
     )
 
 
+SURPLUS_RULES = {"overtime_surplus", "mission_surplus"}
+# قاعده‌هایی که با قاعدهٔ زنجیره روی یک نفر جمع نمی‌شوند — هر دو اضافه‌کاری
+# (یا هر دو مأموریت) را می‌پردازند.
+RIVAL_RULES = {"overtime_surplus": "overtime", "mission_surplus": "mission_allowance"}
+
+
+def _surplus_warnings(company, contracts):
+    """دو خرابیِ بی‌سروصدای مخصوص زنجیرهٔ مازاد.
+
+    ۱. قلمی نقش «افزودن/کسر از استخر» گرفته، ولی هیچ‌کس در دامنه‌اش قلمی با
+       قاعدهٔ زنجیره ندارد. عدد وارد می‌شود، هیچ اثری نمی‌گذارد، و کسی خبردار
+       نمی‌شود.
+    ۲. یک نفر هم قلم اضافه‌کاری عادی دارد هم اضافه‌کاری زنجیره‌ای. هر دو سطر
+       می‌آیند و اضافه‌کاری **دو بار** پرداخت می‌شود — بدترین حالت، چون عدد
+       بزرگ‌تر از انتظار است نه کوچک‌تر و در جمع کل گم می‌شود.
+    """
+    from apps.payroll_config.models import SalaryComponent
+
+    if not contracts:
+        return []
+
+    components = list(
+        SalaryComponent.objects.filter(company=company, is_active=True)
+        .prefetch_related("scopes")
+    )
+    roles = [c for c in components if c.allocation_role]
+    chain = [c for c in components
+             if c.calc_type == SalaryComponent.CalcType.ENGINE_RULE
+             and c.engine_rule_key in SURPLUS_RULES]
+
+    warnings = []
+    for component in roles:
+        holders = [c for c in contracts if component.applies_to(c)]
+        if holders and not any(
+            any(link.applies_to(c) for link in chain) for c in holders
+        ):
+            warnings.append({
+                "component": component,
+                "kind": BROKEN,
+                "reason": (
+                    f"نقش «{component.get_allocation_role_display()}» دارد، ولی هیچ‌کدام "
+                    "از پرسنلِ دامنه‌اش قلمی با قاعدهٔ زنجیرهٔ مازاد ندارند. عددی که "
+                    "اینجا وارد شود در هیچ محاسبه‌ای دیده نمی‌شود."
+                ),
+            })
+
+    for component in chain:
+        rival_key = RIVAL_RULES[component.engine_rule_key]
+        rivals = [
+            c for c in components
+            if c is not component and c.engine_rule_key == rival_key
+        ]
+        clash = {
+            rival.name for rival in rivals
+            for c in contracts
+            if component.applies_to(c) and rival.applies_to(c)
+        }
+        if clash:
+            warnings.append({
+                "component": component,
+                "kind": BROKEN,
+                "reason": (
+                    f"با «{'» و «'.join(sorted(clash))}» روی یک نفر جمع می‌شود و "
+                    "هر دو سطر می‌آیند — یعنی دو بار پرداخت. دامنه شمول این دو را "
+                    "از هم جدا کنید."
+                ),
+            })
+    return warnings
+
+
 def component_warnings(company, params=None):
     """اقلام فعالی که با پیکربندی امروز هیچ عددی تولید نمی‌کنند.
 
@@ -164,4 +234,6 @@ def component_warnings(company, params=None):
             warnings.append(
                 {"component": component, "reason": scope_note, "kind": UNREACHABLE}
             )
-    return warnings
+    # زنجیرهٔ مازاد از اقلام اطلاعی هم تغذیه می‌شود، پس بیرونِ حلقهٔ بالا
+    # بررسی می‌شود — آن حلقه اقلام اطلاعی را کنار می‌گذارد.
+    return warnings + _surplus_warnings(company, contracts)

@@ -182,10 +182,14 @@ def compute_lines(ctx: PayrollContext, components):
         SalaryComponent.Kind.EMPLOYER_COST: [],
         SalaryComponent.Kind.INFO: [],
     }
-    for component in components:
+    applicable = [c for c in components if c.applies_to(ctx.contract)]
+    # زنجیرهٔ مازاد باید بداند چه اقلامی به این پرسنل می‌خورند. اینجا یک بار
+    # حساب می‌شود، نه داخل هر قاعده.
+    ctx.applicable_components = applicable
+    for component in applicable:
         if component.code == ROUNDING_COMPONENT_CODE:
             continue
-        if component.kind in by_kind and component.applies_to(ctx.contract):
+        if component.kind in by_kind:
             by_kind[component.kind].append(component)
 
     # بدون بیمه (قرارداد غیرمشمول، یا پرسنلِ «بدون بیمه»):

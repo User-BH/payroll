@@ -234,16 +234,26 @@ def load_timesheets(sheet, period, params):
         timesheet.absence_days = sheet.n("غیبت", r)
         timesheet.unpaid_leave_days = sheet.n("بدون حقوق", r)
         timesheet.sick_leave_days = sheet.n("بیماری", r)
-        timesheet.mission_days = sheet.n("مدت ماموریت", r)
-        # اضافه‌کاری: ستون **عادی** خوانده می‌شود نه «واقعی».
+        # اضافه‌کاری و روز مأموریت: کدام ستون **ورودی** است، به گروه بستگی دارد.
         #
-        # این دو یکی نیستند و تفاوتشان ساختاری است: برای گروه فروش
-        # «عادی = واقعی»، ولی برای گروه پشتیبانی «عادی = محاسبه اضافه کار» —
-        # یعنی ساعتی که از زنجیرهٔ مازاد بیرون می‌آید، نه ساعتی که کار کرده.
-        # ستون «عادی» همان است که پول رویش حساب می‌شود، پس ورودی درست همان است.
-        timesheet.overtime_minutes = int(
-            sheet.n("اضافه کاری عادی ساعت", r) * 60 + sheet.n("اضافه کاری عادی دقیقه", r)
-        )
+        # فروش    → «اضافه کاری عادی» و «مدت ماموریت» خودشان ورودی‌اند.
+        # پشتیبانی → این دو **خروجی** زنجیرهٔ مازادند، نه ورودی. ورودی واقعی
+        #            «اضافه کار واقعی» است و روز مأموریت را سامانه می‌سازد.
+        #
+        # اگر خروجی را به‌عنوان ورودی بار کنیم، اعداد می‌خوانند ولی زنجیره
+        # آزموده نمی‌شود — یعنی بک‌تست خودش را تأیید می‌کند نه سامانه را.
+        if is_sales(sheet, r):
+            timesheet.mission_days = sheet.n("مدت ماموریت", r)
+            timesheet.overtime_minutes = int(
+                sheet.n("اضافه کاری عادی ساعت", r) * 60
+                + sheet.n("اضافه کاری عادی دقیقه", r)
+            )
+        else:
+            timesheet.mission_days = 0
+            timesheet.overtime_minutes = int(
+                sheet.n("اضافه کار واقعی ساعت", r) * 60
+                + sheet.n("اضافه کارواقعی دقیقه", r)
+            )
         timesheet.status = Timesheet.Status.APPROVED
         timesheet.save()
 
@@ -272,6 +282,17 @@ MANUAL = {
     "کسر انبار": "STORE",
 }
 
+# ورودی‌های استخر مازاد — فقط برای گروه پشتیبانی. برای فروش، «مازاد ثابت»
+# داخل پورسانت خام می‌رود (پایین‌تر) و اصلاً استخری در کار نیست.
+SURPLUS = {
+    "مازاد ثابت 1405": "SURPLUS_FIXED",
+    "اضافه کار مازاد": "SURPLUS_OT",
+}
+
+
+def is_sales(sheet, row) -> bool:
+    return "فروش" in sheet.s("واحد", row)
+
 
 def load_manual(sheet, period):
     codes = {c.code: c for c in SalaryComponent.objects.filter(company=period.company)}
@@ -279,13 +300,15 @@ def load_manual(sheet, period):
     for r in sheet.rows:
         pcode = sheet.s("شماره پرسنلی", r) or f"N-{sheet.s('نام ونام خانوادگي', r)}"
         employee = Employee.objects.get(company=period.company, personnel_code=pcode)
-        for column, code in MANUAL.items():
+        sales = is_sales(sheet, r)
+        columns = dict(MANUAL) if sales else {**MANUAL, **SURPLUS}
+        for column, code in columns.items():
             component = codes.get(code)
             if component is None:
                 skipped += 1
                 continue
             value = sheet.n(column, r)
-            if code == "COMM_1":
+            if code == "COMM_1" and sales:
                 # پورسانت خام + مازاد ثابت — همان چیزی که فرمول اکسل جمع می‌کند
                 value += sheet.n("مازاد ثابت 1405", r)
             if not value:

@@ -554,6 +554,88 @@ def commission_net(ctx: PayrollContext, component):
     ).rounded()
 
 
+def _surplus_note(plan) -> str:
+    """توضیح مشترک دو قلمِ زنجیره — تا هر دو سطر یک روایت بگویند."""
+    parts = [f"استخر مازاد {fa_money(plan.pool)} ریال"]
+    if plan.real_minutes:
+        parts.append(
+            f"شامل {fa_number(plan.real_minutes / Decimal('60'), 2)} ساعت "
+            f"اضافه‌کاری واقعی ({fa_money(plan.real_amount)} ریال)"
+        )
+    if plan.additions:
+        parts.append(f"به‌علاوهٔ {fa_money(plan.additions)} ریال مازاد")
+    if plan.deductions:
+        parts.append(f"منهای {fa_money(plan.deductions)} ریال کسر از استخر")
+    return "؛ ".join(parts)
+
+
+@rule("mission_surplus", "حق مأموریت از استخر مازاد")
+def mission_surplus(ctx: PayrollContext, component):
+    """روز مأموریت را **حساب می‌کند**، نه اینکه از جدول کارکرد بخواند.
+
+    گام اول زنجیرهٔ مازاد: بزرگ‌ترین واحد اول پر می‌شود. توضیح کامل زنجیره در
+    `apps/payroll/surplus.py` است.
+
+    این قلم جایگزین «حق مأموریت» عادی است، نه اضافه بر آن — باید با دامنه
+    شمول به همان واحدی محدود شود که زنجیره دارد، و قلم مأموریت عادی به بقیه.
+    """
+    plan = ctx.surplus
+    days = plan.mission_days
+    if not days:
+        return None
+    rate = plan.mission_daily_base
+    return LineResult(
+        amount=rate * days,
+        base_amount=rate,
+        quantity=days,
+        rate=Decimal("1"),
+        explanation=(
+            f"حق مأموریت از زنجیرهٔ مازاد: {fa_number(days)} روز × "
+            f"{fa_wage(rate)} ریال (مزد روزانه + پایه سنوات) — {_surplus_note(plan)}"
+        ),
+    ).rounded()
+
+
+@rule("overtime_surplus", "اضافه‌کاری از استخر مازاد")
+def overtime_surplus(ctx: PayrollContext, component):
+    """ساعت و دقیقهٔ اضافه‌کاری را از ماندهٔ استخر می‌سازد.
+
+    گام دوم و سوم زنجیره. عددی که روی فیش می‌نشیند دیگر ساعتِ کارکرد نیست:
+    ساعتِ **قابل پرداخت** است، بعد از اینکه روزهای مأموریت سهمشان را برداشتند.
+
+    ماندهٔ گرد کردن (`residue`) عمداً جبران نمی‌شود — در فایل شرکت هم نمی‌شود —
+    ولی در توضیح سطر نوشته می‌شود تا حسابدار ببیندش.
+    """
+    plan = ctx.surplus
+    hours, minutes = plan.overtime_hours, plan.overtime_extra_minutes
+    if not hours and not minutes:
+        return None
+
+    amount = plan.money_for(hours=hours, minutes=minutes)
+    time_note = []
+    if hours:
+        time_note.append(f"{fa_number(hours)} ساعت")
+    if minutes:
+        time_note.append(f"{fa_number(minutes)} دقیقه")
+    residue_note = (
+        f" — باقی‌ماندهٔ گرد کردن {fa_money(abs(plan.residue))} ریال "
+        f"{'اضافه پرداخت' if plan.residue < ZERO else 'پرداخت‌نشده'}"
+        if plan.residue
+        else ""
+    )
+    return LineResult(
+        amount=amount,
+        base_amount=plan.hour_rate,
+        quantity=plan.overtime_minutes / Decimal("60"),
+        rate=Decimal("1"),
+        explanation=(
+            f"اضافه‌کاری از زنجیرهٔ مازاد: {' و '.join(time_note)} × "
+            f"{fa_wage(plan.hour_rate)} ریال هر ساعت — {_surplus_note(plan)}"
+            f"{residue_note}"
+        ),
+    ).rounded()
+
+
 @rule("fixed_amount", "مبلغ ثابت")
 def fixed_amount(ctx: PayrollContext, component):
     if not component.fixed_amount:

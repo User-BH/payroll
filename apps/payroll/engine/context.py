@@ -43,6 +43,11 @@ class PayrollContext:
     contract_allowances: dict = field(default_factory=dict)  # component_id -> Decimal
     due_installments: list = field(default_factory=list)
     allocation: object = None                                # CommissionAllocation
+    # اقلامی که دامنه شمولشان به این قرارداد می‌خورد. `compute_lines` پرش
+    # می‌کند. زنجیرهٔ مازاد لازمش دارد تا بفهمد چه چیزهایی وارد استخر می‌شوند
+    # — بدون این، هر قاعده باید خودش دیتابیس را می‌خواند.
+    applicable_components: list = field(default_factory=list)
+    _surplus: object = None
 
     # نتایج تجمعی حین محاسبه
     amounts: dict = field(default_factory=dict)   # component_code -> Decimal
@@ -180,6 +185,54 @@ class PayrollContext:
     def hourly_base(self) -> Decimal:
         hours = self.params.daily_work_hours or Decimal("7.33")
         return self.daily_base / hours
+
+    @property
+    def overtime_minutes(self) -> Decimal:
+        """اضافه‌کاری **واقعیِ** ثبت‌شده، به دقیقه.
+
+        دقیقه واحد اصلی است. ساعتِ ذخیره‌شده دو رقم اعشار دارد و ۲۷۴ دقیقه در
+        آن ۴٫۵۷ می‌شود نه ۴٫۵۶۶…؛ روی نرخ ~۱٫۱ میلیون ریالیِ هر ساعت همین
+        هزاران ریال خطا می‌دهد.
+        """
+        if not self.timesheet:
+            return ZERO
+        return Decimal(self.timesheet.overtime_minutes or 0)
+
+    @property
+    def surplus(self):
+        """زنجیرهٔ مازاد این پرسنل — یک بار ساخته و نگه داشته می‌شود.
+
+        دو قاعده (اضافه‌کاری و حق مأموریت) به یک نتیجه نیاز دارند؛ اگر هرکدام
+        جداگانه حساب می‌کرد، یک عدد در دو جا زندگی می‌کرد و ماه‌ها بعد که یکی
+        عوض می‌شد دیگری بی‌سروصدا عقب می‌ماند.
+
+        اینکه چه چیزی وارد استخر می‌شود **داده است نه کد**: هر قلم حقوقی
+        می‌تواند نقش «افزودن به استخر» یا «کسر از استخر» بگیرد.
+        """
+        from apps.payroll.surplus import SurplusPlan
+
+        if self._surplus is None:
+            additions = deductions = ZERO
+            for component in self.applicable_components:
+                role = getattr(component, "allocation_role", "")
+                if not role:
+                    continue
+                amount = Decimal(self.manual_inputs.get(component.id, ZERO) or ZERO)
+                if not amount:
+                    continue
+                if role == "ADD":
+                    additions += amount
+                else:
+                    deductions += amount
+            self._surplus = SurplusPlan(
+                real_minutes=self.overtime_minutes,
+                additions=additions,
+                deductions=deductions,
+                hourly_base=self.overtime_hourly_base,
+                factor=self.params.overtime_factor,
+                mission_daily_base=self.mission_daily_base,
+            )
+        return self._surplus
 
     # ---------------------------------------------------------------- بیمه
 

@@ -90,7 +90,7 @@ class SalaryComponentForm(BootstrapMixin, forms.ModelForm):
         fields = [
             "code", "name", "kind", "calc_type", "engine_rule_key",
             "base_source", "quantity_source", "base_component", "timesheet_item",
-            "rate", "fixed_amount", "absorbs",
+            "rate", "fixed_amount", "absorbs", "allocation_role",
             "display_unit", "is_insurable", "is_taxable",
             "affects_eid", "affects_severance",
             "sequence", "gl_account", "color", "print_on_payslip",
@@ -103,7 +103,7 @@ class SalaryComponentForm(BootstrapMixin, forms.ModelForm):
         ("نحوه محاسبه", [
             "calc_type", "base_source", "quantity_source", "base_component",
             "timesheet_item", "rate", "fixed_amount", "engine_rule_key",
-            "absorbs",
+            "absorbs", "allocation_role",
         ]),
         ("رفتار در فیش و گزارش", [
             "display_unit", "is_insurable", "is_taxable",
@@ -149,6 +149,11 @@ class SalaryComponentForm(BootstrapMixin, forms.ModelForm):
         )
         self.fields["timesheet_item"].help_text = (
             "وقتی مقدار «یک قلم جدول کارکرد» است — همان ستونی که اپراتور پر می‌کند"
+        )
+        self.fields["allocation_role"].help_text = (
+            "استخر مازاد به روز مأموریت و ساعت اضافه‌کاری تبدیل می‌شود؛ فقط "
+            "برای گروهی معنا دارد که قلم اضافه‌کاری‌اش قاعدهٔ «اضافه‌کاری از "
+            "استخر مازاد» دارد"
         )
         self.fields["absorbs"].help_text = (
             "مبلغ این اقلام از همین قلم کسر می‌شود، نه از خالص — یعنی ناخالص را هم "
