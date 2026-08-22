@@ -22,6 +22,7 @@ class Command(BaseCommand):
         self.problems = []
         self._database()
         self._data()
+        self._components()
         self._users()
         self._config()
         self._static()
@@ -138,6 +139,54 @@ class Command(BaseCommand):
             )
         elif employees:
             self.line(OK, "داده واقعی به‌نظر می‌رسد", "نشانه‌ای از داده نمونه پیدا نشد")
+
+    def _components(self):
+        """اقلامی که فعال‌اند ولی هیچ‌وقت عددی روی فیش نمی‌آورند.
+
+        اینجا می‌آید چون `deploy/update.sh` بعد از هر به‌روزرسانی همین دستور را
+        اجرا می‌کند — و این دقیقاً همان دسته خرابی است که بعد از به‌روزرسانی
+        اتفاق می‌افتد: مهاجرت فیلد تازه‌ای می‌آورد، کسی مقدارش را وارد نمی‌کند،
+        سامانه خطا نمی‌دهد، و ماه بعد یک قلم روی فیش کم است.
+
+        تا امروز این تشخیص فقط در صفحهٔ خلاصهٔ دوره دیده می‌شد — یعنی کسی باید
+        سراغش می‌رفت. حالا خودش می‌آید.
+        """
+        from apps.org.models import Company
+        from apps.payroll.engine.health import BROKEN, component_warnings
+
+        self.head("اقلام حقوقی")
+        # دکتر برای تشخیص نصبِ **خراب** است، پس خودش نباید بترکد. اگر دیتابیس
+        # بالا نیامده باشد، بخش دیتابیس همین بالا علتش را گفته؛ اینجا فقط
+        # می‌گوییم بررسی انجام نشد و بقیهٔ گزارش ادامه پیدا می‌کند.
+        try:
+            company = Company.objects.first()
+            if company is None:
+                self.line(WARN, "شرکتی تعریف نشده", "بررسی اقلام انجام نشد")
+                return
+            warnings = component_warnings(company)
+        except Exception as exc:  # noqa: BLE001
+            self.line(WARN, "بررسی اقلام انجام نشد", str(exc).split("\n")[0][:90])
+            return
+
+        broken = [w for w in warnings if w.get("kind") == BROKEN]
+        info = [w for w in warnings if w.get("kind") != BROKEN]
+
+        if not warnings:
+            self.line(OK, "هر قلم فعال، دست‌کم یک راه برای رسیدن به عدد دارد")
+            return
+
+        for warning in broken:
+            self.line(BAD, warning["component"].name, warning["reason"])
+        for warning in info:
+            self.line(WARN, warning["component"].name, warning["reason"])
+
+        if broken:
+            names = "، ".join(f"«{w['component'].name}»" for w in broken)
+            self.problems.append(
+                f"{len(broken)} قلم حقوقی روی فیش نمی‌آید: {names}\n"
+                "      این‌ها خطا نمی‌دهند — فقط بی‌سروصدا غایب‌اند.\n"
+                "      کارهای دستی پنل بعد از هر به‌روزرسانی:  docs/DEPLOY-STEPS.md"
+            )
 
     def _users(self):
         self.head("کاربران")
