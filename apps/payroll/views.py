@@ -32,7 +32,12 @@ from apps.payroll.models import (
     PayrollPeriod,
     Payslip,
 )
-from apps.payroll.utils import fa_money, jalali_str, parse_decimal
+from apps.payroll.utils import (
+    fa_money,
+    is_partial_request,
+    jalali_str,
+    parse_decimal,
+)
 
 ZERO = Decimal("0")
 from apps.payroll_config.models import SalaryComponent
@@ -255,7 +260,7 @@ def manual_inputs(request, pk):
             )
 
     template = (
-        "payroll/_manual_rows.html" if request.headers.get("HX-Request") else "payroll/manual.html"
+        "payroll/_manual_rows.html" if is_partial_request(request) else "payroll/manual.html"
     )
     return render(
         request,
@@ -487,7 +492,7 @@ def payslip_list(request, pk):
     paginator = Paginator(payslips, 30)
     page_obj = paginator.get_page(request.GET.get("page") or 1)
 
-    template = "payslips/_rows.html" if request.headers.get("HX-Request") else "payslips/list.html"
+    template = "payslips/_rows.html" if is_partial_request(request) else "payslips/list.html"
     return render(
         request,
         template,

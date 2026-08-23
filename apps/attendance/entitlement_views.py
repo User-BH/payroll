@@ -10,7 +10,7 @@ from apps.attendance.leave import DEFAULT_DAY_MINUTES, balances_for, format_dhm
 from apps.attendance.models import LeaveEntitlement
 from apps.employees.models import Employee
 from apps.payroll.models import JALALI_MONTHS, PayrollPeriod
-from apps.payroll.utils import parse_decimal
+from apps.payroll.utils import is_partial_request, parse_decimal
 from apps.payroll_config.models import FiscalYear
 
 
@@ -84,7 +84,7 @@ def entitlement_list(request):
     rows = _rows(fiscal_year, query)
     template = (
         "leave/_entitlement_rows.html"
-        if request.headers.get("HX-Request")
+        if is_partial_request(request)
         else "leave/entitlements.html"
     )
     return render(

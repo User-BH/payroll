@@ -190,3 +190,22 @@ def floor_to_unit(value, unit: int) -> Decimal:
         return quantize_rial(value)
     unit_dec = Decimal(unit)
     return (Decimal(value) // unit_dec) * unit_dec
+
+
+def is_partial_request(request) -> bool:
+    """آیا این درخواست یک **تکه** می‌خواهد یا یک صفحهٔ کامل؟
+
+    هر دو نوع درخواست هدر `HX-Request` دارند، پس شرط گذاشتن روی آن کافی نیست:
+
+      - جست‌وجوی درجا و صفحه‌بندی → فقط ردیف‌های جدول را می‌خواهند (تکه)
+      - جابجایی نرم بین صفحه‌ها (hx-boost) → صفحهٔ کامل را می‌خواهد
+
+    وقتی منو و زبانه‌ها boost شدند، سه صفحه‌ای که به `HX-Request` نگاه می‌کردند
+    شروع کردند به برگرداندنِ تکه به‌جای صفحه، و چون آن تکه `#pageMain` نداشت،
+    محتوا **خالی** می‌شد: نوار بارگذاری تمام می‌شد و صفحه سفید می‌ماند.
+
+    `HX-Boosted` همان چیزی است که این دو را از هم جدا می‌کند.
+    """
+    if not request.headers.get("HX-Request"):
+        return False
+    return request.headers.get("HX-Boosted") != "true"
