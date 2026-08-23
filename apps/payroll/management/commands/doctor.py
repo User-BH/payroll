@@ -175,13 +175,16 @@ class Command(BaseCommand):
             self.line(OK, "هر قلم فعال، دست‌کم یک راه برای رسیدن به عدد دارد")
             return
 
+        # `config_label` و نه `name`: سه قلم «حق ماموریت» و دو قلم «اضافه کار»
+        # وجود دارند و هرکدام به گروه دیگری می‌رسند. پیامی که فقط نام را
+        # می‌گوید، خواننده را جلوی سه قلمِ هم‌نام تنها می‌گذارد.
         for warning in broken:
-            self.line(BAD, warning["component"].name, warning["reason"])
+            self.line(BAD, warning["component"].config_label, warning["reason"])
         for warning in info:
-            self.line(WARN, warning["component"].name, warning["reason"])
+            self.line(WARN, warning["component"].config_label, warning["reason"])
 
         if broken:
-            names = "، ".join(f"«{w['component'].name}»" for w in broken)
+            names = "، ".join(f"«{w['component'].config_label}»" for w in broken)
             self.problems.append(
                 f"{len(broken)} قلم حقوقی روی فیش نمی‌آید: {names}\n"
                 "      این‌ها خطا نمی‌دهند — فقط بی‌سروصدا غایب‌اند.\n"

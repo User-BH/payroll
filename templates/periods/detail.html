@@ -13,8 +13,8 @@
     {% for item in warnings %}
     <li style="margin-bottom:4px;">
       {% if user.can_edit_payroll %}
-      <a href="{% url 'component_edit' item.component.pk %}"><b>{{ item.component.name }}</b></a>
-      {% else %}<b>{{ item.component.name }}</b>{% endif %}
+      <a href="{% url 'component_edit' item.component.pk %}"><b>{{ item.component.config_label }}</b></a>
+      {% else %}<b>{{ item.component.config_label }}</b>{% endif %}
       — {{ item.reason }}
     </li>
     {% endfor %}
@@ -32,8 +32,8 @@
     {% for item in unreachable %}
     <li style="margin-bottom:4px;">
       {% if user.can_edit_payroll %}
-      <a href="{% url 'component_edit' item.component.pk %}"><b>{{ item.component.name }}</b></a>
-      {% else %}<b>{{ item.component.name }}</b>{% endif %}
+      <a href="{% url 'component_edit' item.component.pk %}"><b>{{ item.component.config_label }}</b></a>
+      {% else %}<b>{{ item.component.config_label }}</b>{% endif %}
       — {{ item.reason }}
     </li>
     {% endfor %}

@@ -29,6 +29,9 @@ RENTAL_DRIVER = "راننده استجاری"
 
 GREEN, AMBER, GREY = "#3E8E5B", "#B57B14", "#8A8175"
 
+# اقلامی که فقط به گروه راننده استجاری تعلق دارند
+DRIVER_ONLY_CODES = {"EID", "SEVERANCE"}
+
 # (کد، نام، نوع، نحوه محاسبه، قاعده، ترتیب، مشمول بیمه، مشمول مالیات، چاپ، رنگ)
 #
 # مشمولیت از دو ستون خودِ فایل می‌آید و نه از حدس:
@@ -135,7 +138,11 @@ def configure(company, stdout=None):
         component.is_taxable = tax
         component.print_on_payslip = printed
         component.color = color
-        component.is_active = True
+        # فعال/غیرفعال بودنِ اقلامِ مخصوص راننده استجاری پایین‌تر تصمیم گرفته
+        # می‌شود (بسته به اینکه آن پست در چارت هست یا نه). اگر اینجا بی‌قید
+        # فعالشان کنیم، همان تصمیم را هر بار خنثی کرده‌ایم.
+        if code not in DRIVER_ONLY_CODES:
+            component.is_active = True
         component.save()
         codes_new[code] = component
         if created:
@@ -220,30 +227,62 @@ def configure(company, stdout=None):
     # اضافه‌کاری عادی و زنجیره‌ای نباید به یک نفر برسند — دو بار پرداخت است.
     overtime = existing.get("OVERTIME")
     if overtime:
-        pairs = []
+        pairs, where = [], []
         if sales:
             pairs.append(("COST_CENTER", sales.pk))
+            where.append(SALES_UNIT)
         if driver:
             pairs.append(("JOB_TITLE", driver.pk))
+            where.append(RENTAL_DRIVER)
         if pairs and _reset_scopes(overtime, pairs):
-            say("اضافه کار عادی → فقط فروش و راننده استجاری")
+            say("اضافه کار عادی → فقط " + " و ".join(where))
 
-    # مأموریت عادی (ضریب ۱ از جدول کارکرد) فقط برای راننده استجاری می‌ماند؛
-    # پشتیبانی مأموریتش را از زنجیره می‌گیرد و فروش قلم ضریب-۲ خودش را دارد.
-    mission = existing.get("MISSION")
-    if mission and driver and _reset_scopes(mission, [("JOB_TITLE", driver.pk)]):
-        say("حق ماموریت عادی → فقط راننده استجاری")
+    # ------------------------------------- اقلامِ مخصوص گروه راننده استجاری
+    #
+    # این چهار قلم فقط برای همان یک گروه‌اند. اگر پستِ «راننده استجاری» هنوز
+    # در چارت نباشد — مثل سروری که پرسنلش وارد نشده — **نباید دامنه‌شان
+    # دست‌نخورده بماند**:
+    #
+    #   حق ماموریت عادی دامنه‌اش مرکز هزینهٔ پشتیبانی است، یعنی همان گروهی که
+    #   مأموریتش از زنجیرهٔ مازاد می‌آید. هر دو قلم روی یک نفر می‌نشینند و
+    #   مأموریت **دو بار** پرداخت می‌شود.
+    #
+    #   عیدی و پایانکار هم دامنه‌ای ندارند، و قلمِ بی‌دامنه یعنی «همه پرسنل».
+    #
+    # پس تا وقتی آن پست ساخته نشده، غیرفعال می‌شوند؛ و همین دستور بعد از ورود
+    # پرسنل، دوباره فعال و درست دامنه‌گذاری‌شان می‌کند.
+    driver_only = [
+        (existing.get("MISSION"), "حق ماموریت عادی"),
+        (codes_new.get("EID"), "عیدی و پاداش"),
+        (codes_new.get("SEVERANCE"), "پایانکار"),
+    ]
+    leave_pay = existing.get("LEAVE_PAY")
 
     if driver:
-        driver_only = [
-            _reset_scopes(codes_new[code], [("JOB_TITLE", driver.pk)])
-            for code in ("EID", "SEVERANCE")
-        ]
-        if any(driver_only):
-            say("عیدی و پایانکار → فقط راننده استجاری")
-
-        leave_pay = existing.get("LEAVE_PAY")
-        if leave_pay and _reset_scopes(leave_pay, [("JOB_TITLE", driver.pk)]):
-            say("وجه مرخصی → فقط راننده استجاری")
+        scoped = []
+        for component, label in driver_only + [(leave_pay, "وجه مرخصی")]:
+            if component is None:
+                continue
+            if _reset_scopes(component, [("JOB_TITLE", driver.pk)]):
+                scoped.append(label)
+            if not component.is_active:
+                component.is_active = True
+                component.save(update_fields=["is_active"])
+                scoped.append(f"{label} (دوباره فعال شد)")
+        if scoped:
+            say("→ فقط راننده استجاری: " + "، ".join(scoped))
+    else:
+        stopped = []
+        for component, label in driver_only:
+            if component is not None and component.is_active:
+                component.is_active = False
+                component.save(update_fields=["is_active"])
+                stopped.append(label)
+        if stopped:
+            say(
+                "غیرفعال شد چون پستِ «راننده استجاری» در چارت نیست: "
+                + "، ".join(stopped)
+                + " — بعد از ورود پرسنل، همین دستور را دوباره اجرا کنید."
+            )
 
     return done
