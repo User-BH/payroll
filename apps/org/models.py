@@ -135,6 +135,12 @@ class Company(models.Model):
 
     name = models.CharField("نام", max_length=120)
     legal_name = models.CharField("نام حقوقی", max_length=200, blank=True)
+    # زیرنویس سربرگ فیش. تا امروز در قالب سخت‌کد شده بود، یعنی فیشِ هر شرکتِ
+    # دیگری هم «پخش مواد غذایی…» چاپ می‌کرد.
+    activity = models.CharField(
+        "زمینه فعالیت", max_length=120, blank=True,
+        help_text="زیر نام شرکت روی سربرگ فیش چاپ می‌شود",
+    )
     national_id = models.CharField("شناسه ملی", max_length=11, blank=True)
     economic_code = models.CharField("کد اقتصادی", max_length=20, blank=True)
     registration_number = models.CharField("شماره ثبت", max_length=20, blank=True)

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{% block title %}پرتال کارکنان{% endblock %} | تامین کالا باختر</title>
+<title>{% block title %}پرتال کارکنان{% endblock %} | {{ company.name|default:"سامانه حقوق و دستمزد" }}</title>
 <link rel="icon" href="{% static 'img/favicon.png' %}">
 <link rel="stylesheet" href="{% static 'css/app.css' %}">
 <style>
@@ -18,9 +18,9 @@
 <div class="portal-top">
   <div class="brand" style="border:none; padding:0; margin:0;">
     <div class="brand-mark">
-      <img src="{% static 'img/logo.png' %}" alt="نشان تامین کالا باختر">
+      <img src="{% static 'img/logo.png' %}" alt="نشان {{ company.name|default:"سامانه حقوق و دستمزد" }}">
     </div>
-    <div class="brand-text"><b>تامین کالا باختر</b><span>پرتال کارکنان</span></div>
+    <div class="brand-text"><b>{{ company.name|default:"سامانه حقوق و دستمزد" }}</b><span>پرتال کارکنان</span></div>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <div class="user-chip">

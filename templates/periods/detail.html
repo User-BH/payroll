@@ -123,7 +123,7 @@
           <td data-label="مبلغ" class="num"><b>{{ money.net|rial }}</b></td>
         </tr>
         <tr>
-          <td data-label="خرج">بیمه سهم کارفرما (۲۰٪)</td>
+          <td data-label="خرج">بیمه سهم کارفرما{% if money.rate_employer %} ({{ money.rate_employer|fadec }}٪){% endif %}</td>
           <td data-label="مبلغ" class="num">{{ money.ins_employer|rial }}</td>
           <td data-label="مقصد">
             <b>تأمین اجتماعی</b>
@@ -132,7 +132,7 @@
           <td data-label="مبلغ" class="num"><b>{{ money.insurance_total|rial }}</b></td>
         </tr>
         <tr>
-          <td data-label="خرج">بیمه بیکاری (۳٪)</td>
+          <td data-label="خرج">بیمه بیکاری{% if money.rate_unemployment %} ({{ money.rate_unemployment|fadec }}٪){% endif %}</td>
           <td data-label="مبلغ" class="num">{{ money.unemployment|rial }}</td>
           <td data-label="مقصد"><b>سازمان امور مالیاتی</b></td>
           <td data-label="مبلغ" class="num"><b>{{ money.tax|rial }}</b></td>
@@ -181,7 +181,7 @@
     <table class="table">
       <tbody>
         <tr>
-          <td data-label="قلم">بیمه سهم کارگر (۷٪)</td>
+          <td data-label="قلم">بیمه سهم کارگر{% if money.rate_employee %} ({{ money.rate_employee|fadec }}٪){% endif %}</td>
           <td data-label="مبلغ" class="num">{{ money.ins_employee|rial }}</td>
         </tr>
         <tr>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ورود کارکنان | تامین کالا باختر</title>
+<title>ورود کارکنان | {{ company.name|default:"سامانه حقوق و دستمزد" }}</title>
 <link rel="icon" href="{% static 'img/favicon.png' %}">
 <link rel="stylesheet" href="{% static 'css/app.css' %}">
 </head>
@@ -12,10 +12,10 @@
   <div class="auth-art">
     <div class="brand" style="border:none; padding:0; margin:0;">
       <div class="brand-mark">
-        <img src="{% static 'img/logo-white.png' %}" alt="نشان تامین کالا باختر">
+        <img src="{% static 'img/logo-white.png' %}" alt="نشان {{ company.name|default:"سامانه حقوق و دستمزد" }}">
       </div>
       <div class="brand-text">
-        <b style="color:#fff;">تامین کالا باختر</b>
+        <b style="color:#fff;">{{ company.name|default:"سامانه حقوق و دستمزد" }}</b>
         <span style="color:rgba(255,255,255,.75);">پرتال کارکنان</span>
       </div>
     </div>
@@ -23,7 +23,7 @@
       <h1>فیش حقوقی خودتان را به‌صورت آنلاین ببینید</h1>
       <p>ریز مزایا و کسور هر ماه، همراه با توضیح نحوه محاسبه هر عدد — بدون نیاز به مراجعه به واحد مالی.</p>
     </div>
-    <div style="font-size:11.5px; opacity:.6; position:relative;">تامین کالا باختر</div>
+    <div style="font-size:11.5px; opacity:.6; position:relative;">{{ company.name|default:"سامانه حقوق و دستمزد" }}</div>
   </div>
 
   <div class="auth-form">

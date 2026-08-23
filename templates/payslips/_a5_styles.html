@@ -78,8 +78,20 @@
   .net-words{font-size:6.5pt; text-align:center; color:var(--muted); margin-top:3px;}
 
   /* ===== پانویس ===== */
-  .foot{display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:8px;}
-  .box{border:1px solid var(--line); padding:5px 7px;}
+  .box{border:1px solid var(--line); padding:5px 7px; margin-top:6px;}
+
+  /* اطلاعات پرداخت: تمام‌عرض و دو ستونه، چون کادر «مبنای محاسبه» حذف شد و
+     تنها ماندنِ یک کادر باریک در نیمهٔ برگه بدقواره بود */
+  .pay-grid{display:grid; grid-template-columns:1fr 1fr; gap:0 14px;}
+
+  /* مرخصی: سه ستون، با عددِ شخصی درشت و سیاستِ شرکت ریز زیرش */
+  .leave-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:0 10px; text-align:center;}
+  .leave-grid > div{padding:1px 0;}
+  .leave-grid > div + div{border-inline-start:1px solid var(--line);}
+  .leave-grid .k{display:block; font-size:6.5pt; color:var(--muted); font-weight:600;}
+  .leave-grid .v{display:block; font-size:9pt; font-weight:800; margin:1px 0;}
+  .leave-grid .v.hi{color:var(--red-deep);}
+  .leave-grid .s{display:block; font-size:6pt; color:var(--muted);}
   .box h4{font-size:6.5pt; color:var(--muted); font-weight:700; margin-bottom:3px;}
   .box .row{display:flex; justify-content:space-between; font-size:7.5pt; padding:1px 0;}
   .box .row b{font-weight:700;}

@@ -17,7 +17,7 @@ class CompanyForm(BootstrapMixin, forms.ModelForm):
     class Meta:
         model = Company
         fields = [
-            "name", "legal_name", "national_id", "economic_code",
+            "name", "legal_name", "activity", "national_id", "economic_code",
             "registration_number", "insurance_workshop_code", "tax_file_number",
             "address", "phone",
             "bank_file_columns", "bank_file_delimiter", "bank_file_include_header",
@@ -26,7 +26,7 @@ class CompanyForm(BootstrapMixin, forms.ModelForm):
         widgets = {"address": forms.Textarea(attrs={"rows": 2})}
 
     GROUPS = [
-        ("مشخصات", ["name", "legal_name", "national_id", "economic_code",
+        ("مشخصات", ["name", "legal_name", "activity", "national_id", "economic_code",
                     "registration_number", "phone", "address"]),
         ("کدهای رسمی", ["insurance_workshop_code", "tax_file_number"]),
         ("فرمت فایل پرداخت بانک", ["bank_file_columns", "bank_file_delimiter",

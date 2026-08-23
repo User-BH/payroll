@@ -14,7 +14,18 @@ def current_period(request):
     # ساخته می‌شود تا صفحهٔ ورود هم داشته باشدش.
     import jdatetime
 
-    common = {"jalali_year": jdatetime.date.today().year}
+    from apps.org.models import Company
+
+    # نام شرکت تا امروز در قالب‌ها سخت‌کد بود («تامین کالا باختر» در سربرگ،
+    # صفحهٔ ورود و فیش). یعنی همان کدی که چندشرکتی طراحی شده، روی صفحه اسم
+    # یک شرکت را چاپ می‌کرد. حالا از دیتابیس می‌آید.
+    #
+    # پیش از بررسی ورود ساخته می‌شود چون صفحهٔ ورود هم نام شرکت را نشان
+    # می‌دهد و آن‌جا هنوز کاربری در کار نیست.
+    common = {
+        "jalali_year": jdatetime.date.today().year,
+        "company": Company.objects.filter(is_active=True).first(),
+    }
 
     if not request.user.is_authenticated:
         return common

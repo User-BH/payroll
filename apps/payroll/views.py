@@ -385,7 +385,13 @@ def period_detail(request, pk):
     other_deductions = deductions - ins_employee - tax
     insurance_total = ins_employee + ins_employer + unemployment
 
+    # نرخ‌ها از پارامتر مؤثر همان دوره می‌آیند، نه از عددی که در قالب نوشته
+    # شده باشد: اگر سال بعد نرخ بیمه عوض شود، برچسبِ سخت‌کد دروغ می‌گفت.
+    rates = effective_params_for(period.company, period)
     period_money = {
+        "rate_employer": (rates.ins_employer_rate or zero) * 100 if rates else None,
+        "rate_unemployment": (rates.unemployment_rate or zero) * 100 if rates else None,
+        "rate_employee": (rates.ins_employee_rate or zero) * 100 if rates else None,
         # چه چیزی برای کارفرما خرج شد
         "gross": gross,
         "ins_employer": ins_employer,

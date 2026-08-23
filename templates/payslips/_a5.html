@@ -3,9 +3,15 @@
 <div class="slip">
   <div class="head">
     <img src="{% static 'img/logo.png' %}" alt="">
+    {% comment %}
+      شرکت از خودِ دورهٔ فیش خوانده می‌شود، نه از شرکتِ «جاری» در نشست: فیشِ
+      پارسال باید همان نامی را نشان بدهد که آن روز چاپ شد.
+    {% endcomment %}
     <div class="co">
-      <b>تامین کالا باختر</b>
-      <span>پخش مواد غذایی، بهداشتی و شوینده</span>
+      <b>{{ payslip.period.company.name }}</b>
+      {% if payslip.period.company.activity %}
+      <span>{{ payslip.period.company.activity }}</span>
+      {% endif %}
     </div>
     <div class="doc">
       <b>فیش حقوق و مزایای {{ payslip.period.title }}</b>
@@ -71,36 +77,55 @@
     <span class="val">{{ payslip.net_payable|rial }} <small>ریال</small></span>
   </div>
 
-  <div class="foot">
-    <div class="box">
-      <h4>اطلاعات پرداخت</h4>
-      <div class="row"><span>بانک عامل</span><b>{{ payslip.bank_snapshot|default:"رسالت" }}</b></div>
+  {% comment %}
+    زیر خالص پرداخت دو کادر می‌ماند و بس: کجا واریز شد، و مرخصی.
+
+    کادر «مبنای محاسبه» برداشته شد چون تنها عددش — روز کارکرد — همان بالا
+    کنار حقوق ثابت هم آمده است. یک کادر کامل برای عددی که دو سطر بالاتر
+    نوشته شده، فقط جای برگه را می‌گیرد.
+  {% endcomment %}
+  <div class="box pay-box">
+    <h4>اطلاعات پرداخت</h4>
+    <div class="pay-grid">
+      <div class="row"><span>بانک عامل</span><b>{{ payslip.bank_snapshot|default:"—" }}</b></div>
       <div class="row"><span>شماره حساب</span><b class="num" style="direction:ltr;">{{ payslip.account_snapshot|default:"—" }}</b></div>
       {% if payslip.iban_snapshot %}
-      <div class="row"><span>شماره شبا</span><b class="num" style="direction:ltr; font-size:9px;">{{ payslip.iban_snapshot }}</b></div>
+      <div class="row"><span>شماره شبا</span><b class="num" style="direction:ltr;">{{ payslip.iban_snapshot }}</b></div>
       {% endif %}
-      <div class="row"><span>مبلغ واریزی</span><b class="num">{{ payslip.net_payable|rial }}</b></div>
-    </div>
-    <div class="box">
-      <h4>مبنای محاسبه</h4>
       <div class="row"><span>روز کارکرد</span><b class="num">{{ payslip.work_days|fadec }}</b></div>
+      <div class="row"><span>مبلغ واریزی</span><b class="num">{{ payslip.net_payable|rial }}</b></div>
     </div>
   </div>
 
   {% if payslip.leave_snapshot %}
   {% with lv=payslip.leave_snapshot %}
-  <div class="box" style="margin-top:6px;">
+  {% comment %}
+    چیدمان مرخصی عوض شد. قبلاً شش سطرِ هم‌وزن بود و دو سطرِ اولش — انتقالی و
+    استحقاقی — برای بیشتر پرسنل یک عدد است (انتقالی سقف ۹ روز دارد و
+    استحقاقی ۲۶ روز سیاست شرکت است). نتیجه این بود که جدول برای همه یکسان
+    به‌نظر می‌رسید، در حالی که عددهای شخصیِ هر نفر همان‌جا بودند ولی گم شده
+    بودند.
+
+    حالا سه ستون: سهمیه، مصرفی، مانده. آنچه بین افراد فرق می‌کند درشت است و
+    آنچه سیاست شرکت است ریز، زیر همان ستون.
+  {% endcomment %}
+  <div class="box leave-box">
     <h4>مرخصی</h4>
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0 14px;">
-      <div class="row"><span>انتقالی از سال قبل</span><b>{{ lv.carried_over|dhm }}</b></div>
-      <div class="row"><span>مصرفی این ماه</span><b>{{ lv.used_period|dhm }}</b></div>
-      <div class="row"><span>استحقاقی امسال</span><b>{{ lv.annual|dhm }}</b></div>
-      <div class="row"><span>مصرفی از اول سال</span><b>{{ lv.used_ytd|dhm }}</b></div>
-      <div class="row" style="border-top:1px dotted var(--line); margin-top:2px; padding-top:2px;">
-        <span>قابل استفاده</span><b>{{ lv.total|dhm }}</b>
+    <div class="leave-grid">
+      <div>
+        <span class="k">سهمیه امسال</span>
+        <b class="v">{{ lv.total|dhm }}</b>
+        <span class="s">انتقالی {{ lv.carried_over|dhm }} + استحقاقی {{ lv.annual|dhm }}</span>
       </div>
-      <div class="row" style="border-top:1px dotted var(--line); margin-top:2px; padding-top:2px;">
-        <span>مانده تا آخر سال</span><b style="color:var(--red-deep);">{{ lv.remaining|dhm }}</b>
+      <div>
+        <span class="k">مصرفی از اول سال</span>
+        <b class="v">{{ lv.used_ytd|dhm }}</b>
+        <span class="s">این ماه {{ lv.used_period|dhm }}</span>
+      </div>
+      <div>
+        <span class="k">مانده تا آخر سال</span>
+        <b class="v hi">{{ lv.remaining|dhm }}</b>
+        <span class="s">&nbsp;</span>
       </div>
     </div>
   </div>
