@@ -318,6 +318,61 @@
       </div>
     </div>
 
+    {% comment %}
+      امضای پرسنل. روی فیشِ تأییدشده جای امضای دستی را می‌گیرد، پس باید هم
+      خودِ پرسنل بتواند از پرتال بگذاردش و هم واحد مالی از روی پروندهٔ کاغذی —
+      کسی که با پرتال کار نمی‌کند وگرنه فیشش برای همیشه بی‌امضا می‌ماند.
+    {% endcomment %}
+    <div class="panel">
+      <div class="panel-head">
+        <h3>امضای پرسنل</h3>
+        {% if employee.signature %}
+        <span class="badge ok"><span class="dot"></span>ثبت شده</span>
+        {% else %}
+        <span class="badge muted"><span class="dot"></span>ثبت نشده</span>
+        {% endif %}
+      </div>
+      <div class="panel-body">
+        {% if employee.signature %}
+        <div style="background:var(--paper); border:1px solid var(--line); border-radius:10px;
+                    padding:12px; text-align:center; margin-bottom:12px;">
+          <img src="{{ employee.signature.url }}" alt="امضای {{ employee.full_name }}"
+               style="max-height:90px; max-width:100%;">
+        </div>
+        {% else %}
+        <div class="note-box" style="margin-bottom:12px;">
+          تا وقتی امضا ثبت نشده، فیشِ تأییدشدهٔ این پرسنل بدون تصویر امضا چاپ می‌شود.
+          تصویر اسکن‌شده را اینجا بگذارید یا از خودش بخواهید از پرتال بارگذاری کند.
+        </div>
+        {% endif %}
+
+        {% if user.can_edit_payroll %}
+        <form method="post" action="{% url 'employee_signature_upload' employee.pk %}"
+              enctype="multipart/form-data"
+              style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          {% csrf_token %}
+          <input class="input" type="file" name="signature" accept="image/*" required
+                 style="flex:1; min-width:200px;">
+          <button class="btn btn-outline btn-sm" type="submit">
+            {% if employee.signature %}جایگزینی{% else %}ثبت امضا{% endif %}
+          </button>
+        </form>
+        <div class="hint" style="margin-top:8px;">تصویر، حداکثر ۲ مگابایت</div>
+
+        {% if employee.signature %}
+        <form method="post" action="{% url 'employee_signature_clear' employee.pk %}"
+              style="margin-top:10px;"
+              data-confirm="امضای {{ employee.full_name }} حذف می‌شود. فیش‌های چاپ‌شدهٔ قبلی تغییر نمی‌کنند، ولی فیش‌های بعدی بدون تصویر امضا چاپ می‌شوند."
+              data-confirm-title="حذف امضا"
+              data-confirm-yes="حذف کن">
+          {% csrf_token %}
+          <button class="btn btn-outline btn-sm" type="submit">حذف امضا</button>
+        </form>
+        {% endif %}
+        {% endif %}
+      </div>
+    </div>
+
     <div class="panel">
       <div class="panel-head"><h3>حساب بانکی</h3></div>
       <div class="comp-list">

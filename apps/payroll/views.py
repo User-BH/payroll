@@ -346,27 +346,57 @@ def period_detail(request, pk):
         .order_by("-gross")
     )
 
-    # تفکیک هزینهٔ کارفرما. کارت قبلی فقط یک عدد بزرگ بود و کسی نمی‌فهمید
-    # داخلش چیست؛ «هزینهٔ کارفرما منهای ناخالص» را باید دستی حساب می‌کرد.
+    # ------------------------------------------------ تفکیک پول این دوره
     #
-    # مالیات عمداً اینجا **نیست**: مالیات از حقوق خودِ پرسنل کسر می‌شود و
-    # هزینهٔ کارفرما نیست. آوردنش زیر این عنوان یعنی دو بار شمردنِ عددی که
-    # قبلاً داخل ناخالص هست. کارفرما سهم بیمهٔ خودش را می‌پردازد، نه مالیات را.
-    employer = Payslip.objects.filter(period=period).aggregate(
+    # سه سؤالی که کارفرما آخر هر ماه می‌پرسد و تا امروز باید از چند صفحه
+    # جمع می‌زد: چقدر بابت بیمه رفت، چقدر بابت مالیات، و چقدر واقعاً به دست
+    # پرسنل رسید.
+    #
+    # جدول عمداً **ترازشونده** است: جمع ستون «به کجا رفت» باید مو‌به‌مو برابر
+    # کل هزینهٔ کارفرما دربیاید. اگر روزی نشد، یعنی یک قلم جایی گم شده — و
+    # همین تراز، خودش آزمونِ درستیِ صفحه است. به همین دلیل «سایر کسور» از
+    # تفریق ساخته می‌شود نه از جمع زدنِ فهرستی از کدها که ممکن است ناقص باشد.
+    money = Payslip.objects.filter(period=period).aggregate(
         gross=Sum("gross_total"),
-        insurance=Sum("ins_employer"),
-        total=Sum("employer_total_cost"),
+        net=Sum("net_payable"),
+        deductions=Sum("total_deductions"),
+        tax=Sum("tax_amount"),
+        ins_employee=Sum("ins_employee"),
+        ins_employer=Sum("ins_employer"),
+        employer_total=Sum("employer_total_cost"),
     )
-    gross = employer["gross"] or 0
-    insurance = employer["insurance"] or 0
-    total = employer["total"] or 0
-    employer_breakdown = [
-        ("ناخالص پرداختی به پرسنل", gross),
-        ("بیمه سهم کارفرما", insurance),
-        # بیمهٔ بیکاری قلم جداگانه‌ای است ولی ستون خودش را روی فیش ندارد؛
-        # از باقی‌ماندهٔ جمع درمی‌آید تا سه عدد همیشه با هم جور باشند.
-        ("بیمه بیکاری", total - gross - insurance),
-    ]
+    zero = Decimal("0")
+    gross = money["gross"] or zero
+    net = money["net"] or zero
+    deductions = money["deductions"] or zero
+    tax = money["tax"] or zero
+    ins_employee = money["ins_employee"] or zero
+    ins_employer = money["ins_employer"] or zero
+    employer_total = money["employer_total"] or zero
+
+    # بیمهٔ بیکاری ستون ذخیره‌شدهٔ خودش را روی فیش ندارد؛ از باقی‌ماندهٔ هزینهٔ
+    # کارفرما درمی‌آید تا سه عدد همیشه با هم جور باشند.
+    unemployment = employer_total - gross - ins_employer
+    other_deductions = deductions - ins_employee - tax
+    insurance_total = ins_employee + ins_employer + unemployment
+
+    period_money = {
+        # چه چیزی برای کارفرما خرج شد
+        "gross": gross,
+        "ins_employer": ins_employer,
+        "unemployment": unemployment,
+        "employer_total": employer_total,
+        # از حقوق پرسنل چه کسر شد
+        "ins_employee": ins_employee,
+        "tax": tax,
+        "other_deductions": other_deductions,
+        "deductions": deductions,
+        # آن پول به کجا رفت
+        "net": net,
+        "insurance_total": insurance_total,
+        "destination_total": net + insurance_total + tax + other_deductions,
+    }
+    period_money["balanced"] = period_money["destination_total"] == employer_total
 
     return render(
         request,
@@ -378,14 +408,7 @@ def period_detail(request, pk):
             "by_department": by_department,
             "warnings": warnings,
             "unreachable": unreachable,
-            "employer_breakdown": employer_breakdown,
-            "employer_total": total,
-            "employee_tax": Payslip.objects.filter(period=period).aggregate(
-                t=Sum("tax_amount")
-            )["t"] or 0,
-            "employee_insurance": Payslip.objects.filter(period=period).aggregate(
-                i=Sum("ins_employee")
-            )["i"] or 0,
+            "money": period_money,
             "payslip_count": Payslip.objects.filter(period=period).count(),
         },
     )

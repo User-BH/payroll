@@ -120,7 +120,7 @@ def configure(company, stdout=None):
         say("مبنای اضافه‌کاری → (مزد روزانه + پایه سنوات) × ۳۰ ÷ ساعات کار ماهانه")
 
     # ------------------------------------------------------- اقلام تازه
-    codes = {}
+    codes_new = {}
     for (code, name, kind, calc, rule, seq, ins, tax, printed, color) in NEW_COMPONENTS:
         component, created = SalaryComponent.objects.get_or_create(
             company=company, code=code,
@@ -137,19 +137,39 @@ def configure(company, stdout=None):
         component.color = color
         component.is_active = True
         component.save()
-        codes[code] = component
+        codes_new[code] = component
         if created:
             say(f"قلم ساخته شد: {name} ({code})")
 
     # «مازاد» ها استخر را پر می‌کنند و مابه‌التفاوت از آن کم می‌شود
     for code in ("SURPLUS_FIXED", "SURPLUS_OT"):
-        component = codes[code]
+        component = codes_new[code]
         if component.allocation_role != "ADD":
             component.allocation_role = "ADD"
             component.save(update_fields=["allocation_role"])
             say(f"{component.name} → به استخر مازاد اضافه می‌شود")
 
     existing = {c.code: c for c in SalaryComponent.objects.filter(company=company)}
+
+    # ------------------------------------------------------------- رنگ‌ها
+    # رنگ روی فیش و در فهرست اقلام یعنی «این از چه جنسی است». سه قلم مأموریت
+    # یک جنس‌اند (معاف از بیمه و مالیات) و باید یک رنگ باشند؛ روی سرور یکی‌شان
+    # سبز مانده بود و کنار دوتای دیگر مثل قلمی از جنس دیگر دیده می‌شد.
+    #
+    # این‌جا هم قاعده کد نمی‌شود: فقط هم‌جنس‌ها هم‌رنگ می‌شوند.
+    for codes, color, label in (
+        (("MISSION", "MISSION2", "MISSION_SURPLUS"), AMBER, "حق مأموریت"),
+        (("OVERTIME", "OVERTIME_SURPLUS"), GREEN, "اضافه‌کاری"),
+    ):
+        changed = []
+        for code in codes:
+            component = existing.get(code) or codes_new.get(code)
+            if component is not None and component.color.upper() != color.upper():
+                component.color = color
+                component.save(update_fields=["color"])
+                changed.append(component.code)
+        if changed:
+            say(f"هم‌رنگ شدن اقلام {label}: {'، '.join(changed)}")
 
     diff = existing.get("DIFF")
     if diff and diff.allocation_role != "SUBTRACT":
@@ -190,7 +210,7 @@ def configure(company, stdout=None):
     else:
         chain_scope = [("JOB_TITLE", job.pk) for job in support]
         touched = [
-            _reset_scopes(codes[code], chain_scope)
+            _reset_scopes(codes_new[code], chain_scope)
             for code in ("OVERTIME_SURPLUS", "MISSION_SURPLUS", "SURPLUS_FIXED", "SURPLUS_OT")
         ]
         if any(touched):
@@ -216,7 +236,7 @@ def configure(company, stdout=None):
 
     if driver:
         driver_only = [
-            _reset_scopes(codes[code], [("JOB_TITLE", driver.pk)])
+            _reset_scopes(codes_new[code], [("JOB_TITLE", driver.pk)])
             for code in ("EID", "SEVERANCE")
         ]
         if any(driver_only):

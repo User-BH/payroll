@@ -15,6 +15,7 @@ from apps.employees.forms import (
     EmployeeCreateForm,
     EmployeeForm,
     EmployeeImportForm,
+    SignatureForm,
 )
 from apps.employees.importer import build_template, import_employees
 from apps.employees.models import Employee
@@ -334,6 +335,41 @@ def employee_reactivate(request, pk):
         f"{employee.full_name} دوباره فعال شد. برای ورود به چرخه حقوق باید "
         "قرارداد جدیدی برایش تعریف کنید.",
     )
+    return redirect("employee_detail", pk=employee.pk)
+
+
+@can_edit_required
+@require_POST
+def employee_signature_upload(request, pk):
+    """ثبت تصویر امضای پرسنل از پنل.
+
+    تا امروز فقط خودِ پرسنل می‌توانست از پرتال امضایش را بارگذاری کند. ولی
+    امضاها روی کاغذِ پروندهٔ پرسنلی‌اند و واحد مالی آن‌ها را اسکن می‌کند — و
+    کسی که پرتال ندارد یا با آن کار نمی‌کند، امضایش هیچ‌وقت روی فیش نمی‌نشست.
+
+    همان فرم پرتال به کار می‌رود تا محدودیت حجم و نوع فایل یک جا بماند.
+    """
+    employee = get_object_or_404(Employee, pk=pk)
+    form = SignatureForm(request.POST, request.FILES, instance=employee)
+    if form.is_valid():
+        form.save()
+        messages.success(
+            request,
+            f"امضای {employee.full_name} ثبت شد. از این پس روی فیش‌هایی که "
+            "خودش تأیید کند چاپ می‌شود.",
+        )
+    else:
+        messages.error(request, " ".join(form.errors.get("signature", ["فایل معتبر نیست."])))
+    return redirect("employee_detail", pk=employee.pk)
+
+
+@can_edit_required
+@require_POST
+def employee_signature_clear(request, pk):
+    employee = get_object_or_404(Employee, pk=pk)
+    employee.signature = None
+    employee.save(update_fields=["signature"])
+    messages.success(request, f"امضای {employee.full_name} حذف شد.")
     return redirect("employee_detail", pk=employee.pk)
 
 

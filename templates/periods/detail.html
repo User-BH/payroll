@@ -101,29 +101,107 @@
 
 <div class="panel">
   <div class="panel-head">
-    <h3>هزینه کارفرما از چه ساخته شده</h3>
-    <span class="hint">مالیات و بیمهٔ سهم کارگر اینجا نیستند — آن‌ها از حقوق خودِ پرسنل کسر می‌شوند</span>
+    <h3>گردش پول این دوره</h3>
+    <span class="hint">برای کنترل، این اعداد باید با سطر جمعِ آخر فایل اکسل همین ماه یکی باشند</span>
   </div>
+
   <div class="table-wrap">
-    <table class="table">
-      <tbody>
-        {% for label, amount in employer_breakdown %}
+    <table class="table money-flow">
+      <thead>
         <tr>
-          <td data-label="قلم">{{ label }}</td>
-          <td data-label="مبلغ" class="num">{{ amount|rial }}</td>
+          <th>کارفرما چقدر خرج کرد</th>
+          <th class="num">مبلغ (ریال)</th>
+          <th>آن پول به کجا رفت</th>
+          <th class="num">مبلغ (ریال)</th>
         </tr>
-        {% endfor %}
-        <tr style="font-weight:800; border-top:2px solid var(--line);">
-          <td data-label="جمع">جمع هزینه کارفرما</td>
-          <td data-label="مبلغ" class="num">{{ employer_total|rial }}</td>
+      </thead>
+      <tbody>
+        <tr>
+          <td data-label="خرج">ناخالص حقوق و مزایای پرسنل</td>
+          <td data-label="مبلغ" class="num">{{ money.gross|rial }}</td>
+          <td data-label="مقصد"><b>خالص پرداختی به پرسنل</b></td>
+          <td data-label="مبلغ" class="num"><b>{{ money.net|rial }}</b></td>
+        </tr>
+        <tr>
+          <td data-label="خرج">بیمه سهم کارفرما (۲۰٪)</td>
+          <td data-label="مبلغ" class="num">{{ money.ins_employer|rial }}</td>
+          <td data-label="مقصد">
+            <b>تأمین اجتماعی</b>
+            <small class="hint">سهم کارگر + سهم کارفرما + بیکاری</small>
+          </td>
+          <td data-label="مبلغ" class="num"><b>{{ money.insurance_total|rial }}</b></td>
+        </tr>
+        <tr>
+          <td data-label="خرج">بیمه بیکاری (۳٪)</td>
+          <td data-label="مبلغ" class="num">{{ money.unemployment|rial }}</td>
+          <td data-label="مقصد"><b>سازمان امور مالیاتی</b></td>
+          <td data-label="مبلغ" class="num"><b>{{ money.tax|rial }}</b></td>
+        </tr>
+        <tr>
+          <td data-label="خرج"></td>
+          <td data-label="مبلغ" class="num"></td>
+          <td data-label="مقصد">
+            برگشت به شرکت
+            <small class="hint">وام، خرید کالا، جرائم، علی‌الحساب و سایر کسور</small>
+          </td>
+          <td data-label="مبلغ" class="num">{{ money.other_deductions|rial }}</td>
+        </tr>
+        <tr class="total-row">
+          <td data-label="جمع">کل هزینه کارفرما</td>
+          <td data-label="مبلغ" class="num">{{ money.employer_total|rial }}</td>
+          <td data-label="جمع">جمع مقصدها</td>
+          <td data-label="مبلغ" class="num">{{ money.destination_total|rial }}</td>
         </tr>
       </tbody>
     </table>
   </div>
-  <div class="panel-foot" style="padding:12px 16px; font-size:12.5px; color:var(--muted); line-height:1.9;">
-    از همان ناخالص، <b>{{ employee_insurance|rial }}</b> ریال بیمهٔ سهم کارگر و
-    <b>{{ employee_tax|rial }}</b> ریال مالیات کسر و به سازمان‌ها پرداخت می‌شود؛
-    این دو هزینهٔ کارفرما نیستند و در جمع بالا نیامده‌اند.
+
+  <div class="panel-foot" style="padding:14px 16px; border-top:1px solid var(--line);">
+    {% if money.balanced %}
+    <span class="badge ok"><span class="dot"></span>دو ستون تراز است</span>
+    <span class="hint" style="margin-inline-start:8px;">
+      هر ریالی که کارفرما داده، در یکی از چهار مقصد بالا نشسته است.
+    </span>
+    {% else %}
+    <span class="badge wait"><span class="dot"></span>دو ستون تراز نیست</span>
+    <span class="hint" style="margin-inline-start:8px;">
+      اختلاف {{ money.destination_total|rial }} با {{ money.employer_total|rial }} —
+      یعنی قلمی در محاسبه جا مانده. این را گزارش کنید.
+    </span>
+    {% endif %}
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head">
+    <h3>از حقوق پرسنل چه کسر شد</h3>
+    <span class="hint">این‌ها هزینهٔ کارفرما نیستند — از همان ناخالص بالا کم می‌شوند</span>
+  </div>
+  <div class="table-wrap">
+    <table class="table">
+      <tbody>
+        <tr>
+          <td data-label="قلم">بیمه سهم کارگر (۷٪)</td>
+          <td data-label="مبلغ" class="num">{{ money.ins_employee|rial }}</td>
+        </tr>
+        <tr>
+          <td data-label="قلم">مالیات بر درآمد حقوق</td>
+          <td data-label="مبلغ" class="num">{{ money.tax|rial }}</td>
+        </tr>
+        <tr>
+          <td data-label="قلم">سایر کسور (وام، خرید کالا، جرائم و …)</td>
+          <td data-label="مبلغ" class="num">{{ money.other_deductions|rial }}</td>
+        </tr>
+        <tr class="total-row">
+          <td data-label="جمع">جمع کسورات</td>
+          <td data-label="مبلغ" class="num">{{ money.deductions|rial }}</td>
+        </tr>
+        <tr>
+          <td data-label="قلم">ناخالص منهای کسورات</td>
+          <td data-label="مبلغ" class="num">{{ money.net|rial }}</td>
+        </tr>
+      </tbody>
+    </table>
   </div>
 </div>
 

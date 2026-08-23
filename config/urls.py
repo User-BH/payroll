@@ -174,6 +174,16 @@ urlpatterns = [
     path("portal/", portal_views.portal_home, name="portal_home"),
     path("portal/payslip/<int:pk>/", portal_views.portal_payslip, name="portal_payslip"),
     path("portal/payslip/<int:pk>/ack/", portal_views.portal_payslip_ack, name="portal_payslip_ack"),
+    path(
+        "employees/<int:pk>/signature/",
+        employees_views.employee_signature_upload,
+        name="employee_signature_upload",
+    ),
+    path(
+        "employees/<int:pk>/signature/clear/",
+        employees_views.employee_signature_clear,
+        name="employee_signature_clear",
+    ),
     path("portal/signature/", portal_views.portal_signature, name="portal_signature"),
 ]
 

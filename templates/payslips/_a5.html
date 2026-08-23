@@ -127,17 +127,29 @@
     واریز خالص پرداخت به حساب شماره مندرج در فیش مورد تأیید قرار گرفت.
   </div>
 
+  {% comment %}
+    «مهر و امضای کارفرما» برداشته شد: فیش از خودِ سامانه صادر می‌شود و قفل
+    دوره و شناسهٔ محاسبه پای همین برگه، سندِ صدورش هستند. یک کادر خالی که
+    هیچ‌وقت امضا نمی‌شد، فقط جای تأیید واقعی را می‌گرفت.
+
+    می‌ماند امضای خودِ پرسنل، که دیگر دستی نیست: تصویر امضایش یک بار ثبت
+    می‌شود (خودش از پرتال، یا واحد مالی از پروندهٔ او) و لحظه‌ای که فیش را
+    تأیید کند، همان‌جا با تاریخ تأیید چاپ می‌شود.
+  {% endcomment %}
   <div class="sign">
-    <div><i>مهر و امضای کارفرما</i></div>
     <div>
       {% if payslip.ack_status == 'ACCEPTED' and payslip.employee.signature %}
-      <img src="{{ payslip.employee.signature.url }}" alt=""
-           style="max-height:34px; max-width:38mm; display:block; margin:0 auto -4px;">
-      <i style="border-top:1px solid var(--line); margin-top:2px;">
-        امضای دریافت‌کننده — تأیید الکترونیکی {{ payslip.acknowledged_at|jalali }}
+      <img src="{{ payslip.employee.signature.url }}" alt="امضای {{ payslip.employee.full_name }}">
+      <i class="signed">
+        {{ payslip.employee.full_name }} — تأیید الکترونیکی {{ payslip.acknowledged_at|jalali }}
+      </i>
+      {% elif payslip.ack_status == 'ACCEPTED' %}
+      <i class="signed">
+        {{ payslip.employee.full_name }} — تأیید الکترونیکی {{ payslip.acknowledged_at|jalali }}
+        (بدون تصویر امضا)
       </i>
       {% else %}
-      <i>امضای دریافت‌کننده</i>
+      <i>امضای دریافت‌کننده — هنوز در سامانه تأیید نشده</i>
       {% endif %}
     </div>
   </div>
