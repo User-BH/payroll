@@ -22,7 +22,10 @@
   {% if user.can_edit_payroll and period.is_editable %}
   <a class="btn btn-primary btn-sm" href="{% url 'timesheet_import' period.pk %}">ورود از اکسل</a>
   <form method="post" action="{% url 'timesheet_approve_all' period.pk %}"
-        onsubmit="return confirm('همه ردیف‌های کارکرد این دوره تأیید شوند؟');">
+        data-confirm="همهٔ ردیف‌های کارکرد این دوره تأیید می‌شوند."
+        data-confirm-title="تأیید گروهی کارکرد"
+        data-confirm-yes="همه را تأیید کن"
+        data-confirm-kind="safe">
     {% csrf_token %}
     <button class="btn btn-outline btn-sm" type="submit">تأیید همه</button>
   </form>

@@ -40,7 +40,14 @@ OVERTIME_FIELDS = ["ot_d", "ot_h", "ot_m"]
 
 
 def _ensure_timesheets(period):
-    """برای هر پرسنل فعالِ دارای قرارداد، یک رکورد کارکرد بساز اگر نیست."""
+    """برای هر پرسنل فعالِ دارای قرارداد، یک رکورد کارکرد بساز اگر نیست.
+
+    ساختِ ردیف، «ویرایش داده» نیست: فقط همان پرسنلی را قابل دیدن می‌کند که
+    موتور در هر صورت برایش فیش صادر می‌کند. موتور روی **قراردادهای فعال**
+    حرکت می‌کند نه روی جدول کارکرد، و اگر کارکردی نباشد روزهای اشتغال را
+    پیش‌فرض می‌گیرد. پس هرکس در این فهرست نباشد ولی فیش بگیرد، با عددی حساب
+    می‌شود که هیچ‌کس ندیده است.
+    """
     existing = set(
         Timesheet.objects.filter(period=period).values_list("employee_id", flat=True)
     )
@@ -96,7 +103,14 @@ def _rows(request, period):
 @payroll_staff_required
 def timesheet_grid(request, pk):
     period = get_object_or_404(PayrollPeriod.objects.select_related("legal_parameter"), pk=pk)
-    if period.is_editable:
+    # شرط قبلی `is_editable` بود، یعنی فقط دورهٔ پیش‌نویس. نتیجه‌اش این بود که
+    # پرسنلی که بعد از اولین محاسبه اضافه می‌شد، در جدول کارکرد **دیده
+    # نمی‌شد** ولی فیش می‌گرفت — با روزهای پیش‌فرض و بدون هیچ ورودی. دقیقاً
+    # همان چیزی که در مرداد ۱۴۰۵ اتفاق افتاد: ۳ ردیف کارکرد، ۶۷ فیش.
+    #
+    # حالا تا وقتی دوره قفل نشده ردیف‌ها ساخته می‌شوند؛ ویرایش‌پذیریِ خانه‌ها
+    # همچنان جدا و بر عهدهٔ is_editable است.
+    if not period.is_locked:
         _ensure_timesheets(period)
     timesheets, query = _rows(request, period)
     approved = timesheets.filter(status=Timesheet.Status.APPROVED).count()

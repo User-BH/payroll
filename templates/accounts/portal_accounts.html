@@ -43,7 +43,10 @@
   </div>
   <div class="panel-body">
     <form method="post" action="{% url 'portal_accounts_create' %}"
-          onsubmit="return confirm('برای {{ without_count }} نفر حساب ساخته می‌شود. رمزها فقط یک بار نمایش داده می‌شوند. ادامه؟');">
+          data-confirm="برای {{ without_count }} نفر حساب پرتال ساخته می‌شود. رمزها فقط همین یک بار نمایش داده می‌شوند و بعد قابل بازیابی نیستند."
+          data-confirm-title="ساخت گروهی حساب"
+          data-confirm-yes="بساز"
+          data-confirm-kind="safe">
       {% csrf_token %}
       <button class="btn btn-primary" type="submit">ساخت حساب‌ها</button>
     </form>
@@ -79,7 +82,9 @@
           <td>
             {% if employee.user and user.can_edit_payroll %}
             <form method="post" action="{% url 'portal_account_reset' employee.pk %}"
-                  onsubmit="return confirm('رمز {{ employee.full_name }} بازنشانی شود؟');">
+                  data-confirm="رمز {{ employee.full_name }} بازنشانی می‌شود و رمز فعلی‌اش از کار می‌افتد."
+                  data-confirm-title="بازنشانی رمز"
+                  data-confirm-yes="بازنشانی کن">
               {% csrf_token %}
               <button class="btn btn-outline btn-sm" type="submit">بازنشانی رمز</button>
             </form>

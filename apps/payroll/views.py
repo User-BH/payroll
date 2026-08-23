@@ -346,6 +346,28 @@ def period_detail(request, pk):
         .order_by("-gross")
     )
 
+    # تفکیک هزینهٔ کارفرما. کارت قبلی فقط یک عدد بزرگ بود و کسی نمی‌فهمید
+    # داخلش چیست؛ «هزینهٔ کارفرما منهای ناخالص» را باید دستی حساب می‌کرد.
+    #
+    # مالیات عمداً اینجا **نیست**: مالیات از حقوق خودِ پرسنل کسر می‌شود و
+    # هزینهٔ کارفرما نیست. آوردنش زیر این عنوان یعنی دو بار شمردنِ عددی که
+    # قبلاً داخل ناخالص هست. کارفرما سهم بیمهٔ خودش را می‌پردازد، نه مالیات را.
+    employer = Payslip.objects.filter(period=period).aggregate(
+        gross=Sum("gross_total"),
+        insurance=Sum("ins_employer"),
+        total=Sum("employer_total_cost"),
+    )
+    gross = employer["gross"] or 0
+    insurance = employer["insurance"] or 0
+    total = employer["total"] or 0
+    employer_breakdown = [
+        ("ناخالص پرداختی به پرسنل", gross),
+        ("بیمه سهم کارفرما", insurance),
+        # بیمهٔ بیکاری قلم جداگانه‌ای است ولی ستون خودش را روی فیش ندارد؛
+        # از باقی‌ماندهٔ جمع درمی‌آید تا سه عدد همیشه با هم جور باشند.
+        ("بیمه بیکاری", total - gross - insurance),
+    ]
+
     return render(
         request,
         "periods/detail.html",
@@ -356,6 +378,14 @@ def period_detail(request, pk):
             "by_department": by_department,
             "warnings": warnings,
             "unreachable": unreachable,
+            "employer_breakdown": employer_breakdown,
+            "employer_total": total,
+            "employee_tax": Payslip.objects.filter(period=period).aggregate(
+                t=Sum("tax_amount")
+            )["t"] or 0,
+            "employee_insurance": Payslip.objects.filter(period=period).aggregate(
+                i=Sum("ins_employee")
+            )["i"] or 0,
             "payslip_count": Payslip.objects.filter(period=period).count(),
         },
     )

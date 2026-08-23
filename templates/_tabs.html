@@ -4,7 +4,9 @@
 دوباره از منو رد شود و دوباره دوره را انتخاب کند.
 {% endcomment %}
 {% if tabs %}
-<nav class="tabbar no-print">
+<nav class="tabbar no-print"
+     hx-boost="true" hx-target="#pageMain" hx-select="#pageMain"
+     hx-swap="outerHTML show:window:top" hx-push-url="true">
   {% for key, title, route, args in tabs %}
   <a class="tab {% if tab == key %}active{% endif %}"
      href="{% if args %}{% url route args.0 %}{% else %}{% url route %}{% endif %}">{{ title }}</a>

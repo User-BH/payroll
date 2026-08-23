@@ -100,7 +100,9 @@
             {% if user.can_edit_payroll %}
             <div style="display:flex; gap:6px; justify-content:flex-end;">
               <a class="btn btn-outline btn-sm" href="{% url 'org_item_edit' row.kind row.node.pk %}">ویرایش</a>
-              <form method="post" action="{% url 'org_item_delete' row.kind row.node.pk %}" onsubmit="return confirm('حذف «{{ row.node.name }}»؟');">
+              <form method="post" action="{% url 'org_item_delete' row.kind row.node.pk %}" data-confirm="«{{ row.node.name }}» حذف می‌شود. اگر پرسنل یا قلمی به آن وصل باشد، حذف انجام نمی‌شود."
+                data-confirm-title="حذف از چارت سازمانی"
+                data-confirm-yes="حذف کن">
                 {% csrf_token %}<button class="btn btn-outline btn-sm" type="submit">حذف</button>
               </form>
             </div>

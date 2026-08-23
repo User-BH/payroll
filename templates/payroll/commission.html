@@ -119,7 +119,9 @@
   <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
     <button class="btn btn-primary" type="submit">ذخیره تخصیص دستی</button>
     <button class="btn btn-outline" type="submit" name="action" value="auto"
-            onclick="return confirm('همهٔ تخصیص‌های دستی پاک شوند و تقسیم خودکار جای آن‌ها بنشیند؟');">
+            data-confirm="همهٔ تخصیص‌های دستی این دوره پاک می‌شوند و تقسیم خودکار جای آن‌ها می‌نشیند."
+            data-confirm-title="بازگشت به تقسیم خودکار"
+            data-confirm-yes="پاک کن و از نو تقسیم کن">
       برگرداندن به تقسیم خودکار
     </button>
     <a class="btn btn-outline" href="{% url 'manual_inputs' period.pk %}">مبالغ دستی</a>

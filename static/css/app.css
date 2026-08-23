@@ -608,3 +608,64 @@ input.jdate{font-variant-numeric:tabular-nums;}
 .setting-card:hover{border-color:var(--red);}
 .setting-card b{display:block; font-size:15px; margin-bottom:6px;}
 .setting-card p{font-size:12.5px; line-height:1.9; color:var(--muted); margin:0 0 10px;}
+
+/* ---------------------------------------------------------------- تأیید حذف
+   جایگزین confirm() مرورگر. دلیلش فقط ظاهر نیست: پنجرهٔ مرورگر نه فارسی است،
+   نه راست‌به‌چپ، نه می‌تواند بگوید «چه چیزی» حذف می‌شود و «چه اتفاقی» می‌افتد —
+   و روی موبایل نام دامنه را بالای پیام می‌چسباند.  */
+.confirm-back{
+  position:fixed; inset:0; z-index:60; display:none;
+  background:rgba(27,24,21,.5); backdrop-filter:blur(2px);
+  align-items:center; justify-content:center; padding:20px;
+}
+.confirm-back.show{display:flex;}
+.confirm-box{
+  background:var(--paper-2); border:1px solid var(--line); border-radius:var(--radius);
+  box-shadow:var(--shadow); width:min(430px,100%); padding:26px 24px 20px;
+  animation:confirm-in .14s ease-out;
+}
+@keyframes confirm-in{from{opacity:0; transform:translateY(8px) scale(.98);} to{opacity:1;}}
+.confirm-box h3{margin:0 0 8px; font-size:16.5px; font-weight:800; color:var(--ink);}
+.confirm-box p{margin:0; font-size:13.5px; line-height:1.85; color:var(--muted);}
+.confirm-icon{
+  width:42px; height:42px; border-radius:12px; display:grid; place-items:center;
+  margin-bottom:14px; background:var(--red-soft); color:var(--red-deep);
+}
+.confirm-icon svg{width:21px; height:21px;}
+.confirm-box.is-safe .confirm-icon{background:var(--blue-soft); color:var(--blue);}
+.confirm-actions{display:flex; gap:10px; margin-top:22px;}
+.confirm-actions .btn{flex:1; justify-content:center;}
+.btn-danger{background:var(--red); color:#fff; border:1px solid var(--red);}
+.btn-danger:hover{background:var(--red-deep); border-color:var(--red-deep);}
+
+/* --------------------------------------------------- جابجایی نرم بین صفحات
+   نوار باریک بالای صفحه، جای بارگذاری دوبارهٔ کل صفحه. دو مرحله دارد: تا ۹۰٪
+   آرام جلو می‌رود (چون نمی‌دانیم پاسخ کِی می‌رسد) و با رسیدن پاسخ سریع پر
+   می‌شود. اگر پاسخ زیر ۱۵۰ میلی‌ثانیه بیاید، عملاً دیده نمی‌شود و صفحه
+   چشمک نمی‌زند.  */
+.nav-progress{
+  position:fixed; inset-block-start:0; inset-inline-start:0; z-index:70;
+  block-size:2.5px; inline-size:0; opacity:0;
+  background:linear-gradient(90deg, var(--red), var(--red-deep));
+}
+.nav-progress.run{
+  opacity:1; inline-size:90%;
+  transition:inline-size 9s cubic-bezier(.1,.85,.3,1), opacity .1s linear .15s;
+}
+.nav-progress.finish{
+  inline-size:100%; opacity:0;
+  transition:inline-size .16s ease-out, opacity .22s ease-out .12s;
+}
+
+/* محتوای تازه به‌جای پریدن، آرام می‌نشیند */
+@keyframes page-in{from{opacity:0; transform:translateY(5px);} to{opacity:1; transform:none;}}
+.main{animation:page-in .19s ease-out;}
+
+/* در حال آمدنِ صفحهٔ بعد، محتوای فعلی کمی محو می‌شود تا کاربر بداند
+   کلیکش گرفته شده — ولی همان‌جا می‌ماند و صفحه سفید نمی‌شود */
+.main.htmx-request{opacity:.55; transition:opacity .12s ease-out;}
+
+@media (prefers-reduced-motion: reduce){
+  .main{animation:none;}
+  .nav-progress{transition:none;}
+}

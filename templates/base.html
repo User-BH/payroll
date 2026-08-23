@@ -12,6 +12,7 @@
 </head>
 <body data-theme="light" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
 
+<div class="nav-progress" id="navProgress" aria-hidden="true"></div>
 <div class="overlay" id="overlay"></div>
 
 {% comment %} ---------------------------------------------------------------------------
@@ -49,7 +50,17 @@
 </div>
 
 <div class="app">
-  <aside class="sidebar" id="sidebar">
+  {% comment %}
+    جابجایی نرم بین صفحات: به‌جای بارگذاری دوبارهٔ کل صفحه، فقط <main> عوض
+    می‌شود. سایدبار، فونت‌ها و اسکریپت‌ها همان‌جا می‌مانند — یعنی صفحهٔ سنگین
+    هم دیگر «سفید» نمی‌شود و کاربر منتظر بارگذاری دوباره نمی‌ماند.
+
+    فقط منو و زبانه‌ها boost شده‌اند، نه کل صفحه: فرم‌ها و دکمه‌های hx-post
+    منطق خودشان را دارند و boost سراسری آن‌ها را بی‌سروصدا عوض می‌کرد.
+  {% endcomment %}
+  <aside class="sidebar" id="sidebar"
+         hx-boost="true" hx-target="#pageMain" hx-select="#pageMain"
+         hx-swap="outerHTML show:window:top" hx-push-url="true">
     <div class="brand">
       <div class="brand-mark">
         <img src="{% static 'img/logo.png' %}" alt="نشان تامین کالا باختر">
@@ -94,7 +105,7 @@
     </div>
   </aside>
 
-  <main class="main">
+  <main class="main" id="pageMain">
     <div class="topbar">
       <div style="display:flex; align-items:center; gap:12px;">
         <button class="menu-btn" id="menuBtn" aria-label="باز کردن منو">
@@ -133,7 +144,146 @@
   </main>
 </div>
 
+<div class="confirm-back" id="confirmBack" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+  <div class="confirm-box" id="confirmBox">
+    <div class="confirm-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+        <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+    </div>
+    <h3 id="confirmTitle">تأیید می‌کنید؟</h3>
+    <p id="confirmText"></p>
+    <div class="confirm-actions">
+      <button type="button" class="btn btn-danger" id="confirmYes">بله، انجام بده</button>
+      <button type="button" class="btn btn-outline" id="confirmNo">انصراف</button>
+    </div>
+  </div>
+</div>
+
 <script>
+  /* تأیید عملیات — یک پنجره برای کل پنل.
+     روی هر فرم یا دکمه‌ای که `data-confirm` داشته باشد کار می‌کند؛ هیچ صفحه‌ای
+     کد جدا نمی‌خواهد. `data-confirm-kind="safe"` برای کارهایی که حذف نیستند
+     (تأیید گروهی، تغییر مرحله) رنگ آبی می‌دهد نه قرمز.
+
+     اگر جاوااسکریپت اجرا نشود، فرم مثل قبل ارسال می‌شود — یعنی این لایه جلوی
+     کار را نمی‌گیرد، فقط قبلش می‌پرسد. */
+  (function(){
+    var back  = document.getElementById('confirmBack');
+    var box   = document.getElementById('confirmBox');
+    var text  = document.getElementById('confirmText');
+    var title = document.getElementById('confirmTitle');
+    var yes   = document.getElementById('confirmYes');
+    var no    = document.getElementById('confirmNo');
+    var pending = null;
+
+    function close(){
+      back.classList.remove('show');
+      pending = null;
+    }
+
+    function open(el){
+      pending = el;
+      text.textContent = el.getAttribute('data-confirm') || '';
+      title.textContent = el.getAttribute('data-confirm-title') || 'تأیید می‌کنید؟';
+      yes.textContent = el.getAttribute('data-confirm-yes') || 'بله، انجام بده';
+      var safe = el.getAttribute('data-confirm-kind') === 'safe';
+      box.classList.toggle('is-safe', safe);
+      yes.classList.toggle('btn-danger', !safe);
+      yes.classList.toggle('btn-primary', safe);
+      back.classList.add('show');
+      yes.focus();
+    }
+
+    /* روی مرحلهٔ capture گوش می‌دهیم تا پیش از هر شنوندهٔ دیگری — از جمله
+       ارسال فرم — بتوانیم جلوی کار را بگیریم. */
+    document.addEventListener('submit', function(e){
+      var form = e.target.closest('form[data-confirm]');
+      if (!form || form === pending) return;
+      e.preventDefault();
+      open(form);
+    }, true);
+
+    document.addEventListener('click', function(e){
+      var btn = e.target.closest('[data-confirm]');
+      if (!btn || btn.tagName === 'FORM' || btn.closest('form[data-confirm]')) return;
+      if (btn === pending) return;
+      e.preventDefault();
+      open(btn);
+    }, true);
+
+    yes.addEventListener('click', function(){
+      var el = pending;
+      if (!el) return;
+      back.classList.remove('show');
+      /* pending را نگه می‌داریم تا شنوندهٔ بالا این‌بار کنار برود */
+      if (el.tagName === 'FORM') el.submit();
+      else el.click();
+      setTimeout(function(){ pending = null; }, 0);
+    });
+
+    no.addEventListener('click', close);
+    back.addEventListener('click', function(e){ if (e.target === back) close(); });
+    document.addEventListener('keydown', function(e){
+      if (e.key === 'Escape' && back.classList.contains('show')) close();
+    });
+  })();
+
+  /* نوار پیشرفت و حالت «در حال آمدن» برای جابجایی نرم.
+     htmx خودش صفحه را عوض می‌کند؛ این تکه فقط سه چیز را درست می‌کند که
+     جابجایی جزئی به‌تنهایی نمی‌داند: نوار پیشرفت، نشانهٔ منوی فعال (سایدبار
+     عوض نمی‌شود پس خودش نمی‌فهمد کجاییم)، و بستن منوی موبایل. */
+  (function(){
+    var bar = document.getElementById('navProgress');
+    var timer = null;
+
+    function start(){
+      clearTimeout(timer);
+      bar.className = 'nav-progress run';
+      /* اگر پاسخ خیلی زود آمد، نوار اصلاً دیده نمی‌شود — چشمک نمی‌زند */
+    }
+    function done(){
+      bar.classList.add('finish');
+      timer = setTimeout(function(){ bar.className = 'nav-progress'; }, 260);
+    }
+
+    document.body.addEventListener('htmx:beforeRequest', function(e){
+      if (e.detail.boosted || e.detail.elt.closest('[hx-boost]')) start();
+    });
+    document.body.addEventListener('htmx:afterSettle', function(){ done(); });
+    document.body.addEventListener('htmx:responseError', function(){ done(); });
+    document.body.addEventListener('htmx:sendError', function(){ done(); });
+
+    /* نشانهٔ منوی فعال: سایدبار در جابجایی عوض نمی‌شود، پس با آدرس تطبیق
+       داده می‌شود. طولانی‌ترین مسیرِ منطبق برنده است تا «/» همه را نگیرد. */
+    function syncNav(){
+      var here = location.pathname;
+      var best = null, bestLen = -1;
+      document.querySelectorAll('.sidebar .nav-item').forEach(function(a){
+        var path = new URL(a.href, location.origin).pathname;
+        if ((here === path || here.indexOf(path) === 0) && path.length > bestLen) {
+          best = a; bestLen = path.length;
+        }
+      });
+      document.querySelectorAll('.sidebar .nav-item').forEach(function(a){
+        a.classList.toggle('active', a === best);
+      });
+    }
+    document.body.addEventListener('htmx:afterSettle', syncNav);
+
+    /* روی موبایل منو باید بعد از انتخاب بسته شود، وگرنه روی صفحهٔ تازه می‌ماند */
+    document.body.addEventListener('htmx:afterSettle', function(){
+      var sb = document.getElementById('sidebar');
+      var ov = document.getElementById('overlay');
+      if (sb && sb.classList.contains('open')) {
+        sb.classList.remove('open');
+        ov.classList.remove('show');
+      }
+    });
+  })();
+
   (function(){
     var saved = localStorage.getItem('tkb-theme');
     if (saved) document.body.setAttribute('data-theme', saved);

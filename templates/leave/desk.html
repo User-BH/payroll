@@ -83,7 +83,9 @@
             {% if user.can_edit_payroll %}
             <a class="link-btn" style="margin-inline-start:8px;" href="{% url 'leave_record_edit' row.record.pk %}">ویرایش</a>
             <form method="post" action="{% url 'leave_record_cancel' row.record.pk %}" style="display:inline;"
-                  onsubmit="return confirm('این مرخصی لغو شود و از کارکرد برداشته شود؟');">
+                  data-confirm="این مرخصی لغو می‌شود و از کارکرد همان ماه هم برداشته می‌شود."
+                  data-confirm-title="لغو مرخصی"
+                  data-confirm-yes="لغو کن">
               {% csrf_token %}
               <button class="link-btn" type="submit" style="border:none; background:none; cursor:pointer;">لغو</button>
             </form>

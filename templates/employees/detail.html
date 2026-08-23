@@ -17,7 +17,10 @@
   <a class="btn btn-outline btn-sm" href="{% url 'dependent_create' employee.pk %}">افزودن تحت تکفل</a>
   {% if employee.status == 'TERMINATED' %}
   <form method="post" action="{% url 'employee_reactivate' employee.pk %}"
-        onsubmit="return confirm('{{ employee.full_name }} دوباره فعال شود؟');">
+        data-confirm="{{ employee.full_name }} دوباره فعال می‌شود و از دورهٔ بعد دوباره فیش می‌گیرد."
+        data-confirm-title="بازگرداندن به کار"
+        data-confirm-yes="فعال کن"
+        data-confirm-kind="safe">
     {% csrf_token %}
     <button class="btn btn-outline btn-sm" type="submit">بازگرداندن به کار</button>
   </form>
@@ -38,7 +41,9 @@
     </div>
     <form method="post" action="{% url 'employee_terminate' employee.pk %}"
           style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;"
-          onsubmit="return confirm('خروج {{ employee.full_name }} ثبت شود؟');">
+          data-confirm="خروج {{ employee.full_name }} ثبت می‌شود؛ قراردادش بسته می‌شود و از دورهٔ بعد فیش نمی‌گیرد."
+          data-confirm-title="ثبت خروج پرسنل"
+          data-confirm-yes="ثبت کن">
       {% csrf_token %}
       <div class="field" style="margin:0;">
         <label for="tdate">تاریخ خاتمه کار (جلالی)</label>
