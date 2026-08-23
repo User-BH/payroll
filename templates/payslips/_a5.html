@@ -132,26 +132,25 @@
     دوره و شناسهٔ محاسبه پای همین برگه، سندِ صدورش هستند. یک کادر خالی که
     هیچ‌وقت امضا نمی‌شد، فقط جای تأیید واقعی را می‌گرفت.
 
-    می‌ماند امضای خودِ پرسنل، که دیگر دستی نیست: تصویر امضایش یک بار ثبت
-    می‌شود (خودش از پرتال، یا واحد مالی از پروندهٔ او) و لحظه‌ای که فیش را
-    تأیید کند، همان‌جا با تاریخ تأیید چاپ می‌شود.
+    آنچه مانده یک چیز است: **جای امضا، و زیرش نامِ صاحب امضا**. برچسبِ
+    «امضای دریافت‌کننده» حذف شد چون نامِ خودِ شخص هم همان را می‌گوید و هم
+    بیشتر.
+
+    کادر امضا همیشه هست و اندازه‌اش ثابت است؛ تا وقتی فیش تأیید نشده خالی
+    می‌ماند (برای امضای دستی) و به‌محض تأیید، تصویر امضای همان پرسنل داخلش
+    می‌نشیند.
   {% endcomment %}
   <div class="sign">
-    <div>
+    <div class="sign-slot">
       {% if payslip.ack_status == 'ACCEPTED' and payslip.employee.signature %}
-      <img src="{{ payslip.employee.signature.url }}" alt="امضای {{ payslip.employee.full_name }}">
-      <i class="signed">
-        {{ payslip.employee.full_name }} — تأیید الکترونیکی {{ payslip.acknowledged_at|jalali }}
-      </i>
-      {% elif payslip.ack_status == 'ACCEPTED' %}
-      <i class="signed">
-        {{ payslip.employee.full_name }} — تأیید الکترونیکی {{ payslip.acknowledged_at|jalali }}
-        (بدون تصویر امضا)
-      </i>
-      {% else %}
-      <i>امضای دریافت‌کننده — هنوز در سامانه تأیید نشده</i>
+      <img class="sign-img" src="{{ payslip.employee.signature.url }}"
+           alt="امضای {{ payslip.employee.full_name }}">
       {% endif %}
     </div>
+    <div class="sign-name">{{ payslip.employee.full_name }}</div>
+    {% if payslip.ack_status == 'ACCEPTED' %}
+    <div class="sign-meta">تأیید الکترونیکی {{ payslip.acknowledged_at|jalali }}</div>
+    {% endif %}
   </div>
 
   <div class="tag">

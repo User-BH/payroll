@@ -104,13 +104,37 @@
     text-align:justify;
   }
 
-  /* یک ستون، وسط‌چین — چون فقط یک امضا مانده است */
-  .sign{margin-top:2px; padding-top:9px; display:flex; justify-content:center; font-size:7pt; color:var(--muted);}
-  .sign div{text-align:center;}
-  .sign img{display:block; max-height:13mm; max-width:46mm; margin:0 auto -2px;}
-  .sign i{display:block; font-style:normal; border-top:1px dotted var(--line); margin-top:20px; padding-top:3px; min-width:52mm;}
-  /* وقتی تصویر امضا نشسته، خط‌چینِ «جای امضا» بی‌معنا است */
-  .sign i.signed{border-top:1px solid var(--line); margin-top:2px;}
+  /* --------------------------------------------------------------- امضا
+     یک ستون وسط‌چین: کادر امضا، و زیرش نامِ صاحب امضا.
+
+     کادر **اندازهٔ ثابت** دارد و چه خالی باشد چه پر، جای یکسانی می‌گیرد؛
+     وگرنه با هر امضا ارتفاع فیش تکان می‌خورد و صفحه‌بندی چاپ به هم می‌ریزد. */
+  .sign{margin-top:2px; padding-top:9px; text-align:center; font-size:7pt; color:var(--muted);}
+  .sign-slot{
+    block-size:15mm; inline-size:54mm; margin:0 auto;
+    display:flex; align-items:flex-end; justify-content:center;
+  }
+  .sign-name{
+    border-top:1px solid var(--line); inline-size:54mm; margin:0 auto;
+    padding-top:3px; font-size:7.5pt; font-weight:700; color:var(--ink);
+  }
+  .sign-meta{margin-top:2px; font-size:6.5pt;}
+
+  /* کیفیت امضا نباید کم شود، و ابعاد فایل‌های اسکن‌شده با هم فرق می‌کنند:
+
+     - `inline-size:auto` یعنی تصویر **هرگز بزرگ‌تر از اندازهٔ واقعی‌اش کشیده
+       نمی‌شود**؛ فقط اگر از کادر بزرگ‌تر بود کوچک می‌شود. کشیدنِ یک اسکن
+       کوچک همان چیزی است که امضا را مات و پله‌پله می‌کند.
+     - `object-fit:contain` نسبت طول به عرض را نگه می‌دارد، پس امضای کشیده و
+       امضای مربعی هر دو بدون له‌شدگی و بدون بریدگی جا می‌شوند.
+     - `print-color-adjust:exact` جلوی کم‌رنگ کردنِ خودکار مرورگر هنگام چاپ
+       را می‌گیرد؛ بدون آن، امضای مدادی روی کاغذ محو درمی‌آید. */
+  .sign-img{
+    max-inline-size:100%; max-block-size:100%;
+    inline-size:auto; block-size:auto;
+    object-fit:contain;
+    print-color-adjust:exact; -webkit-print-color-adjust:exact;
+  }
 
   .tag{font-size:6pt; color:var(--muted); text-align:center; margin-top:5px;}
 
