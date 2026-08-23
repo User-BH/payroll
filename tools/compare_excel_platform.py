@@ -45,14 +45,27 @@ LINES = [
     ("MARRIAGE", "حق تاهل قابل پرداخت"),
     ("FOOD", "وجه بن قابل پرداخت"),
     (("OVERTIME", "OVERTIME_SURPLUS"), "مبلغ اضافه كاري کل"),
+    ("PREV_CLAIM", "طلب ماه قبل"),
+    ("LEAVE_PAY", "وجه مرخصی"),
+    ("PHONE", "هزینه تلفن"),
+    ("EID", "عیدی وپاداش قابل پرداخت"),
+    ("SEVERANCE", "پایانکار قابل پرداخت"),
     # مأموریت ممکن است به چند قلم شکسته شده باشد (مثلاً ضریب متفاوت برای یک
     # واحد). ستون اکسل یکی است، پس همه با هم جمع می‌شوند.
-    (("MISSION", "MISSION_SALES", "MISSION_SURPLUS"), "مبلغ ماموریت"),
+    (("MISSION", "MISSION2", "MISSION_SALES", "MISSION_SURPLUS"), "مبلغ ماموریت"),
     ("COMM_1", "پورسانت یک قابل پرداخت"),
     ("COMM_2", "پورسانت قابل پرداخت دو"),
     ("COMM_3", "پورسانت قابل پرداخت سه"),
     ("LATE", "مبلغ کسر کار - دیر کرد"),
     ("STORE", "کسر انبار"),
+    ("ADVANCE", "علی الحساب واریزی"),
+    ("LOAN", "مبلغ قسط"),
+    ("GOODS", "خرید از شرکت"),
+    ("PREV_DEBT", "بدهی از ماه قبل"),
+    ("OTHER_DEBT", "سایر بدهی"),
+    ("SUPP_INS", "بیمه تکمیلی"),
+    ("MEDICAL", "آزمایش وطب کار"),
+    ("VEHICLE_FINE", "جرائم وخلافی خودروها"),
     ("INSURANCE_EMP", "سهم کارگر"),
     ("INCOME_TAX", "روند مالیات"),
     ("INSURANCE_EMPLOYER", "سهم کارفرما"),
@@ -84,30 +97,20 @@ def signed(x):
     return ("+" if x >= 0 else "") + f"{x:,.0f}"
 
 
-class Sheet:
-    def __init__(self, path, title):
-        self.ws = openpyxl.load_workbook(path, data_only=True)[title]
-        self.index = {}
-        for c in range(1, self.ws.max_column + 1):
-            head = clean(self.ws.cell(1, c).value)
-            if head:
-                self.index.setdefault(head, c)
-        self.rows = [
-            r for r in range(3, self.ws.max_row + 1)
-            if self.ws.cell(r, self.index["نام ونام خانوادگي"]).value
-        ]
-
-    def n(self, key, row):
-        c = self.index.get(key)
-        return num(self.ws.cell(row, c).value) if c else D("0")
-
-    def s(self, key, row):
-        c = self.index.get(key)
-        return clean(self.ws.cell(row, c).value) if c else ""
+# شیت و کلید پرسنلی از همان ماژول بارگذاری می‌آیند، نه نسخهٔ دوم اینجا: اگر
+# مقایسه سطرها را جور دیگری بخواند یا کد پرسنلی را جور دیگری بسازد، اختلافی
+# گزارش می‌کند که وجود ندارد — یا بدتر، اختلافی را نمی‌بیند که هست.
+from tools.load_excel_month import (  # noqa: E402
+    Sheet,
+    build_key_map,
+    personnel_code,
+    resolve_sheets,
+)
 
 
 def main(path, title):
-    sheet = Sheet(path, title)
+    sheets = [Sheet(path, name, exempt) for name, exempt in resolve_sheets(path, title)]
+    build_key_map(sheets)
     month = MONTH_NAMES.index(title.split()[0]) + 1
     year = int(title.split()[1])
     period = PayrollPeriod.objects.get(year=year, month=month)
@@ -125,15 +128,17 @@ def main(path, title):
     # آمار هر قلم
     stats = {}
     people = []
-    for r in sheet.rows:
-        code = sheet.s("شماره پرسنلی", r) or f"N-{sheet.s('نام ونام خانوادگي', r)}"
+    rows = [(sheet, r) for sheet in sheets for r in sheet.rows]
+    for sheet, r in rows:
+        code = personnel_code(sheet, r)
         name = sheet.s("نام ونام خانوادگي", r)
         slip = slips.get(code)
         if slip is None:
             print(f"  ✗ فیشی برای {name} ({code}) ساخته نشد")
             continue
         amounts = {line.component_code: D(line.amount) for line in slip.lines.all()}
-        row = {"name": name, "unit": sheet.s("واحد", r), "diffs": {}}
+        row = {"name": name, "unit": sheet.s("واحد", r),
+               "job": sheet.s("شغل", r), "diffs": {}}
         for lcode, column in LINES:
             codes = lcode if isinstance(lcode, tuple) else (lcode,)
             label = codes[0] if len(codes) == 1 else " + ".join(codes)
@@ -152,6 +157,12 @@ def main(path, title):
         for label, field, column in TOTALS:
             excel = sheet.n(column, r)
             got = D(getattr(slip, field))
+            # پرسنل «بدون بیمه»: فایل در ستون ماخذ بیمه صفر می‌نویسد، سامانه
+            # عددِ نظری را نگه می‌دارد ولی او را از حق بیمه و از فایل تأمین
+            # اجتماعی بیرون می‌گذارد و روی فیش هم «مشمول بیمه نیست» چاپ
+            # می‌کند. نتیجه یکی است؛ فقط جای نگهداری عدد فرق می‌کند.
+            if field == "insurable_base" and not slip.insurance_applies:
+                got = D("0")
             stat = stats.setdefault(f"= {label}", {"column": column, "ok": 0, "bad": 0,
                                                    "delta": D("0"), "worst": None})
             if abs(got - excel) <= 1:
@@ -159,6 +170,7 @@ def main(path, title):
             else:
                 stat["bad"] += 1
                 stat["delta"] += got - excel
+                row["diffs"][f"= {label}"] = (excel, got)
                 if stat["worst"] is None or abs(got - excel) > abs(stat["worst"][2]):
                     stat["worst"] = (name, excel, got - excel)
         people.append(row)
@@ -182,7 +194,18 @@ def main(path, title):
             name, excel, delta = stat["worst"]
             print(f"  {code:22} {name[:20]:22} اکسل {fa(excel):>16} · اختلاف {signed(delta):>16}")
 
+    mismatched = [row for row in people if row["diffs"]]
+    if mismatched:
+        print()
+        print(f"{len(mismatched)} نفر از {n} نفر مغایرت دارند:")
+        for row in mismatched:
+            print(f"  {row['name']} — {row['unit']} / {row['job']}")
+            for label, (excel, got) in row["diffs"].items():
+                print(f"      {label:34} اکسل {fa(excel):>18} · سامانه {fa(got):>18}"
+                      f" · اختلاف {signed(got - excel):>16}")
+
     print(f"\n{n} نفر مقایسه شد · {len(clean_rows)} قلم کامل می‌خواند · {len(broken)} قلم نه")
+    print(f"{n - len(mismatched)} فیش از {n} فیش ریال‌به‌ریال یکی است")
 
 
 if __name__ == "__main__":
