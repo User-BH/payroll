@@ -9,9 +9,13 @@ from apps.accounts.decorators import can_edit_required, payroll_staff_required
 from apps.attendance.leave import DEFAULT_DAY_MINUTES, balances_for, format_dhm
 from apps.attendance.models import LeaveEntitlement
 from apps.employees.models import Employee
-from apps.payroll.models import PayrollPeriod
+from apps.payroll.models import JALALI_MONTHS, PayrollPeriod
 from apps.payroll.utils import parse_decimal
 from apps.payroll_config.models import FiscalYear
+
+
+# شماره و نام ماه، برای انتخاب مرزِ مانده‌گیری افتتاحیه
+MONTH_CHOICES = list(enumerate(JALALI_MONTHS, start=1))
 
 
 def _day_minutes(fiscal_year):
@@ -54,6 +58,9 @@ def _rows(fiscal_year, query):
             "employee": employee,
             "carried_days": round((item.carried_over_minutes if item else 0) / day_minutes, 2),
             "annual_days": round((item.annual_minutes if item else 0) / day_minutes, 2),
+            "opening_days": round((item.opening_used_minutes if item else 0) / day_minutes, 2),
+            "opening_through_month": item.opening_through_month if item else 0,
+            "months": MONTH_CHOICES,
             "used": format_dhm(balance.used_ytd, day_minutes) if balance else "۰",
             "remaining": format_dhm(balance.remaining, day_minutes) if balance else None,
             "missing": item is None,
@@ -104,6 +111,19 @@ def entitlement_save(request):
 
     carried = parse_decimal(request.POST.get("carried_days"))
     annual = parse_decimal(request.POST.get("annual_days"))
+    opening = parse_decimal(request.POST.get("opening_days"))
+
+    # مرز فقط وقتی معنا دارد که عددی هم باشد، و برعکس: عددِ افتتاحیه بدون مرز
+    # یعنی سامانه نمی‌داند تا کجا را نباید از کارکرد بشمارد، و روزی که آن
+    # ماه‌ها وارد شوند دو بار حساب می‌شوند. پس هر کدام بدون دیگری صفر می‌شود.
+    try:
+        through = int(request.POST.get("opening_through_month") or 0)
+    except ValueError:
+        through = 0
+    through = through if 1 <= through <= 12 else 0
+    opening_minutes = int(round(float(opening) * day_minutes))
+    if not through or not opening_minutes:
+        through, opening_minutes = 0, 0
 
     LeaveEntitlement.objects.update_or_create(
         employee=employee,
@@ -111,6 +131,8 @@ def entitlement_save(request):
         defaults={
             "carried_over_minutes": int(round(float(carried) * day_minutes)),
             "annual_minutes": int(round(float(annual) * day_minutes)),
+            "opening_used_minutes": opening_minutes,
+            "opening_through_month": through,
         },
     )
     rows = _rows(fiscal_year, "")

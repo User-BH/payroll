@@ -425,27 +425,50 @@ def load_timesheets(sheet, period, params):
         timesheet.status = Timesheet.Status.APPROVED
         timesheet.save()
 
-        _leave_entitlement(sheet, r, employee, period, day_minutes)
+        _leave_entitlement(
+            sheet, r, employee, period, day_minutes, timesheet.leave_minutes
+        )
 
 
-def _leave_entitlement(sheet, row, employee, period, day_minutes):
-    """سهمیهٔ مرخصی سال — دو عدد ورودی، نه بیشتر.
+def _leave_entitlement(sheet, row, employee, period, day_minutes, month_minutes):
+    """سهمیهٔ مرخصی سال، به‌علاوهٔ مانده‌گیری افتتاحیه.
 
     «مصرفی تا ماه» و «مانده» عمداً ذخیره نمی‌شوند: سامانه هر دو را از جمع
-    کارکرد ماه‌های همان سال می‌سازد. یعنی اگر کارکرد خرداد بعداً اصلاح شود،
-    مانده خودش درست می‌شود — و برعکس، تا وقتی فروردین تا خرداد بار نشده‌اند،
-    «مصرفی از اول سال» فقط همین ماه را می‌بیند.
+    کارکرد ماه‌های همان سال می‌سازد، تا اصلاح کارکرد خرداد خودبه‌خود مانده را
+    درست کند.
+
+    ولی سامانه از **وسط سال** عملیاتی شده و ماه‌های قبلش کارکردی در سامانه
+    ندارند. ستون «مصرفی اعلامی تا ماه» در فایل، مصرفیِ از اول سال **شاملِ
+    همین ماه** است؛ پس سهمِ ماه‌های قبل همان عدد منهای مرخصی همین ماه است، و
+    مرزش ماهِ قبل.
+
+    وقتی روزی فروردین تا خرداد واقعاً وارد سامانه شدند، کافی است مرز صفر شود
+    تا همه‌چیز دوباره از کارکرد واقعی ساخته شود.
     """
     from apps.attendance.models import LeaveEntitlement
 
     carried = int(sheet.n("مرخصی انتقالی از سال 1404 به روز", row) * day_minutes)
     annual = int(sheet.n("مرخصی استحقاق سال 1405 به روز", row) * day_minutes)
-    if not carried and not annual:
+
+    declared_ytd = int(
+        sheet.n("مصرفی اعلامی تا ماه روز", row) * day_minutes
+        + sheet.n("مصرفی اعلامی تا ماه ساعت", row) * 60
+        + sheet.n("مصرفی اعلامی تا ماه دقیقه", row)
+    )
+    opening = max(declared_ytd - int(month_minutes or 0), 0)
+    through = period.month - 1 if opening else 0
+
+    if not carried and not annual and not opening:
         return
     LeaveEntitlement.objects.update_or_create(
         employee=employee, fiscal_year=period.fiscal_year,
-        defaults={"carried_over_minutes": carried, "annual_minutes": annual,
-                  "note": f"از فایل «{sheet.title}»"},
+        defaults={
+            "carried_over_minutes": carried,
+            "annual_minutes": annual,
+            "opening_used_minutes": opening,
+            "opening_through_month": through,
+            "note": f"از فایل «{sheet.title}»",
+        },
     )
 
 

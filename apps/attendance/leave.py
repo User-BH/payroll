@@ -56,6 +56,7 @@ class LeaveBalance:
     annual: int            # استحقاقی سال جاری
     used_period: int       # مصرفی همین دوره
     used_ytd: int          # مصرفی از اول سال تا پایان همین دوره
+    opening_used: int = 0  # سهمِ ماه‌های پیش از راه‌اندازی سامانه، داخل used_ytd
 
     @property
     def total(self) -> int:
@@ -74,8 +75,33 @@ class LeaveBalance:
             "total": self.total,
             "used_period": self.used_period,
             "used_ytd": self.used_ytd,
+            "opening_used": self.opening_used,
             "remaining": self.remaining,
         }
+
+
+def _opening(entitlement):
+    """(مصرفی افتتاحیه، مرزِ ماه) — یا صفر اگر افتتاحیه‌ای تعریف نشده باشد."""
+    if entitlement is None:
+        return 0, 0
+    return (
+        int(entitlement.opening_used_minutes or 0),
+        int(entitlement.opening_through_month or 0),
+    )
+
+
+def _ytd(period, entitlement, timesheet_total_for) -> tuple:
+    """مصرفی از اول سال = افتتاحیه + جمع کارکردِ ماه‌های بعد از مرز.
+
+    اگر خودِ این دوره داخل بازهٔ افتتاحیه باشد (ماهش از مرز بزرگ‌تر نیست)،
+    افتتاحیه اصلاً اعمال نمی‌شود: آن عدد جمعِ همان ماه‌هاست و نمی‌شود وسطش را
+    جدا کرد. در عمل هم کسی دوره‌ای را که خودش داخل افتتاحیه است محاسبه
+    نمی‌کند.
+    """
+    opening, through = _opening(entitlement)
+    if not opening or period.month <= through:
+        return timesheet_total_for(0), 0
+    return opening + timesheet_total_for(through), opening
 
 
 def balances_for(period, day_minutes=DEFAULT_DAY_MINUTES) -> dict:
@@ -91,16 +117,21 @@ def balances_for(period, day_minutes=DEFAULT_DAY_MINUTES) -> dict:
         item.employee_id: item
         for item in LeaveEntitlement.objects.filter(fiscal_year=period.fiscal_year)
     }
-    ytd = {
-        row["employee_id"]: row["total"] or 0
-        for row in Timesheet.objects.filter(
+    # به تفکیک ماه، چون مرزِ افتتاحیه برای هر نفر می‌تواند فرق کند و جمعِ
+    # یک‌کاسه اجازهٔ کنار گذاشتن ماه‌های پیش از مرز را نمی‌دهد.
+    by_month = {}
+    for row in (
+        Timesheet.objects.filter(
             period__fiscal_year=period.fiscal_year,
             period__year=period.year,
             period__month__lte=period.month,
         )
-        .values("employee_id")
+        .values("employee_id", "period__month")
         .annotate(total=Sum("leave_minutes"))
-    }
+    ):
+        by_month.setdefault(row["employee_id"], []).append(
+            (row["period__month"], row["total"] or 0)
+        )
     current = {
         row["employee_id"]: row["total"] or 0
         for row in Timesheet.objects.filter(period=period)
@@ -109,14 +140,20 @@ def balances_for(period, day_minutes=DEFAULT_DAY_MINUTES) -> dict:
     }
 
     result = {}
-    for employee_id in set(ytd) | set(current) | set(entitlements):
+    for employee_id in set(by_month) | set(current) | set(entitlements):
         item = entitlements.get(employee_id)
+        months = by_month.get(employee_id, [])
+        used_ytd, opening = _ytd(
+            period, item,
+            lambda after: sum(total for month, total in months if month > after),
+        )
         result[employee_id] = LeaveBalance(
             day_minutes=day_minutes,
             carried_over=item.carried_over_minutes if item else 0,
             annual=item.annual_minutes if item else 0,
             used_period=int(current.get(employee_id, 0)),
-            used_ytd=int(ytd.get(employee_id, 0)),
+            used_ytd=int(used_ytd),
+            opening_used=int(opening),
         )
     return result
 
@@ -127,6 +164,9 @@ def compute_balance(employee, period, day_minutes=DEFAULT_DAY_MINUTES) -> LeaveB
     «مصرفی از اول سال» یعنی جمع مرخصی همه دوره‌های همان سال مالی تا همین ماه —
     به همین دلیل وقتی کارکرد مرداد به‌روز می‌شود، مانده هم خودکار به‌روز می‌شود
     و جایی برای نگهداری دستی مانده وجود ندارد.
+
+    تنها استثنا ماه‌های پیش از راه‌اندازی سامانه است که کارکردی در سامانه
+    ندارند؛ آن‌ها با «مانده‌گیری افتتاحیه» روی سهمیهٔ مرخصی بیان می‌شوند.
     """
     from django.db.models import Sum
 
@@ -136,15 +176,19 @@ def compute_balance(employee, period, day_minutes=DEFAULT_DAY_MINUTES) -> LeaveB
         employee=employee, fiscal_year=period.fiscal_year
     ).first()
 
-    used_ytd = (
-        Timesheet.objects.filter(
-            employee=employee,
-            period__fiscal_year=period.fiscal_year,
-            period__year=period.year,
-            period__month__lte=period.month,
-        ).aggregate(total=Sum("leave_minutes"))["total"]
-        or 0
-    )
+    def timesheet_total_for(after_month):
+        return (
+            Timesheet.objects.filter(
+                employee=employee,
+                period__fiscal_year=period.fiscal_year,
+                period__year=period.year,
+                period__month__lte=period.month,
+                period__month__gt=after_month,
+            ).aggregate(total=Sum("leave_minutes"))["total"]
+            or 0
+        )
+
+    used_ytd, opening = _ytd(period, entitlement, timesheet_total_for)
     used_period = (
         Timesheet.objects.filter(employee=employee, period=period)
         .aggregate(total=Sum("leave_minutes"))["total"]
@@ -157,4 +201,5 @@ def compute_balance(employee, period, day_minutes=DEFAULT_DAY_MINUTES) -> LeaveB
         annual=entitlement.annual_minutes if entitlement else 0,
         used_period=int(used_period),
         used_ytd=int(used_ytd),
+        opening_used=int(opening),
     )

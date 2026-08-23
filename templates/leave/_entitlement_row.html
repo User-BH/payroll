@@ -18,6 +18,15 @@
   </td>
   <td data-label="انتقالی (روز)"><input class="input-cell" name="carried_days" value="{{ row.carried_days }}" inputmode="decimal"></td>
   <td data-label="استحقاقی (روز)"><input class="input-cell" name="annual_days" value="{{ row.annual_days }}" inputmode="decimal"></td>
+  <td data-label="مصرفی پیش از سامانه (روز)"><input class="input-cell" name="opening_days" value="{{ row.opening_days }}" inputmode="decimal"></td>
+  <td data-label="تا پایان ماه">
+    <select class="input-cell" name="opening_through_month">
+      <option value="0"{% if not row.opening_through_month %} selected{% endif %}>—</option>
+      {% for number, name in row.months %}
+        <option value="{{ number }}"{% if row.opening_through_month == number %} selected{% endif %}>{{ name }}</option>
+      {% endfor %}
+    </select>
+  </td>
   <td data-label="مصرفی از اول سال" style="font-size:12px; color:var(--muted); font-weight:600;">{{ row.used }}</td>
   <td data-label="مانده" style="font-size:12px; font-weight:700;">
     {% if row.missing %}
