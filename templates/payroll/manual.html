@@ -16,7 +16,7 @@
     <a class="btn btn-sm {% if component.code == item.code %}btn-primary{% else %}btn-outline{% endif %}"
        href="?component={{ item.code }}">
       <span class="comp-dot" style="background:{{ item.color }};"></span>
-      {{ item.name }}
+      {{ item.config_label }}
     </a>
     {% empty %}
     <div class="empty" style="width:100%;">قلم دستی‌ای تعریف نشده است.</div>
@@ -37,7 +37,7 @@
 
 <div class="panel">
   <div class="panel-head">
-    <h3>{{ component.name }}</h3>
+    <h3>{{ component.config_label }}</h3>
     <span class="hint">
       {{ component.tag_label }} ·
       {% if component.scopes.all %}فقط دامنه تعریف‌شده{% else %}همه پرسنل{% endif %}

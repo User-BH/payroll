@@ -669,3 +669,12 @@ input.jdate{font-variant-numeric:tabular-nums;}
   .main{animation:none;}
   .nav-progress{transition:none;}
 }
+
+/* امضای سازنده — گوشهٔ پایین سایدبار، عمداً کم‌رنگ */
+.made-by{
+  margin-block-start:14px; padding-block-start:12px;
+  border-block-start:1px solid var(--line);
+  text-align:center; line-height:1.7;
+}
+.made-by span{display:block; font-size:11.5px; font-weight:700; color:var(--muted);}
+.made-by small{display:block; font-size:10px; color:var(--muted); opacity:.72;}

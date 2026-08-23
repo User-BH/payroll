@@ -409,6 +409,51 @@ class SalaryComponent(models.Model):
             parts.append(f"× {fa_number(self.rate, 4)}")
         return " ".join(parts)
 
+    @property
+    def config_label(self) -> str:
+        """نام قلم برای **صفحه‌های پیکربندی** — نه برای فیش.
+
+        سه قلم «حق ماموریت» و دو قلم «اضافه کار» وجود دارند و هرکدام به گروه
+        دیگری می‌رسند. روی فیش ابهامی نیست چون هر پرسنل فقط یکی از آن‌ها را
+        می‌گیرد، ولی در فهرست اقلام و برگهٔ محاسبه کنار هم می‌نشینند و از هم
+        تشخیص‌پذیر نیستند.
+
+        پس نام روی فیش دست‌نخورده می‌ماند (که با فیش کاغذی شرکت یکی است) و
+        فقط اینجا، آن هم **وقتی واقعاً تکراری باشد**، دامنه‌اش کنارش می‌آید.
+        قلمی که هم‌نام ندارد هیچ دنباله‌ای نمی‌گیرد.
+
+        `annotate_config_labels()` همین را برای یک فهرست با دو کوئری حساب
+        می‌کند؛ این نسخه برای وقتی است که یک قلم تنها لازم باشد.
+        """
+        cached = getattr(self, "_config_label", None)
+        if cached is not None:
+            return cached
+        duplicate = (
+            SalaryComponent.objects.filter(company_id=self.company_id, name=self.name)
+            .exclude(pk=self.pk)
+            .exists()
+        )
+        self._config_label = self._build_config_label(duplicate)
+        return self._config_label
+
+    def _build_config_label(self, duplicate: bool) -> str:
+        from apps.payroll.utils import fa_digits
+
+        if not duplicate:
+            return self.name
+        targets = [scope.target_label() for scope in self.scopes.all()]
+        if not targets:
+            return f"{self.name} · همه پرسنل"
+        # تا دو مقصد، نامشان را می‌آوریم چون کوتاه و گویاست. بیشتر که شد، یک
+        # گروهِ بیان‌شده با چند پست است و شمردنشان ستون را دراز می‌کند بدون
+        # اینکه چیزی روشن کند. «دامنه» گفته می‌شود نه «پست»، چون ممکن است
+        # مرکز هزینه و پست با هم باشند.
+        if len(targets) <= 2:
+            summary = " و ".join(targets)
+        else:
+            summary = f"{fa_digits(len(targets))} دامنه"
+        return f"{self.name} · {summary}"
+
     def applies_to(self, contract) -> bool:
         """آیا این قلم به قرارداد داده‌شده تعلق می‌گیرد؟"""
         scopes = list(self.scopes.all())
@@ -418,6 +463,19 @@ class SalaryComponent(models.Model):
             if scope.matches(contract):
                 return True
         return False
+
+
+def annotate_config_labels(components):
+    """`config_label` را برای یک فهرست قلم، بدون کوئری به‌ازای هر قلم، پر می‌کند."""
+    components = list(components)
+    counts = {}
+    for component in components:
+        counts[component.name] = counts.get(component.name, 0) + 1
+    for component in components:
+        component._config_label = component._build_config_label(
+            counts.get(component.name, 0) > 1
+        )
+    return components
 
 
 class ComponentScope(models.Model):

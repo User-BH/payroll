@@ -36,7 +36,7 @@
         <select class="input" name="component">
           <option value="">— بدون تغییر —</option>
           {% for item in editable_components %}
-          <option value="{{ item.pk }}" {% if sim_component == item.pk|stringformat:"s" %}selected{% endif %}>{{ item.name }}</option>
+          <option value="{{ item.pk }}" {% if sim_component == item.pk|stringformat:"s" %}selected{% endif %}>{{ item.config_label }}</option>
           {% endfor %}
         </select>
       </div>
@@ -114,7 +114,7 @@
           </tr>
           <tr>
             {% for column in columns %}
-            <th class="col-head">{{ column.name }}</th>
+            <th class="col-head">{{ column.config_label }}</th>
             {% endfor %}
           </tr>
         </thead>

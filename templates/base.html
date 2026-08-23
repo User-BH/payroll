@@ -102,6 +102,15 @@
       </div>
       <a class="logout-link" href="{% url 'password_change' %}">تغییر رمز عبور</a>
       <a class="logout-link" href="{% url 'logout' %}">خروج از سامانه</a>
+
+      {% comment %}
+        امضای سازنده. سال از context_processor می‌آید نه ثابت در قالب، وگرنه
+        سالِ بعد باید یادمان بماند دستی عوضش کنیم — و یادمان نمی‌ماند.
+      {% endcomment %}
+      <div class="made-by">
+        <span>رهوار پیوند داده</span>
+        <small>© {{ jalali_year|fadigits }} — همه حقوق محفوظ است</small>
+      </div>
     </div>
   </aside>
 

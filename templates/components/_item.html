@@ -5,8 +5,8 @@
       <span class="comp-dot" style="background:{{ component.color }}; width:10px; height:10px;"></span>
       <div>
         {% if user.can_edit_payroll %}
-        <a href="{% url 'component_edit' component.pk %}"><b style="color:var(--red);">{{ component.name }}</b></a>
-        {% else %}<b>{{ component.name }}</b>{% endif %}
+        <a href="{% url 'component_edit' component.pk %}"><b style="color:var(--red);">{{ component.config_label }}</b></a>
+        {% else %}<b>{{ component.config_label }}</b>{% endif %}
         <small>{{ component.tag_label }}</small>
       </div>
     </div>
