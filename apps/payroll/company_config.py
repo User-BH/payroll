@@ -194,6 +194,24 @@ def configure(company, stdout=None):
         reserve.save(update_fields=["kind", "print_on_payslip"])
         say("ذخیره پورسانت فروش: «مزایا» → «اطلاعی» (به ناخالص اضافه می‌شد)")
 
+    # ------------------------------- تخصیص خودکار پورسانت: برای این شرکت، نه
+    #
+    # تیک «قلم پورسانت» یعنی مبلغ این قلم وارد استخر تخصیص می‌شود و می‌تواند
+    # خودکار به روز مأموریت و ساعت اضافه‌کاری **تبدیل** شود. این شرکت چنین
+    # کاری نمی‌کند: پورسانتش مأموریت را **جذب** می‌کند (کم می‌کند)، نه اینکه
+    # به آن تبدیل شود.
+    #
+    # هر دو مکانیزم با هم یعنی یک مبلغ دو بار جابه‌جا شود. در مرداد ۱۴۰۵ که
+    # «مبنای روزانهٔ مأموریت» برای آن ماه ثبت شده بود، تبدیل خودکار روشن شد و
+    # ۱۴ فیش از ۶۸ فیش را خراب کرد: حق مأموریت بی‌دلیل بالا رفت و پورسانت یک
+    # همان‌قدر پایین آمد — تا جایی که برای چند نفر **منفی** شد.
+    for code in ("COMM_1", "COMM_2", "COMM_3"):
+        component = existing.get(code)
+        if component is not None and component.is_commission:
+            component.is_commission = False
+            component.save(update_fields=["is_commission"])
+            say(f"{component.name}: تبدیل خودکار به مأموریت خاموش شد (جذب می‌شود، نه تبدیل)")
+
     comm1 = existing.get("COMM_1")
     if comm1:
         if comm1.calc_type != "ENGINE_RULE" or comm1.engine_rule_key != "commission_net":
