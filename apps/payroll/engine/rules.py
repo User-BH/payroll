@@ -155,6 +155,172 @@ def marriage_allowance(ctx: PayrollContext, component):
     return _prorated(ctx, monthly, "حق تأهل")
 
 
+@rule("seniority_diff", "مابه‌التفاوت پایه سنوات")
+def seniority_diff(ctx: PayrollContext, component):
+    """تفاوت پایهٔ سنوات **تجمیعی** با پایهٔ سنوات سال.
+
+        مابه‌التفاوت = (تجمیعی روزانه − سنوات روزانهٔ سال) × کارکرد قابل پرداخت
+
+    سطر «پایه سنوات» فیش، پایهٔ سنوات همان سال را می‌دهد که برای همه یکی است.
+    کسی که سال‌ها سابقه دارد، انباشتهٔ بیشتری طلبکار است و همین سطر تفاوت را
+    می‌پردازد.
+
+    منفی نمی‌شود: اگر تجمیعیِ کسی هنوز به پایهٔ سال نرسیده باشد، چیزی بدهکار
+    نیست. فرمول فایل هم `MAX(…, 0)` دارد.
+
+    روی ۱۳۵ سطرِ تیر و مرداد، هر ۱۳۵ مورد با فایل خواند.
+    """
+    cumulative = Decimal(getattr(ctx.contract, "cumulative_seniority_daily", 0) or 0)
+    if not cumulative:
+        return None
+    gap = cumulative - ctx.seniority_daily
+    if gap <= ZERO:
+        return None
+    days = ctx.paid_days
+    return LineResult(
+        amount=gap * days,
+        base_amount=gap,
+        quantity=days,
+        rate=Decimal("1"),
+        explanation=(
+            f"مابه‌التفاوت پایه سنوات: ({fa_wage(cumulative)} تجمیعی − "
+            f"{fa_wage(ctx.seniority_daily)} پایهٔ سال) × {fa_number(days, 2)} روز"
+        ),
+    ).rounded()
+
+
+@rule("late_deduction", "کسر کار و تأخیر ورود")
+def late_deduction(ctx: PayrollContext, component):
+    """کسر بابت تأخیر ورود، از ساعت و دقیقهٔ ثبت‌شده در جدول کارکرد.
+
+        مبنا = (مزد روزانه + پایه سنوات روزانه) × ۳۰ + مسکن + اولاد + تأهل + بن
+        کسر  = مبنا ÷ ۲۲۰ × ساعت  +  مبنا ÷ ۱۱۴۴۰ × دقیقه
+
+    مبنا **مبلغ کاملِ ماهانه** است، نه تسهیم‌شده: تأخیر از حقوق ماه کم می‌شود،
+    و ماهی که تأخیر دارد هنوز ماه کامل است.
+
+    مخرج دقیقه در فایل شرکت ۱۱۴۴۰ است، نه ۱۳۲۰۰ که از ۲۲۰ ساعت درمی‌آید.
+    عمداً همان‌طور که هست پیاده شد، ولی **آزموده نشده**: در تیر و مرداد ستون
+    «تأخیر دقیقه» برای هیچ‌کس پر نیست، پس این مخرج از داده قابل تأیید نبود.
+    """
+    if not ctx.timesheet:
+        return None
+    hours = Decimal(getattr(ctx.timesheet, "late_hours", 0) or 0)
+    minutes = Decimal(getattr(ctx.timesheet, "late_minutes", 0) or 0)
+    if hours <= ZERO and minutes <= ZERO:
+        return None
+
+    monthly = (ctx.daily_base + ctx.seniority_daily) * Decimal("30")
+    monthly += Decimal(ctx.params.housing_allowance or ZERO)
+    monthly += Decimal(ctx.params.food_allowance or ZERO)
+    monthly += ctx.full_child_allowance
+    monthly += ctx.full_marriage_allowance
+
+    amount = monthly / Decimal("220") * hours + monthly / Decimal("11440") * minutes
+    parts = []
+    if hours:
+        parts.append(f"{fa_number(hours, 2)} ساعت")
+    if minutes:
+        parts.append(f"{fa_number(minutes, 0)} دقیقه")
+    return LineResult(
+        amount=amount,
+        base_amount=monthly,
+        quantity=hours,
+        rate=Decimal("1"),
+        explanation=(
+            f"کسر تأخیر: {' و '.join(parts)} از مبنای ماهانهٔ {fa_money(monthly)} ریال"
+        ),
+    ).rounded()
+
+
+def _wage_plus_seniority(ctx) -> Decimal:
+    """مزد روزانه + پایه سنوات روزانه — همان ستون «جمع مزد وسنوات روزانه»."""
+    return ctx.daily_base + ctx.seniority_daily
+
+
+@rule("severance_monthly", "پایانکار ماهانه")
+def severance_monthly(ctx: PayrollContext, component):
+    """پایانکارِ ماهانه — برای قراردادهایی که به‌جای انباشت، هر ماه پرداخت می‌شود.
+
+        پایانکار = (مزد روزانه + پایه سنوات روزانه) × ضریب
+
+    ضریب روی خودِ قلم است؛ در فایل ۱۴۰۵ شرکت برای راننده استجاری ۲٫۵ است.
+    """
+    factor = component.rate or Decimal("2.5")
+    base = _wage_plus_seniority(ctx)
+    if base <= ZERO:
+        return None
+    return LineResult(
+        amount=base * factor,
+        base_amount=base,
+        quantity=Decimal("1"),
+        rate=factor,
+        explanation=(
+            f"پایانکار: {fa_wage(base)} ریال (مزد روزانه + پایه سنوات) × "
+            f"{fa_number(factor, 2)}"
+        ),
+    ).rounded()
+
+
+@rule("eid_monthly", "عیدی ماهانه")
+def eid_monthly(ctx: PayrollContext, component):
+    """عیدیِ ماهانه — همان منطق پایانکار، با ضریب خودش (در فایل شرکت ۵)."""
+    factor = component.rate or Decimal("5")
+    base = _wage_plus_seniority(ctx)
+    if base <= ZERO:
+        return None
+    return LineResult(
+        amount=base * factor,
+        base_amount=base,
+        quantity=Decimal("1"),
+        rate=factor,
+        explanation=(
+            f"عیدی و پاداش: {fa_wage(base)} ریال (مزد روزانه + پایه سنوات) × "
+            f"{fa_number(factor, 2)}"
+        ),
+    ).rounded()
+
+
+@rule("leave_pay_monthly", "وجه مرخصی ماهانه")
+def leave_pay_monthly(ctx: PayrollContext, component):
+    """بازخرید مرخصی، ماهانه.
+
+        وجه مرخصی = (مزد روزانه + سنوات) ÷ ۷٫۳۳۳ × ۱۶ ÷ ۳۰ × مرخصی استحقاقی سال
+
+    عدد ۷٫۳۳۳ ساعات کار روزانه است و ۱۶ ضریبی که در فایل شرکت آمده. مرخصی
+    استحقاقیِ سال از سهمیهٔ مرخصی همان پرسنل خوانده می‌شود، نه از عددی ثابت.
+    """
+    from apps.attendance.models import LeaveEntitlement
+
+    entitlement = LeaveEntitlement.objects.filter(
+        employee=ctx.employee, fiscal_year=ctx.period.fiscal_year
+    ).first()
+    if entitlement is None:
+        return None
+    day_minutes = Decimal(ctx.params.leave_day_minutes or 440)
+    annual_days = Decimal(entitlement.annual_minutes or 0) / day_minutes
+    if annual_days <= ZERO:
+        return None
+
+    # مخرج در فایل شرکت ۷٫۳۳۳ است، نه ۷٫۳۳ که در «ساعات کار روزانه» ثبت
+    # شده. اختلافشان روی همین یک قلم ۲٬۷۱۹ ریال است؛ کوچک، ولی «ریال‌به‌ریال»
+    # یعنی ریال‌به‌ریال. عددِ فایل ملاک است.
+    hours = Decimal("7.333")
+    factor = component.rate or Decimal("16")
+    base = _wage_plus_seniority(ctx)
+    amount = base / hours * factor / Decimal("30") * annual_days
+    return LineResult(
+        amount=amount,
+        base_amount=base,
+        quantity=annual_days,
+        rate=factor,
+        explanation=(
+            f"وجه مرخصی: {fa_wage(base)} ÷ {fa_number(hours, 3)} × "
+            f"{fa_number(factor, 0)} ÷ ۳۰ × {fa_number(annual_days, 2)} روز استحقاقی"
+        ),
+    ).rounded()
+
+
 @rule("child_allowance", "حق اولاد")
 def child_allowance(ctx: PayrollContext, component):
     count = ctx.children_count

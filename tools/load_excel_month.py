@@ -346,6 +346,9 @@ def load_people(company, sheet, departments, centers, jobs, period):
         contract.job_title = jobs[job]
         contract.effective_from = hire
         contract.daily_wage = sheet.n("مزدروزانه", r)
+        # ستون X فایل — نه CC. برای ۲۶ سطر این دو با هم فرق دارند و آنچه
+        # مابه‌التفاوت از آن ساخته می‌شود X است.
+        contract.cumulative_seniority_daily = sheet.n("پایه سنوات تجمیعی روزانه", r)
         contract.status = EmploymentContract.Status.ACTIVE
         contract.save()
 
@@ -463,6 +466,8 @@ def load_timesheets(sheet, period, params):
             + sheet.n("مصرفی ماه اعلامی ساعت", r) * 60
             + sheet.n("مصرفی ماه اعلامی دقیقه", r)
         )
+        timesheet.late_hours = sheet.n("تاخیر ساعت", r)
+        timesheet.late_minutes = int(sheet.n("تاخیر دقیقه", r))
         timesheet.status = Timesheet.Status.APPROVED
         timesheet.save()
 
@@ -564,8 +569,16 @@ def load_loans(sheet, period):
 # ---------------------------------------------------------------- مبالغ دستی
 
 # ستون اکسل → کد قلم حقوقی. فقط چیزهایی که سامانه قاعده‌ای برایشان ندارد.
+# پنج قلمی که تا امروز جوابِ اکسل را عبور می‌دادند و حالا خودِ موتور
+# حسابشان می‌کند، عمداً اینجا نیستند:
+#
+#     مابه التفاوت  → از «پایه سنوات تجمیعی روزانه» روی قرارداد
+#     کسر کار       → از ساعت و دقیقهٔ تأخیر در جدول کارکرد
+#     وجه مرخصی     → از سهمیهٔ مرخصی سال
+#     عیدی، پایانکار → از مزد روزانه + پایه سنوات
+#
+# بار کردنشان یعنی بک‌تست خودش را تأیید کند نه سامانه را.
 MANUAL = {
-    "مابه التفاوت پایه سنوات تجمیعی قابل پرداخت": "DIFF",
     # «مازاد ثابت» روی فیش سطر ندارد و فقط داخل فرمول پورسانت است، پس با
     # پورسانت خام یک‌جا وارد می‌شود (ستون ترکیبی پایین‌تر ساخته می‌شود).
     "پورسانت یک": "COMM_1",
@@ -573,13 +586,10 @@ MANUAL = {
     "پورسانت دو": "COMM_2",
     "پورسانت سه": "COMM_3",
     "طلب ماه قبل": "PREV_CLAIM",
-    "وجه مرخصی": "LEAVE_PAY",
     # هزینه تلفن **مشمول بیمه** است؛ از فیش تیر ۱۴۰۵ آقای سعادتی تأیید شد
     # (بدون آن بیمه ۱۵٬۷۴۳٬۵۷۷ می‌شد نه ۱۵٬۸۱۳٬۵۷۷ که در فیش چاپ شده).
     "هزینه تلفن": "PHONE",
     # فقط راننده استجاری: عیدی و پایانکار ماهانه پرداخت می‌شوند نه سالانه
-    "پایانکار قابل پرداخت": "SEVERANCE",
-    "عیدی وپاداش قابل پرداخت": "EID",
     "علی الحساب واریزی": "ADVANCE",
     "خرید از شرکت": "GOODS",
     "بدهی از ماه قبل": "PREV_DEBT",
@@ -587,7 +597,6 @@ MANUAL = {
     "بیمه تکمیلی": "SUPP_INS",
     "جرائم وخلافی خودروها": "VEHICLE_FINE",
     "آزمایش وطب کار": "MEDICAL",
-    "مبلغ کسر کار - دیر کرد": "LATE",
     "کسر انبار": "STORE",
 }
 
@@ -726,6 +735,28 @@ def main(path, title):
         for full_name, months in PRIOR_SERVICE:
             print(f"  ! {full_name}: {months} ماه — فایل پایه سنوات می‌دهد "
                   f"ولی تاریخ استخدامش یک سال نشده")
+
+    # کسی که قرارداد فعال دارد ولی در فایلِ این ماه نیست، همچنان فیش
+    # می‌گیرد — موتور روی قراردادها حرکت می‌کند نه روی فایل. غیبتش از فایل
+    # ممکن است یعنی رفته، ولی هیچ‌جای سامانه این را نمی‌گوید.
+    from apps.employees.models import EmploymentContract
+
+    in_file = set(KEY_MAP.values())
+    absent = [
+        contract.employee
+        for contract in EmploymentContract.objects.filter(
+            status=EmploymentContract.Status.ACTIVE,
+            employee__company=company,
+            employee__status="ACTIVE",
+        ).select_related("employee")
+        if contract.employee.personnel_code not in in_file
+    ]
+    if absent:
+        print()
+        print(f"هشدار: {len(absent)} نفر قرارداد فعال دارند ولی در فایل این ماه نیستند.")
+        print("  همچنان فیش می‌گیرند — اگر رفته‌اند، از «اتمام همکاری» خروجشان را ثبت کنید:")
+        for employee in absent[:10]:
+            print(f"    - {employee.full_name} ({employee.personnel_code})")
 
     missing = CODE_PROBLEMS["missing"]
     duplicate = CODE_PROBLEMS["duplicate"]

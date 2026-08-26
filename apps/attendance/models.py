@@ -67,6 +67,13 @@ class Timesheet(models.Model):
         null=True, blank=True,
         help_text="خالی بگذارید تا از ساعت و مبنای سال مالی حساب شود",
     )
+    # تأخیر ورود — ساعت و دقیقه جدا، چون فرمول شرکت برای هرکدام مخرج جدا
+    # دارد (÷۲۲۰ برای ساعت و ÷۱۱۴۴۰ برای دقیقه). با نگهداری یکجا به دقیقه،
+    # آن تفاوت گم می‌شد.
+    late_hours = models.DecimalField(
+        "تأخیر ورود (ساعت)", max_digits=6, decimal_places=2, default=0
+    )
+    late_minutes = models.PositiveSmallIntegerField("تأخیر ورود (دقیقه)", default=0)
     sick_leave_days = models.DecimalField("مرخصی استعلاجی", max_digits=6, decimal_places=2, default=0)
     mission_days = models.DecimalField("مأموریت", max_digits=6, decimal_places=2, default=0)
 

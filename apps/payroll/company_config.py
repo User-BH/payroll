@@ -19,6 +19,8 @@
 بیمه‌اش صفر است — که با تیک «بدون بیمه» روی خودِ پرسنل بیان می‌شود، نه با قلم.
 """
 
+from decimal import Decimal
+
 from apps.employees.models import EmploymentContract
 from apps.org.models import CostCenter, JobTitle
 from apps.payroll_config.models import ComponentScope, LegalParameter, SalaryComponent
@@ -53,9 +55,22 @@ NEW_COMPONENTS = [
     # این سه در فایل فرمول دارند (T×۵ و T×۲٫۵ و مرخصی استحقاقی) ولی فقط برای
     # یک نفر. تا وقتی قاعده‌شان به موتور نیامده، مثل مابه‌التفاوت به‌صورت مبلغ
     # دستی وارد می‌شوند — همان کاری که اپراتور امروز می‌کند.
-    ("EID", "عیدی و پاداش", "EARNING", "MANUAL", "", 101, True, True, True, GREEN),
-    ("SEVERANCE", "پایانکار", "EARNING", "MANUAL", "", 102, True, True, True, GREEN),
+    ("EID", "عیدی و پاداش", "EARNING", "ENGINE_RULE", "eid_monthly",
+     101, True, True, True, GREEN),
+    ("SEVERANCE", "پایانکار", "EARNING", "ENGINE_RULE", "severance_monthly",
+     102, True, True, True, GREEN),
 ]
+
+# اقلامی که از پیش وجود دارند ولی «ورود دستی» بودند و حالا قاعده دارند —
+# یعنی سامانه دیگر جوابِ اکسل را عبور نمی‌دهد، خودش حسابش می‌کند.
+NOW_COMPUTED = [
+    ("DIFF", "seniority_diff", None, "مابه التفاوت"),
+    ("LATE", "late_deduction", None, "کسر کار و تاخیر ورود"),
+    ("LEAVE_PAY", "leave_pay_monthly", "16", "وجه مرخصی"),
+]
+
+# ضریب اقلام گروه راننده استجاری، همان‌طور که در فایل شرکت است
+RATES = {"EID": "5", "SEVERANCE": "2.5", "LEAVE_PAY": "16"}
 
 
 def _scope(component, scope_type, scope_id):
@@ -165,6 +180,26 @@ def configure(company, stdout=None):
             say(f"{component.name} → به استخر مازاد اضافه می‌شود")
 
     existing = {c.code: c for c in SalaryComponent.objects.filter(company=company)}
+
+    # --------------------------------------------- از «ورود دستی» به «قاعده»
+    for code, rule_key, rate, label in NOW_COMPUTED:
+        component = existing.get(code)
+        if component is None:
+            continue
+        if component.calc_type != "ENGINE_RULE" or component.engine_rule_key != rule_key:
+            component.calc_type = "ENGINE_RULE"
+            component.engine_rule_key = rule_key
+            if rate:
+                component.rate = Decimal(rate)
+            component.save(update_fields=["calc_type", "engine_rule_key", "rate"])
+            say(f"{label}: از «ورود دستی» به قاعدهٔ محاسبه — دیگر دستی وارد نمی‌شود")
+
+    for code, value in RATES.items():
+        component = existing.get(code) or codes_new.get(code)
+        if component is not None and component.rate != Decimal(value):
+            component.rate = Decimal(value)
+            component.save(update_fields=["rate"])
+            say(f"ضریب {component.name} → {value}")
 
     # ------------------------------------------------------------- رنگ‌ها
     # رنگ روی فیش و در فهرست اقلام یعنی «این از چه جنسی است». سه قلم مأموریت

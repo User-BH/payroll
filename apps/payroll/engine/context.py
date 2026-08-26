@@ -208,6 +208,30 @@ class PayrollContext:
         return self.employee.seniority_years_at(self.period.end_date)
 
     @property
+    def full_child_allowance(self) -> Decimal:
+        """حق اولاد **ماه کامل** — پیش از تسهیم روی کارکرد.
+
+        قاعدهٔ کسر تأخیر لازمش دارد: تأخیر از حقوق ماه کم می‌شود و مبنایش
+        مبلغ کاملِ ماه است، نه سهمِ روزهای کارکرد.
+        """
+        count = self.children_count
+        if count <= 0:
+            return ZERO
+        max_children = self.params.max_children or 0
+        effective = min(count, max_children) if max_children else count
+        return Decimal(self.params.child_allowance or ZERO) * effective
+
+    @property
+    def full_marriage_allowance(self) -> Decimal:
+        """حق تأهل ماه کامل — صفر برای مجرد."""
+        from apps.employees.models import Employee
+
+        married = (
+            getattr(self.employee, "marital_status", None) == Employee.MaritalStatus.MARRIED
+        )
+        return Decimal(self.params.marriage_allowance or ZERO) if married else ZERO
+
+    @property
     def seniority_daily(self) -> Decimal:
         """پایهٔ سنوات روزانه — صفر برای کسی که هنوز یک سال سابقه ندارد."""
         if self.seniority_years < 1:
@@ -259,7 +283,27 @@ class PayrollContext:
         recurring = self.contract_allowances.get(component.id)
         if recurring:
             return Decimal(recurring)
-        return Decimal(self.manual_inputs.get(component.id, ZERO) or ZERO)
+        manual = Decimal(self.manual_inputs.get(component.id, ZERO) or ZERO)
+        if manual:
+            return manual
+
+        # قلمی که قاعده دارد، مبلغش را از همان قاعده می‌گیرد.
+        #
+        # لازم است چون «مابه‌التفاوت» از استخر مازاد **کم** می‌شود ولی
+        # ترتیبش روی فیش بعد از اقلام زنجیره است. تا وقتی مبلغ دستی بود از
+        # `manual_inputs` خوانده می‌شد؛ حالا که محاسبه می‌شود، اگر همین‌جا
+        # صدا زده نشود استخر آن را صفر می‌بیند و روز مأموریت و ساعت
+        # اضافه‌کاری برای همه بالا می‌رود.
+        rule_key = getattr(component, "engine_rule_key", "")
+        if rule_key:
+            from apps.payroll.engine.rules import get_rule
+
+            func = get_rule(rule_key)
+            if func is not None:
+                result = func(self, component)
+                if result is not None:
+                    return Decimal(result.amount)
+        return ZERO
 
     @property
     def surplus(self):

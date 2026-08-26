@@ -26,6 +26,7 @@
 """
 
 from decimal import ROUND_DOWN, ROUND_HALF_UP, ROUND_UP, Decimal
+from fractions import Fraction
 
 ZERO = Decimal("0")
 ONE = Decimal("1")
@@ -73,9 +74,27 @@ class SurplusPlan:
         return _round(self.hourly_base / Decimal("60") * self.factor)
 
     def money_for(self, hours=ZERO, minutes=ZERO) -> Decimal:
-        """مبلغ ساعت و دقیقه با نرخِ گرد‌نشده — همان فرمول قلم اضافه‌کاری."""
-        exact = self.hourly_base * self.factor
-        return _round(exact * Decimal(hours) + exact / Decimal("60") * Decimal(minutes))
+        """مبلغ ساعت و دقیقه با نرخِ گرد‌نشده — همان فرمول قلم اضافه‌کاری.
+
+        حساب با **کسر گویا** انجام می‌شود، نه با Decimal.
+
+        دلیلش یک ریال است: مبنای ساعتی از تقسیمی می‌آید که تمام‌شدنی نیست
+        (مثلاً ۱۶۶٬۲۵۵٬۵۰۰ ÷ ۲۲۰). Decimal آن را در ۲۸ رقم می‌بُرد و همیشه
+        **کمی کمتر** از مقدار واقعی نگه می‌دارد. اگر حاصل نهایی دقیقاً روی
+        نصف بیفتد، آن بُرِش کوچک نتیجه را به پایین می‌کشد و گرد کردن یک ریال
+        کمتر می‌دهد.
+
+        نمونهٔ واقعی از مرداد — حسین ناصری، ۳ ساعت و ۱۸ دقیقه:
+
+            ۱۶۶٬۲۵۵٬۵۰۰ × ۱٫۴ × ۱۹۸ ÷ ۱۳۲۰۰ = ۳٬۴۹۱٬۳۶۵٫۵  ← تساوی کامل
+
+        اکسل که با ممیز شناور کار می‌کند دقیقاً روی نصف می‌نشیند و به بالا
+        گرد می‌کند. با کسر گویا، ما هم همان‌جا می‌نشینیم — و بالا و پایینِ
+        هیچ تساوی دیگری هم دیگر تصادفی نیست.
+        """
+        exact = Fraction(self.hourly_base) * Fraction(self.factor)
+        total = exact * Fraction(hours) + exact / 60 * Fraction(minutes)
+        return _round(Decimal(total.numerator) / Decimal(total.denominator))
 
     # ------------------------------------------------------------- استخر
 
