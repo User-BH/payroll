@@ -5,6 +5,7 @@ from django import forms
 from apps.payroll.form_fields import JalaliDateField
 
 from apps.employees.banks import BANK_CHOICES, iban_checksum_ok, normalize_iban
+from apps.org.models import CostCenter, JobTitle
 from apps.employees.models import (
     BankAccount,
     Dependent,
@@ -106,6 +107,23 @@ class EmployeeCreateForm(EmployeeForm):
         initial=EmploymentContract.ContractType.PERMANENT,
         help_text="قرارداد فعال با همین نوع و از تاریخ استخدام ساخته می‌شود",
     )
+    # مرکز هزینه و پست، پیش‌تر پرسیده نمی‌شدند و «اولین ردیفِ ساختار سازمانی»
+    # پیش‌فرض می‌شد. نتیجه این بود که هر پرسنل تازه در واحدِ اشتباه می‌نشست و
+    # تا وقتی کسی یادش می‌ماند به «ویرایش قرارداد» برود، همان‌جا می‌ماند — و
+    # دامنهٔ شمول اقلام حقوقی هم دقیقاً روی همین دو می‌نشیند، یعنی فیشش غلط
+    # درمی‌آمد بی‌آنکه خطایی دیده شود.
+    cost_center = forms.ModelChoiceField(
+        label="مرکز هزینه", queryset=CostCenter.objects.none(),
+        help_text="دامنهٔ شمول اقلام حقوقی روی همین تعیین می‌شود",
+    )
+    job_title = forms.ModelChoiceField(
+        label="پست سازمانی", queryset=JobTitle.objects.none(),
+    )
+    daily_wage = forms.DecimalField(
+        label="مزد روزانه (ریال)", required=False, min_value=0,
+        max_digits=18, decimal_places=0,
+        help_text="خالی بگذارید تا حداقل دستمزد همان سال مالی ثبت شود",
+    )
     monthly_work_days = forms.DecimalField(
         label="کارکرد ماهانه (روز)",
         required=False,
@@ -138,11 +156,24 @@ class EmployeeCreateForm(EmployeeForm):
     )
 
     # این فیلدها در قالب، پنل جداگانهٔ خودشان را دارند
-    EXTRA_FIELDS = ["contract_type", "monthly_work_days"]
+    EXTRA_FIELDS = [
+        "contract_type", "cost_center", "job_title", "daily_wage", "monthly_work_days",
+    ]
     BANK_FIELDS = ["bank_name", "account_number", "iban"]
 
     class Meta(EmployeeForm.Meta):
         pass
+
+    def __init__(self, *args, company=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        # فهرست‌ها به شرکت محدود می‌شوند و الفبایی مرتب — نه به ترتیب ساخت،
+        # که برای کاربر بی‌معناست.
+        self.fields["cost_center"].queryset = CostCenter.objects.filter(
+            company=company, is_active=True
+        ).order_by("name")
+        self.fields["job_title"].queryset = JobTitle.objects.filter(
+            company=company, is_active=True
+        ).order_by("name")
 
     def identity_fields(self):
         skip = set(self.EXTRA_FIELDS) | set(self.BANK_FIELDS)

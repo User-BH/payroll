@@ -2,7 +2,7 @@ from django.contrib import messages
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import F, OuterRef, Q, Subquery
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
@@ -18,14 +18,15 @@ from apps.employees.forms import (
     SignatureForm,
 )
 from apps.employees.importer import build_template, import_employees
-from apps.employees.models import Employee
+from apps.employees.models import Employee, EmploymentContract
 from apps.employees.services import (
     create_initial_contract,
     missing_org_labels,
     org_defaults,
 )
 from apps.org.models import Company
-from apps.payroll.models import Payslip
+from apps.attendance.models import Timesheet
+from apps.payroll.models import PayrollPeriod, Payslip
 
 
 def _filtered_employees(request):
@@ -42,7 +43,26 @@ def _filtered_employees(request):
         )
     if status:
         employees = employees.filter(status=status)
-    return employees.order_by("personnel_code"), query, status
+
+    # مرتب‌سازی: اول مرکز هزینه الفبایی، بعد نام خانوادگی و نام.
+    #
+    # ترتیب قبلی «کد پرسنلی» بود، ولی ۱۷ نفر اصلاً کد ندارند و کدِ جایگزینشان
+    # با N شروع می‌شود — یعنی همه‌شان ته فهرست کنار هم می‌افتادند و فهرست
+    # عملاً بی‌ترتیب دیده می‌شد. مرکز هزینه همان چیزی است که کاربر با آن
+    # فکر می‌کند: اول واحد، بعد آدم‌های همان واحد.
+    contract = EmploymentContract.objects.filter(
+        employee=OuterRef("pk"), status=EmploymentContract.Status.ACTIVE
+    ).order_by("-effective_from")
+    employees = employees.annotate(
+        cc_name=Subquery(contract.values("cost_center__name")[:1])
+    )
+    return (
+        employees.order_by(
+            F("cc_name").asc(nulls_last=True), "last_name", "first_name"
+        ),
+        query,
+        status,
+    )
 
 
 def _page(request, queryset):
@@ -118,7 +138,7 @@ def employee_create(request):
     # کارکرد ماهانه عمداً پیش‌فرض ندارد: تاریخ استخدام هنوز وارد نشده، پس
     # عددِ «کل ماه» برای کسی که وسط ماه استخدام می‌شود غلط است. خالی بماند تا
     # بعد از ذخیره از روی همان تاریخ حساب شود.
-    form = EmployeeCreateForm(request.POST or None)
+    form = EmployeeCreateForm(request.POST or None, company=company)
 
     if request.method == "POST" and form.is_valid():
         employee = form.save(commit=False)
@@ -128,7 +148,11 @@ def employee_create(request):
 
         try:
             contract = create_initial_contract(
-                employee, form.cleaned_data.get("contract_type")
+                employee,
+                form.cleaned_data.get("contract_type"),
+                cost_center=form.cleaned_data.get("cost_center"),
+                job_title=form.cleaned_data.get("job_title"),
+                daily_wage=form.cleaned_data.get("daily_wage"),
             )
         except ValidationError as exc:
             contract = None
@@ -169,8 +193,11 @@ def employee_create(request):
                 request,
                 f"{employee.full_name} با قرارداد {contract.get_contract_type_display()} "
                 f"ثبت و فعال شد.{note} "
-                "مزد روزانه خالی است، پس فعلاً با حداقل دستمزد روزانهٔ سال حساب "
-                "می‌شود — اگر مزد توافقی دارد، از دکمهٔ «ویرایش قرارداد» ثبتش کنید.",
+                f"مرکز هزینه: {contract.cost_center.name} · "
+                f"پست: {contract.job_title.name} · "
+                f"مزد روزانه: {contract.daily_wage:,.0f} ریال"
+                + ("" if form.cleaned_data.get("daily_wage")
+                   else " (حداقل دستمزد سال — اگر مزد توافقی دارد ویرایشش کنید)"),
             )
         return redirect("employee_detail", pk=employee.pk)
 
@@ -427,10 +454,26 @@ def employee_detail(request, pk):
 
     # کارکرد ماهانهٔ دورهٔ باز — همان رکوردی که در جدول کارکرد دوره هم دیده
     # می‌شود؛ اینجا فقط برای همین یک نفر قابل ویرایش است.
+    # دورهٔ باز یعنی «پیش‌نویس». ولی به‌محض اینکه دوره محاسبه می‌شود، دیگر
+    # هیچ دورهٔ بازی نمی‌ماند و این صفحه کارکرد را **اصلاً نشان نمی‌داد** —
+    # حتی کارکردی که همان لحظه مبنای فیشِ پایین همین صفحه بوده است.
+    #
+    # حالا اگر دورهٔ بازی نباشد، کارکردِ آخرین دوره نشان داده می‌شود؛ فقط
+    # خواندنی، چون دوره دیگر ویرایش‌پذیر نیست.
     open_period = open_period_for(employee.company)
+    period_for_timesheet = open_period or (
+        PayrollPeriod.objects.filter(company=employee.company)
+        .order_by("-year", "-month")
+        .first()
+    )
     timesheet = None
-    if open_period is not None and employee.status == Employee.Status.ACTIVE:
-        timesheet = get_or_create_timesheet(employee, open_period)
+    if period_for_timesheet is not None and employee.status == Employee.Status.ACTIVE:
+        if open_period is not None:
+            timesheet = get_or_create_timesheet(employee, period_for_timesheet)
+        else:
+            timesheet = Timesheet.objects.filter(
+                employee=employee, period=period_for_timesheet
+            ).first()
 
     # حقوق پایهٔ خالی یعنی «با حداقل دستمزد حساب کن» — پس باید بدانیم آن عدد
     # اصلاً پر شده است یا نه، وگرنه حقوق ثابت بی‌صدا صفر می‌شود.
@@ -449,6 +492,8 @@ def employee_detail(request, pk):
             "payslips": payslips,
             "loans": employee.loans.all(),
             "open_period": open_period,
+            "timesheet_period": period_for_timesheet,
+            "timesheet_readonly": open_period is None,
             "timesheet": timesheet,
             "min_daily_wage": min_daily_wage,
             # سابقه ذخیره نمی‌شود؛ نسبت به پایان دورهٔ باز (یا امروز) حساب

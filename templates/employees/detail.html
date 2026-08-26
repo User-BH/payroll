@@ -147,15 +147,43 @@
       <div class="panel-head">
         <h3>کارکرد ماهانه</h3>
         <span class="hint">
-          {% if open_period %}دورهٔ {{ open_period.title }} — ورود دستی · ماه کامل {{ open_period.month_days|fanum }} روز{% else %}دورهٔ بازی وجود ندارد{% endif %}
+          {% if open_period %}دورهٔ {{ open_period.title }} — ورود دستی · ماه کامل {{ open_period.month_days|fanum }} روز
+          {% elif timesheet_period %}دورهٔ {{ timesheet_period.title }} — فقط خواندنی، چون دوره دیگر پیش‌نویس نیست
+          {% else %}هنوز دوره‌ای ساخته نشده{% endif %}
         </span>
       </div>
-      {% if not open_period %}
+      {% comment %}
+        پیش از این، تا وقتی دوره‌ای «پیش‌نویس» نبود این پنل هیچ عددی نشان
+        نمی‌داد — حتی همان کارکردی که مبنای فیشِ پایین همین صفحه بود. حالا اگر
+        دورهٔ بازی نباشد، کارکرد آخرین دوره فقط‌خواندنی دیده می‌شود.
+      {% endcomment %}
+      {% if not timesheet_period %}
       <div class="panel-body">
         <div class="empty">
-          هیچ دورهٔ پیش‌نویسی باز نیست. ابتدا از «دوره‌های حقوقی» دورهٔ ماه را بسازید،
+          هنوز هیچ دوره‌ای ساخته نشده است. ابتدا از «دوره‌های حقوقی» دورهٔ ماه را بسازید،
           سپس کارکرد این پرسنل را همین‌جا ثبت کنید.
         </div>
+      </div>
+      {% elif timesheet_readonly %}
+      <div class="panel-body">
+        {% if timesheet %}
+        <div class="note-box" style="margin-bottom:12px;">
+          دورهٔ {{ timesheet_period.title }} دیگر پیش‌نویس نیست، پس این اعداد فقط
+          نمایشی‌اند. برای تغییرشان دوره را یک مرحله به عقب برگردانید.
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px;">
+          <div class="row"><span>کارکرد اولیه</span><b>{{ timesheet.work_days|fadec }} روز</b></div>
+          <div class="row"><span>قابل پرداخت</span><b>{{ timesheet.paid_days|fadec }} روز</b></div>
+          <div class="row"><span>غیبت</span><b>{{ timesheet.absence_days|fadec }} روز</b></div>
+          <div class="row"><span>بیماری</span><b>{{ timesheet.sick_leave_days|fadec }} روز</b></div>
+          <div class="row"><span>مرخصی بدون حقوق</span><b>{{ timesheet.unpaid_leave_days|fadec }} روز</b></div>
+          <div class="row"><span>مأموریت</span><b>{{ timesheet.mission_days|fadec }} روز</b></div>
+          <div class="row"><span>اضافه‌کاری</span><b>{{ timesheet.overtime_hours|fadec }} ساعت</b></div>
+          <div class="row"><span>مرخصی استحقاقی</span><b>{{ timesheet.leave_minutes|dhm }}</b></div>
+        </div>
+        {% else %}
+        <div class="empty">برای دورهٔ {{ timesheet_period.title }} کارکردی ثبت نشده است.</div>
+        {% endif %}
       </div>
       {% elif not current_contract %}
       <div class="panel-body">
@@ -380,7 +408,21 @@
         <div class="comp-item">
           <div class="comp-item-l">
             <span class="comp-dot" style="background:var(--red);"></span>
-            <div><b>{{ account.bank_name }}</b><small class="num" style="direction:ltr; display:block;">{{ account.iban }}</small></div>
+            {% comment %}
+              شمارهٔ حساب همان چیزی است که پرداخت با آن انجام می‌شود و در فرم
+              افزودن پرسنل هم پرسیده می‌شود — ولی اینجا فقط شبا چاپ می‌شد، که
+              اختیاری است. نتیجه: حسابِ ثبت‌شده خالی به‌نظر می‌رسید.
+            {% endcomment %}
+            <div>
+              <b>{{ account.bank_name }}</b>
+              <small class="num" style="direction:ltr; display:block;">{{ account.account_number|default:"—" }}</small>
+              {% if account.iban %}
+              <small class="num" style="direction:ltr; display:block; opacity:.7;">شبا {{ account.iban }}</small>
+              {% endif %}
+              {% if account.card_number %}
+              <small class="num" style="direction:ltr; display:block; opacity:.7;">کارت {{ account.card_number }}</small>
+              {% endif %}
+            </div>
           </div>
           {% if account.is_default %}<span class="badge ok"><span class="dot"></span>پیش‌فرض</span>{% endif %}
         </div>
