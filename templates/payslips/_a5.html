@@ -36,7 +36,17 @@
             {{ line.component_name }}
             {% if line.explanation %}<em class="why">{{ line.explanation }}</em>{% endif %}
           </td>
-          <td class="qty">{% if line.quantity and line.quantity != 1 %}{{ line.quantity|fadec }}{% endif %}</td>
+          {% comment %}
+            اضافه‌کاری به ساعت و دقیقه نوشته می‌شود، نه ساعتِ اعشاری: مدیریت
+            «۳ ساعت و ۱۲ دقیقه» اعلام می‌کند و «۳٫۲۰» را خوانندهٔ فیش به‌سادگی
+            «۳ ساعت و ۲۰ دقیقه» می‌خواند، که غلط است.
+
+            مأموریت عمداً همین‌جا نیست: روزِ کامل است و اعشار ندارد.
+          {% endcomment %}
+          <td class="qty">
+            {% if line.display_unit == 'HOUR' %}{{ line.quantity|hm }}
+            {% elif line.quantity and line.quantity != 1 %}{{ line.quantity|fadec }}{% endif %}
+          </td>
           <td class="amt">{{ line.amount|rial }}</td>
         </tr>
         {% endfor %}
@@ -58,7 +68,7 @@
           {# اقلام روزی مبلغ ریالی ندارند؛ اثرشان در روز کارکرد اعمال شده است #}
           <td class="amt">
             {% if line.display_unit == 'DAY' %}{{ line.quantity|fadec }} روز
-            {% elif line.display_unit == 'HOUR' %}{{ line.quantity|fadec }} ساعت
+            {% elif line.display_unit == 'HOUR' %}{{ line.quantity|hm }}
             {% else %}{{ line.amount|rial }}{% endif %}
           </td>
         </tr>

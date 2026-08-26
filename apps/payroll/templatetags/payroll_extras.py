@@ -116,3 +116,30 @@ def percent(value, decimals=2):
     if number is None:
         return "—"
     return utils.fa_number(number * 100, decimals=int(decimals))
+
+
+@register.filter(name="hm")
+def hours_minutes(value):
+    """ساعت اعشاری → «۳ ساعت و ۱۲ دقیقه».
+
+    اضافه‌کاری در سامانه به دقیقه نگهداری می‌شود ولی روی فیش به‌صورت ساعتِ
+    اعشاری چاپ می‌شد («۳٫۲۰»). کسی که فیشش را می‌خواند ساعت و دقیقه اعلام
+    کرده، نه اعشار — و ۳٫۲۰ را به‌سادگی «۳ ساعت و ۲۰ دقیقه» می‌خواند که
+    غلط است.
+    """
+    from decimal import Decimal, ROUND_HALF_UP
+
+    from apps.payroll.utils import _to_decimal, fa_digits
+
+    number = _to_decimal(value)
+    if number is None or number == 0:
+        return "—"
+    sign = "منفی " if number < 0 else ""
+    total = (abs(number) * Decimal(60)).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+    hours, minutes = divmod(int(total), 60)
+    parts = []
+    if hours:
+        parts.append(f"{fa_digits(hours)} ساعت")
+    if minutes:
+        parts.append(f"{fa_digits(minutes)} دقیقه")
+    return sign + " و ".join(parts or [f"{fa_digits(0)} دقیقه"])

@@ -83,7 +83,11 @@ def fa_number(value, decimals=0, persian=True) -> str:
     if number is None:
         return "—"
     if decimals == 0 or number == number.to_integral_value():
-        text = f"{number.to_integral_value():,}"
+        # `quantize` لازم است، نه `to_integral_value`: عددی که از تقسیم و ضرب
+        # درآمده ممکن است نماد نمایی داشته باشد (`Decimal('8.2566E+5')`) و
+        # فرمتِ `,` آن را همان‌طور چاپ می‌کند — روی فیش «۸٫۲۵۶۶E+۵» دیده
+        # می‌شد به‌جای «۸۲۵٬۶۶۰».
+        text = f"{number.quantize(Decimal(1)):,}"
     else:
         text = f"{number:,.{decimals}f}".rstrip("0").rstrip(".")
     return _localize(text) if persian else text

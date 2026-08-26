@@ -194,6 +194,15 @@ def configure(company, stdout=None):
             component.save(update_fields=["calc_type", "engine_rule_key", "rate"])
             say(f"{label}: از «ورود دستی» به قاعدهٔ محاسبه — دیگر دستی وارد نمی‌شود")
 
+    # اضافه‌کاری روی فیش با ساعت و دقیقه نوشته می‌شود، نه ساعتِ اعشاری.
+    # مأموریت عمداً «ریال» می‌ماند: روزِ کامل است و اعشار ندارد.
+    for code in ("OVERTIME", "OVERTIME_SURPLUS"):
+        component = existing.get(code) or codes_new.get(code)
+        if component is not None and component.display_unit != "HOUR":
+            component.display_unit = "HOUR"
+            component.save(update_fields=["display_unit"])
+            say(f"{component.name} → نمایش با ساعت و دقیقه")
+
     for code, value in RATES.items():
         component = existing.get(code) or codes_new.get(code)
         if component is not None and component.rate != Decimal(value):
