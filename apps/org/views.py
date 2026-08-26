@@ -142,8 +142,17 @@ DepartmentForm = _simple_form(Department, tree_fields=["cost_center", "parent"])
 CostCenterForm = _simple_form(CostCenter, ["gl_account"], tree_fields=["parent"])
 JobTitleForm = _simple_form(JobTitle, ["job_group"])
 
+# «واحد سازمانی» از رابط کاربری برداشته شد.
+#
+# دلیلش داده است نه سلیقه: روی کل دیتابیس، واحد و مرکز هزینه **یک‌به‌یک**
+# بودند — هر ۶۹ قرارداد و هر ۱۳۶ فیش، بدون یک استثنا. یعنی کاربر یک چیز را
+# دو بار تعریف و دو بار انتخاب می‌کرد و هیچ‌جا از هم جدا نمی‌شدند.
+#
+# ستون `department` روی مدل می‌ماند (فیش‌های صادرشده به آن اشاره دارند و
+# نباید تکان بخورند) ولی دیگر پرسیده نمی‌شود: هنگام ساخت قرارداد از روی مرکز
+# هزینه پر می‌شود. حذف فیزیکی ستون کار جداگانه‌ای است و به فیش قفل‌شده دست
+# می‌زند، پس عمداً اینجا انجام نشد.
 KINDS = {
-    "department": (Department, DepartmentForm, "واحد سازمانی"),
     "cost-center": (CostCenter, CostCenterForm, "مرکز هزینه"),
     "job-title": (JobTitle, JobTitleForm, "پست سازمانی"),
 }
@@ -152,21 +161,22 @@ KINDS = {
 @payroll_staff_required
 def org_settings(request):
     company = Company.objects.first()
+    # فقط مراکز هزینه در چارت دیده می‌شوند؛ واحدها دیگر گرهِ جدا نیستند.
     tree = [
         {
             "node": node,
             "depth": depth,
             "indent_px": depth * 26,
-            "is_cost_center": isinstance(node, CostCenter),
-            "kind": "cost-center" if isinstance(node, CostCenter) else "department",
+            "is_cost_center": True,
+            "kind": "cost-center",
             # قرارداد جاری که مستقیم به همین گره وصل است — برای دیدن اینکه
             # کدام گره خالی است و کدام واقعاً پرسنل دارد.
             "people": EmploymentContract.objects.filter(
-                **{"cost_center" if isinstance(node, CostCenter) else "department": node},
-                status=EmploymentContract.Status.ACTIVE,
+                cost_center=node, status=EmploymentContract.Status.ACTIVE
             ).count(),
         }
         for node, depth in walk(company)
+        if isinstance(node, CostCenter)
     ]
     return render(
         request,
@@ -174,9 +184,7 @@ def org_settings(request):
         {
             "company": company,
             "tree": tree,
-            "unassigned": Department.objects.filter(
-                company=company, cost_center__isnull=True, parent__isnull=True
-            ),
+            "unassigned": [],
             "job_titles": JobTitle.objects.filter(company=company).order_by("name"),
         },
     )

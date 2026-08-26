@@ -209,15 +209,66 @@ class EmployeeCreateForm(EmployeeForm):
 
 
 class ContractForm(BootstrapMixin, forms.ModelForm):
+    # «مازاد ثابت» کنار مزد روزانه می‌نشیند چون از همان جنس است: عددی که سالی
+    # دو-سه بار عوض می‌شود، نه چیزی که هر ماه وارد شود. در فایل شرکت، این عدد
+    # بین تیر و مرداد برای هر ۶۶ نفرِ مشترک دقیقاً یکسان بود.
+    #
+    # پشت صحنه یک «مزایای مستمر قرارداد» روی قلم SURPLUS_FIXED ساخته می‌شود،
+    # پس تاریخ اعتبار هم دارد و فیشِ ماه‌های گذشته با تغییرش عوض نمی‌شود.
+    fixed_surplus = forms.DecimalField(
+        label="مازاد ثابت (ریال)", required=False, min_value=0,
+        max_digits=18, decimal_places=0,
+        help_text="عددی سالانه — در گروه پشتیبانی به مأموریت و اضافه‌کاری تبدیل "
+                  "می‌شود و در گروه فروش به پورسانت اضافه می‌شود",
+    )
+
     class Meta:
         model = EmploymentContract
+        # «واحد سازمانی» پرسیده نمی‌شود — از مرکز هزینه ساخته می‌شود. روی کل
+        # دیتابیس این دو یک‌به‌یک بودند، پس پرسیدنِ دوباره‌اش فقط یک انتخاب
+        # اضافه بود که هیچ‌وقت با مرکز هزینه فرق نمی‌کرد.
         fields = [
-            "contract_number", "contract_type", "department", "cost_center",
+            "contract_number", "contract_type", "cost_center",
             "job_title", "effective_from", "effective_to", "daily_wage",
             "weekly_hours", "is_insured", "is_taxable",
             "tax_exemption", "status", "notes",
         ]
         widgets = {"notes": forms.Textarea(attrs={"rows": 2})}
+
+    SURPLUS_CODE = "SURPLUS_FIXED"
+
+    def _surplus_component(self):
+        from apps.payroll_config.models import SalaryComponent
+
+        company = getattr(self.instance, "employee", None)
+        company = company.company if company else None
+        return SalaryComponent.objects.filter(
+            company=company, code=self.SURPLUS_CODE
+        ).first()
+
+    def _surplus_allowance(self):
+        component = self._surplus_component()
+        if component is None or not self.instance.pk:
+            return None
+        return self.instance.allowances.filter(component=component).first()
+
+    def save_fixed_surplus(self, contract):
+        """مازاد ثابت را به‌صورت مزایای مستمر قرارداد ذخیره می‌کند."""
+        component = self._surplus_component()
+        if component is None:
+            return
+        amount = self.cleaned_data.get("fixed_surplus") or 0
+        if not amount:
+            contract.allowances.filter(component=component).delete()
+            return
+        contract.allowances.update_or_create(
+            component=component,
+            defaults={
+                "amount": amount,
+                "effective_from": contract.effective_from,
+                "effective_to": None,
+            },
+        )
 
     effective_from = JalaliDateField(label="شروع اعتبار")
     effective_to = JalaliDateField(label="پایان اعتبار", required=False)
@@ -231,6 +282,12 @@ class ContractForm(BootstrapMixin, forms.ModelForm):
         if self.employee and not self.instance.employee_id:
             self.instance.employee = self.employee
 
+        # مقدار فعلی مازاد ثابت از مزایای مستمر قرارداد خوانده می‌شود
+        # واحد از مرکز هزینه پر می‌شود، چون مدل هنوز الزامی می‌داندش
+        allowance = self._surplus_allowance()
+        if allowance is not None and not self.is_bound:
+            self.fields["fixed_surplus"].initial = allowance.amount
+
         # مزد روزانه روی مدل `default=0` دارد و صفر معنای روشنی دارد: «مزد
         # اختصاصی ندارد، از حداقل دستمزد سال استفاده کن». پس اجباری نیست —
         # ستارهٔ قرمز کنارش کاربر را وادار می‌کرد عددی بنویسد که ندارد.
@@ -238,6 +295,24 @@ class ContractForm(BootstrapMixin, forms.ModelForm):
 
     def clean_daily_wage(self):
         return self.cleaned_data.get("daily_wage") or Decimal("0")
+
+    def clean(self):
+        """واحد را از مرکز هزینه پر می‌کند، پیش از اعتبارسنجی مدل.
+
+        ستون `department` روی مدل هنوز الزامی است (فیش‌های صادرشده به آن اشاره
+        دارند)، ولی دیگر از کاربر پرسیده نمی‌شود. اگر اینجا پر نشود،
+        `full_clean` مدل با «این فیلد الزامی است» رد می‌کند — روی فیلدی که
+        اصلاً در فرم نیست، یعنی خطایی که کاربر جایی نمی‌بیندش.
+        """
+        cleaned = super().clean()
+        cost_center = cleaned.get("cost_center")
+        if cost_center is not None:
+            from apps.employees.services import department_for
+
+            department = department_for(cost_center)
+            if department is not None:
+                self.instance.department = department
+        return cleaned
 
 
 def clean_iban_value(value):

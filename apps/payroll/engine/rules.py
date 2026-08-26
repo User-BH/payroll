@@ -529,6 +529,17 @@ def commission_net(ctx: PayrollContext, component):
     جذب از خودِ پورسانت بیشتر بوده.
     """
     raw = Decimal(ctx.manual_inputs.get(component.id, ZERO) or ZERO)
+
+    # «مازاد ثابت» در فرمول فروشِ فایل به پورسانت خام **اضافه** می‌شود:
+    #     پورسانت قابل پرداخت = (پورسانت خام + مازاد ثابت) − (جذب‌شونده‌ها)
+    # تا وقتی مازاد ثابت ورودی ماهانه بود، بارگذار آن را با پورسانت خام یک‌جا
+    # وارد می‌کرد. حالا که روی قرارداد نشسته، همین‌جا خوانده می‌شود.
+    surplus_add = ZERO
+    for other in ctx.applicable_components:
+        if getattr(other, "allocation_role", "") == "ADD":
+            surplus_add += ctx.recurring_or_manual(other)
+    raw += surplus_add
+
     absorbed = ZERO
     pieces = []
     for other in component.absorbs.all():
@@ -545,12 +556,13 @@ def commission_net(ctx: PayrollContext, component):
         return None
 
     note = f" − ({' + '.join(pieces)})" if pieces else ""
+    add_note = f" (شامل {fa_money(surplus_add)} ریال مازاد ثابت)" if surplus_add else ""
     return LineResult(
         amount=raw - absorbed,
         base_amount=raw,
         quantity=Decimal("1"),
         rate=Decimal("1"),
-        explanation=f"{component.name}: {fa_money(raw)} ریال{note}",
+        explanation=f"{component.name}: {fa_money(raw)} ریال{add_note}{note}",
     ).rounded()
 
 

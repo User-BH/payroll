@@ -99,7 +99,7 @@
 {% endif %}
 
 <div class="stat-row">
-  <div class="stat"><b>واحد سازمانی</b><span style="font-size:14px;">{{ current_contract.department.name|default:"—" }}</span></div>
+  <div class="stat"><b>مرکز هزینه</b><span style="font-size:14px;">{{ current_contract.cost_center.name|default:"—" }}</span></div>
   <div class="stat"><b>مرکز هزینه</b><span style="font-size:14px;">{{ current_contract.cost_center.name|default:"—" }}</span></div>
   <div class="stat"><b>مزد روزانه جاری</b><span>{{ current_contract.daily_wage|rial }}</span></div>
   <div class="stat"><b>تاریخ استخدام</b><span style="font-size:14px;">{{ employee.hire_date|jalali }}</span></div>
@@ -111,12 +111,12 @@
     <div class="panel">
       <div class="panel-head">
         <h3>تاریخچه قراردادها</h3>
-        <span class="hint">هر تغییر حقوق یا واحد، یک قرارداد جدید است</span>
+        <span class="hint">هر تغییر حقوق یا مرکز هزینه، یک قرارداد جدید است</span>
       </div>
       <div class="table-wrap">
         <table>
           <thead>
-            <tr><th>از تاریخ</th><th>تا تاریخ</th><th>نوع</th><th>واحد</th><th>مزد روزانه</th><th>وضعیت</th></tr>
+            <tr><th>از تاریخ</th><th>تا تاریخ</th><th>نوع</th><th>مرکز هزینه</th><th>مزد روزانه</th><th>وضعیت</th></tr>
           </thead>
           <tbody>
             {% for contract in contracts %}

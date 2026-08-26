@@ -344,7 +344,42 @@ def load_people(company, sheet, departments, centers, jobs, period):
         contract.save()
 
         _bank_account(sheet, r, employee)
+        _fixed_surplus(sheet, r, contract, period)
     return created, updated
+
+
+def _fixed_surplus(sheet, row, contract, period):
+    """مازاد ثابت — مزایای مستمر قرارداد، نه مبلغ دستیِ ماه.
+
+    در فایل شرکت این عدد بین تیر و مرداد برای هر ۶۶ نفرِ مشترک **دقیقاً
+    یکسان** بود؛ یعنی سالی دو-سه بار عوض می‌شود و هر ماه دوباره وارد کردنش
+    هم کار اضافه است هم جای اشتباه.
+
+    تاریخ شروع اعتبار، شروع سال مالی گذاشته می‌شود نه شروع همین دوره: عدد از
+    ابتدای سال همین بوده و اگر از این ماه شروع شود، محاسبهٔ ماه‌های قبل‌تر
+    (اگر بعداً وارد شوند) آن را نمی‌بیند.
+    """
+    from apps.employees.models import ContractAllowance
+
+    amount = sheet.n("مازاد ثابت 1405", row)
+    component = SalaryComponent.objects.filter(
+        company=contract.employee.company, code="SURPLUS_FIXED"
+    ).first()
+    if component is None:
+        return
+    if not amount:
+        ContractAllowance.objects.filter(
+            contract=contract, component=component
+        ).delete()
+        return
+    ContractAllowance.objects.update_or_create(
+        contract=contract, component=component,
+        defaults={
+            "amount": amount,
+            "effective_from": period.fiscal_year.start_date,
+            "effective_to": None,
+        },
+    )
 
 
 def _bank_account(sheet, row, employee):
@@ -552,8 +587,9 @@ MANUAL = {
 
 # ورودی‌های استخر مازاد — فقط برای گروه پشتیبانی. برای فروش، «مازاد ثابت»
 # داخل پورسانت خام می‌رود (پایین‌تر) و اصلاً استخری در کار نیست.
+# «مازاد ثابت» عمداً اینجا نیست: عددی سالانه است و روی **قرارداد** می‌نشیند،
+# نه در مبالغ دستیِ ماه. (بین تیر و مرداد برای هر ۶۶ نفر یکسان بود.)
 SURPLUS = {
-    "مازاد ثابت 1405": "SURPLUS_FIXED",
     "اضافه کار مازاد": "SURPLUS_OT",
 }
 
@@ -581,9 +617,6 @@ def load_manual(sheet, period):
                 skipped += 1
                 continue
             value = sheet.n(column, r)
-            if code == "COMM_1" and sales:
-                # پورسانت خام + مازاد ثابت — همان چیزی که فرمول اکسل جمع می‌کند
-                value += sheet.n("مازاد ثابت 1405", r)
             if not value:
                 PayrollInput.objects.filter(
                     period=period, employee=employee, component=component

@@ -234,9 +234,15 @@ def configure(company, stdout=None):
             "دامنهٔ زنجیرهٔ مازاد ساخته نشد. اول پرسنل را وارد کنید.")
     else:
         chain_scope = [("JOB_TITLE", job.pk) for job in support]
+        # «مازاد ثابت» عمداً دامنه ندارد و به همه می‌رسد: در گروه پشتیبانی
+        # استخر مازاد را پر می‌کند و در گروه فروش به پورسانت خام اضافه
+        # می‌شود. محدود کردنش به پست‌های پشتیبانی یعنی فروش مازادش را
+        # بی‌سروصدا از دست بدهد.
+        if _reset_scopes(codes_new["SURPLUS_FIXED"], []):
+            say("مازاد ثابت → بدون دامنه (هم فروش، هم پشتیبانی)")
         touched = [
             _reset_scopes(codes_new[code], chain_scope)
-            for code in ("OVERTIME_SURPLUS", "MISSION_SURPLUS", "SURPLUS_FIXED", "SURPLUS_OT")
+            for code in ("OVERTIME_SURPLUS", "MISSION_SURPLUS", "SURPLUS_OT")
         ]
         if any(touched):
             say(f"زنجیرهٔ مازاد برای {len(support)} پست پشتیبانی: "

@@ -246,6 +246,7 @@ def contract_create(request, pk):
         contract = form.save(commit=False)
         contract.employee = employee
         contract.save()
+        form.save_fixed_surplus(contract)
         messages.success(request, "قرارداد ثبت شد.")
         return redirect("employee_detail", pk=employee.pk)
     return render(
@@ -262,7 +263,8 @@ def contract_edit(request, pk):
     contract = get_object_or_404(EmploymentContract.objects.select_related("employee"), pk=pk)
     form = ContractForm(request.POST or None, instance=contract, employee=contract.employee)
     if request.method == "POST" and form.is_valid():
-        form.save()
+        contract = form.save()
+        form.save_fixed_surplus(contract)
         messages.success(request, "قرارداد به‌روز شد.")
         return redirect("employee_detail", pk=contract.employee.pk)
     return render(

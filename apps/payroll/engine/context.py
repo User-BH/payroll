@@ -208,6 +208,24 @@ class PayrollContext:
             return ZERO
         return Decimal(self.timesheet.overtime_minutes or 0)
 
+    def recurring_or_manual(self, component) -> Decimal:
+        """مبلغ یک قلم: اول از مزایای مستمر قرارداد، وگرنه از مبلغ دستی ماه.
+
+        بعضی اعداد ماهانه نیستند. «مازاد ثابت» در فایل شرکت برای هر ۶۶ نفرِ
+        مشترک بین تیر و مرداد **دقیقاً یکسان** بود — یعنی عددی سالانه است که
+        سالی دو-سه بار عوض می‌شود، نه چیزی که هر ماه دستی وارد شود. جایش
+        مزایای مستمر قرارداد است که تاریخ اعتبار هم دارد.
+
+        ورودی دستیِ ماه همچنان کار می‌کند و **مقدم نیست**: اگر روی قرارداد
+        عددی ثبت شده باشد همان ملاک است، وگرنه عدد ماه. این ترتیب عمدی است —
+        وگرنه یک ورودی دستیِ جامانده از ماه قبل، عددِ قرارداد را بی‌صدا
+        بی‌اثر می‌کرد.
+        """
+        recurring = self.contract_allowances.get(component.id)
+        if recurring:
+            return Decimal(recurring)
+        return Decimal(self.manual_inputs.get(component.id, ZERO) or ZERO)
+
     @property
     def surplus(self):
         """زنجیرهٔ مازاد این پرسنل — یک بار ساخته و نگه داشته می‌شود.
@@ -227,7 +245,7 @@ class PayrollContext:
                 role = getattr(component, "allocation_role", "")
                 if not role:
                     continue
-                amount = Decimal(self.manual_inputs.get(component.id, ZERO) or ZERO)
+                amount = self.recurring_or_manual(component)
                 if not amount:
                     continue
                 if role == "ADD":

@@ -208,7 +208,7 @@
 <div class="grid-2">
   <div class="panel">
     <div class="panel-head">
-      <h3>تفکیک بر اساس واحد سازمانی</h3>
+      <h3>تفکیک بر اساس مرکز هزینه</h3>
       {% if payslip_count %}<a class="link-btn" href="{% url 'report_export' period.pk 'payslips' %}">خروجی اکسل</a>{% endif %}
     </div>
     <div class="table-wrap">
@@ -217,7 +217,7 @@
         <tbody>
           {% for row in by_department %}
           <tr>
-            <td><b>{{ row.department__name }}</b></td>
+            <td><b>{{ row.cost_center__name }}</b></td>
             <td class="num">{{ row.count|fanum }}</td>
             <td class="num">{{ row.gross|rial }}</td>
             <td class="num">{{ row.insurance|rial }}</td>

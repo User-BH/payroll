@@ -338,9 +338,11 @@ def period_detail(request, pk):
     warnings = [w for w in all_warnings if w["kind"] == health.BROKEN]
     unreachable = [w for w in all_warnings if w["kind"] == health.UNREACHABLE]
 
+    # تفکیک بر اساس **مرکز هزینه**، نه واحد: این دو روی کل داده یک‌به‌یک
+    # بودند و «واحد» از رابط کاربری برداشته شد.
     by_department = (
         Payslip.objects.filter(period=period)
-        .values("department__name")
+        .values("cost_center__name")
         .annotate(
             count=Count("id"),
             gross=Sum("gross_total"),
@@ -719,7 +721,7 @@ def period_sheet_export(request, pk):
 
     for row in data["rows"]:
         employee = row["payslip"].employee
-        values = [employee.personnel_code, employee.full_name, row["payslip"].department.name]
+        values = [employee.personnel_code, employee.full_name, row["payslip"].cost_center.name]
         for cell in row["cells"]:
             line = cell["line"]
             if line is None:

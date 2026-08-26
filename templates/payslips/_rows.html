@@ -4,7 +4,7 @@
   <table>
     <thead>
       <tr>
-        <th>پرسنل</th><th>واحد</th><th>روز کارکرد</th><th>ناخالص</th>
+        <th>پرسنل</th><th>مرکز هزینه</th><th>روز کارکرد</th><th>ناخالص</th>
         <th>مبنای بیمه</th><th>مبنای مالیات</th><th>بیمه</th><th>مالیات</th>
         <th>جمع کسورات</th><th>خالص پرداختی</th>
       </tr>
@@ -18,7 +18,7 @@
             <div><b>{{ slip.employee.full_name }}</b><small>کد {{ slip.employee.personnel_code|fadigits }}</small></div>
           </div>
         </td>
-        <td data-label="واحد">{{ slip.department.name }}</td>
+        <td data-label="مرکز هزینه">{{ slip.cost_center.name }}</td>
         <td data-label="روز کارکرد" class="num">{{ slip.work_days|fadec }}</td>
         <td data-label="ناخالص" class="num">{{ slip.gross_total|rial }}</td>
         <td data-label="مبنای بیمه" class="num">{{ slip.insurable_base|rial }}</td>

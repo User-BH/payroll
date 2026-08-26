@@ -16,7 +16,7 @@
       </div>
     </div>
   </td>
-  <td data-label="واحد">{{ ts.contract.department.name|default:"—" }}</td>
+  <td data-label="مرکز هزینه">{{ ts.contract.cost_center.name|default:"—" }}</td>
 
   <td data-label="کارکرد اولیه"><input class="input-cell" name="work_days" value="{{ ts.work_days|floatformat:"-2" }}"
              {% if not period.is_editable %}readonly{% endif %} inputmode="decimal"></td>

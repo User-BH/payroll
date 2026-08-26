@@ -277,14 +277,15 @@ class ComponentScopeForm(BootstrapMixin, forms.ModelForm):
     def __init__(self, *args, company=None, **kwargs):
         super().__init__(*args, **kwargs)
         from apps.employees.models import EmploymentContract
-        from apps.org.models import CostCenter, Department, JobTitle
+        from apps.org.models import CostCenter, JobTitle
 
+        # «واحد سازمانی» از فهرست برداشته شد: با مرکز هزینه یک‌به‌یک بود و دو
+        # گزینهٔ هم‌نام کنار هم، فقط کاربر را مردد می‌کرد که کدام را بزند.
+        # دامنه‌های DEPARTMENTِ قدیمی اگر جایی مانده باشند همچنان کار می‌کنند.
         choices = [("", "—")]
-        for department in Department.objects.filter(company=company):
-            choices.append((f"DEPARTMENT:{department.pk}", f"واحد: {department.name}"))
-        for cost_center in CostCenter.objects.filter(company=company):
+        for cost_center in CostCenter.objects.filter(company=company).order_by("name"):
             choices.append((f"COST_CENTER:{cost_center.pk}", f"مرکز هزینه: {cost_center.name}"))
-        for job_title in JobTitle.objects.filter(company=company):
+        for job_title in JobTitle.objects.filter(company=company).order_by("name"):
             choices.append((f"JOB_TITLE:{job_title.pk}", f"پست: {job_title.name}"))
         for value, label in EmploymentContract.ContractType.choices:
             choices.append((f"CONTRACT_TYPE:{value}", f"نوع قرارداد: {label}"))

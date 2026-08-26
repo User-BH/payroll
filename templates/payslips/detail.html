@@ -13,7 +13,7 @@
 
 <div class="panel">
   <div class="slip-head">
-    <div class="slip-meta"><b>واحد سازمانی</b><span>{{ payslip.department.name }}</span></div>
+    <div class="slip-meta"><b>مرکز هزینه</b><span>{{ payslip.cost_center.name }}</span></div>
     <div class="slip-meta"><b>مرکز هزینه</b><span>{{ payslip.cost_center.name }}</span></div>
     <div class="slip-meta"><b>روز کارکرد</b><span class="num">{{ payslip.work_days|fadec }}</span></div>
     <div class="slip-meta"><b>شماره حساب</b><span class="num" style="direction:ltr; font-size:12px;">{{ payslip.account_snapshot|default:"—" }}</span></div>

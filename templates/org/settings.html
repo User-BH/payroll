@@ -2,7 +2,7 @@
 {% load payroll_extras %}
 {% block title %}ساختار سازمانی{% endblock %}
 {% block heading %}شرکت و ساختار سازمانی{% endblock %}
-{% block subheading %}واحد، مرکز هزینه و پست سازمانی — مبنای دامنه شمول اقلام و تفکیک گزارش‌ها{% endblock %}
+{% block subheading %}مرکز هزینه و پست سازمانی — مبنای دامنه شمول اقلام و تفکیک گزارش‌ها{% endblock %}
 
 {% block content %}
 <div class="panel">
@@ -51,15 +51,14 @@
     {% if user.can_edit_payroll %}
     <div style="display:flex; gap:8px;">
       <a class="btn btn-outline btn-sm" href="{% url 'org_item_create' 'cost-center' %}">افزودن مرکز هزینه</a>
-      <a class="btn btn-outline btn-sm" href="{% url 'org_item_create' 'department' %}">افزودن واحد</a>
     </div>
     {% endif %}
   </div>
   <div class="panel-body" style="padding-bottom:0;">
     <div class="note-box" style="margin:0;">
-      سطوح: <b>سازمان › مرکز هزینه › واحد › پرسنل</b>. هر گره کد خودش را دارد و کد
+      سطوح: <b>سازمان › مرکز هزینه › پرسنل</b>. هر گره کد خودش را دارد و کد
       کامل از زنجیرهٔ پدرانش ساخته می‌شود. گزارش‌ها و چاپ فیش روی هر گره تجمیع
-      می‌شوند، یعنی انتخاب یک مرکز هزینه همهٔ واحدهای زیرش را هم می‌آورد.
+      می‌شوند، یعنی انتخاب یک مرکز هزینه همهٔ زیرمجموعه‌هایش را هم می‌آورد.
     </div>
   </div>
 
@@ -86,7 +85,7 @@
               <span class="comp-dot" style="background:{% if not row.node.is_active %}var(--muted){% elif row.is_cost_center %}var(--red){% else %}var(--green){% endif %}"></span>
               <div>
                 <b {% if row.is_cost_center %}style="font-weight:800;"{% endif %}>{{ row.node.name }}</b>
-                <small>{% if row.is_cost_center %}مرکز هزینه{% else %}واحد{% endif %}{% if row.node.gl_account %} · دفتر کل {{ row.node.gl_account|fadigits }}{% endif %}</small>
+                <small>مرکز هزینه{% if row.node.gl_account %} · دفتر کل {{ row.node.gl_account|fadigits }}{% endif %}</small>
               </div>
             </div>
           </td>
@@ -110,7 +109,7 @@
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="5"><div class="empty">هنوز مرکز هزینه یا واحدی تعریف نشده است.</div></td></tr>
+        <tr><td colspan="5"><div class="empty">هنوز مرکز هزینه‌ای تعریف نشده است.</div></td></tr>
         {% endfor %}
       </tbody>
     </table>
