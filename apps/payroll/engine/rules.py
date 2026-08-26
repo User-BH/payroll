@@ -88,6 +88,11 @@ def base_salary(ctx: PayrollContext, component):
 
 @rule("seniority", "پایه سنوات")
 def seniority(ctx: PayrollContext, component):
+    """پایه سنوات = روز کارکرد قابل پرداخت × پایهٔ سنوات روزانهٔ سال.
+
+    فقط برای کسی که دست‌کم یک سال سابقه دارد. عددِ روزانه برای همه یکی است؛
+    آنچه بین افراد فرق می‌کند در سطر «مابه‌التفاوت پایه سنوات» می‌آید.
+    """
     if ctx.seniority_years < 1:
         return None
     daily = ctx.params.seniority_daily
@@ -106,12 +111,18 @@ def seniority(ctx: PayrollContext, component):
 
 @rule("housing_allowance", "حق مسکن")
 def housing_allowance(ctx: PayrollContext, component):
+    """حق مسکن — مبلغ ماهانهٔ سال، تسهیم‌شده روی کارکرد.
+
+    روش تسهیم در «تنظیمات سال مالی» انتخاب می‌شود؛ توضیحش در
+    `PayrollContext.day_ratio` است.
+    """
     monthly = ctx.params.housing_allowance
     return _prorated(ctx, monthly, "حق مسکن")
 
 
 @rule("food_allowance", "بن کارگری")
 def food_allowance(ctx: PayrollContext, component):
+    """بن کارگری — مثل حق مسکن، مبلغ ماهانهٔ سال تسهیم‌شده روی کارکرد."""
     monthly = ctx.params.food_allowance
     return _prorated(ctx, monthly, "بن کارگری")
 
@@ -323,6 +334,11 @@ def leave_pay_monthly(ctx: PayrollContext, component):
 
 @rule("child_allowance", "حق اولاد")
 def child_allowance(ctx: PayrollContext, component):
+    """حق اولاد = تعداد فرزندِ مشمول × مبلغ هر فرزند، تسهیم‌شده روی کارکرد.
+
+    «حداکثر تعداد فرزند» اگر در پارامترهای سال صفر باشد یعنی بی‌سقف. در فایل
+    ۱۴۰۵ شرکت، مبلغ هر فرزند سه برابر حداقل دستمزد روزانه است.
+    """
     count = ctx.children_count
     if count <= 0:
         return None
@@ -542,6 +558,7 @@ def shift_work(ctx: PayrollContext, component):
 
 @rule("contract_allowance", "مزایای مستمر قرارداد")
 def contract_allowance(ctx: PayrollContext, component):
+    """مزایای مستمرِ مختص یک قرارداد، تسهیم‌شده روی کارکرد."""
     monthly = ctx.contract_allowances.get(component.id)
     if not monthly:
         return None
@@ -588,6 +605,10 @@ def manual_input(ctx: PayrollContext, component):
 
 @rule("percentage_of", "درصدی از قلم دیگر")
 def percentage_of(ctx: PayrollContext, component):
+    """درصدی از مبلغ یک قلم دیگرِ همان فیش.
+
+    قلمِ مبنا باید ترتیبش کوچک‌تر باشد، وگرنه موقع محاسبه هنوز صفر است.
+    """
     if not component.base_component_id:
         return None
     base = ctx.amount_of(component.base_component.code)
@@ -848,6 +869,7 @@ def overtime_surplus(ctx: PayrollContext, component):
 
 @rule("fixed_amount", "مبلغ ثابت")
 def fixed_amount(ctx: PayrollContext, component):
+    """مبلغ ثابت ماهانه — بدون تسهیم و بدون وابستگی به کارکرد."""
     if not component.fixed_amount:
         return None
     return LineResult(
@@ -864,6 +886,14 @@ def fixed_amount(ctx: PayrollContext, component):
 
 @rule("insurance_employee", "بیمه سهم کارگر")
 def insurance_employee(ctx: PayrollContext, component):
+    """بیمه سهم کارگر = ماخذ بیمه × نرخ سال.
+
+    ماخذ بیمه جمع اقلامی است که پرچم «مشمول بیمه» دارند؛ در فایل ۱۴۰۵
+    شرکت یعنی جمع پرداختی‌ها منهای حق مأموریت و حق اولاد. سقف قانونی اگر
+    تعریف شده باشد اعمال می‌شود.
+
+    برای پرسنلِ «بدون بیمه» اصلاً سطری ساخته نمی‌شود.
+    """
     if not ctx.insurance_applies:
         return None
     base = ctx.capped_insurable
@@ -945,6 +975,11 @@ def income_tax(ctx: PayrollContext, component):
 
 @rule("loan_installment", "اقساط وام و مساعده")
 def loan_installment(ctx: PayrollContext, component):
+    """جمع اقساطِ سررسیدشدهٔ همین ماه.
+
+    از جدول اقساط خوانده می‌شود نه از مبلغ دستی، تا هر قسط بداند در کدام
+    سطرِ کدام فیش کسر شده و مانده‌اش خودکار به‌روز شود.
+    """
     if not ctx.due_installments:
         return None
     total = sum((item.amount for item in ctx.due_installments), ZERO)
@@ -968,6 +1003,10 @@ def loan_installment(ctx: PayrollContext, component):
 @rule("deduction_manual", "کسور دستی",
       manual_input="عددی که وارد می‌کنید خودِ مبلغ کسور این دوره است.")
 def deduction_manual(ctx: PayrollContext, component):
+    """کسور موردی — مبلغش هر دوره در «مبالغ دستی» وارد می‌شود.
+
+    از خالص کم می‌شود و ماخذ بیمه و مالیات را دست نمی‌زند.
+    """
     amount = ctx.manual_inputs.get(component.id)
     if not amount:
         return None
@@ -1003,6 +1042,11 @@ def _day_only_rule(days: Decimal, label: str):
 
 @rule("absence_days", "غیبت (روز)")
 def absence_days(ctx: PayrollContext, component):
+    """غیبت — فقط تعداد روز روی فیش می‌آید، بدون مبلغ.
+
+    اثر مالی‌اش قبلاً اعمال شده: روزهای غیبت از کارکرد قابل پرداخت کم
+    می‌شوند، پس درج مبلغ ریالی یعنی کسر مضاعف.
+    """
     if not ctx.timesheet:
         return None
     return _day_only_rule(ctx.timesheet.absence_days, "غیبت")
@@ -1010,6 +1054,7 @@ def absence_days(ctx: PayrollContext, component):
 
 @rule("sick_days", "بیماری (روز)")
 def sick_days(ctx: PayrollContext, component):
+    """بیماری — مثل غیبت، فقط روز. مبلغش از کارکرد کم شده است."""
     if not ctx.timesheet:
         return None
     return _day_only_rule(ctx.timesheet.sick_leave_days, "بیماری")
@@ -1017,6 +1062,7 @@ def sick_days(ctx: PayrollContext, component):
 
 @rule("unpaid_leave_days", "مرخصی بدون حقوق (روز)")
 def unpaid_leave_days(ctx: PayrollContext, component):
+    """مرخصی بدون حقوق — مثل غیبت، فقط روز."""
     if not ctx.timesheet:
         return None
     return _day_only_rule(ctx.timesheet.unpaid_leave_days, "مرخصی بدون حقوق")
@@ -1027,6 +1073,10 @@ def unpaid_leave_days(ctx: PayrollContext, component):
 
 @rule("insurance_employer", "بیمه سهم کارفرما")
 def insurance_employer(ctx: PayrollContext, component):
+    """بیمه سهم کارفرما = همان ماخذ بیمه × نرخ کارفرما.
+
+    هزینهٔ کارفرماست و از حقوق پرسنل کسر نمی‌شود، پس روی فیش او نمی‌آید.
+    """
     if not ctx.insurance_applies:
         return None
     base = ctx.capped_insurable
@@ -1044,6 +1094,7 @@ def insurance_employer(ctx: PayrollContext, component):
 
 @rule("unemployment_insurance", "بیمه بیکاری")
 def unemployment_insurance(ctx: PayrollContext, component):
+    """بیمه بیکاری = ماخذ بیمه × نرخ بیکاری. سهم کارفرماست، نه کسر از پرسنل."""
     if not ctx.insurance_applies:
         return None
     base = ctx.capped_insurable

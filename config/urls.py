@@ -127,6 +127,7 @@ urlpatterns = [
     # ---- پیکربندی
     path("settings/", config_views.settings_home, name="settings_home"),
     path("components/", config_views.component_list, name="component_list"),
+    path("settings/formulas/", config_views.formula_book, name="formula_book"),
     path("components/new/", config_views.component_create, name="component_create"),
     path("components/<int:pk>/edit/", config_views.component_edit, name="component_edit"),
     path("components/<int:pk>/toggle/", config_views.component_toggle, name="component_toggle"),

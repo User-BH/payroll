@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% load payroll_extras %}
+{% block title %}دفترچه فرمول‌ها{% endblock %}
+{% block heading %}دفترچه فرمول‌ها{% endblock %}
+{% block subheading %}
+  روش محاسبهٔ هر قلم — از خودِ موتور خوانده می‌شود، نه از متنی که کسی نوشته باشد
+{% endblock %}
+
+{% comment %}
+  این صفحه عمداً هیچ فرمولی را دوباره نمی‌نویسد. هر چه می‌بینید یا مستندِ
+  خودِ قاعده در موتور است، یا توضیحی که همان قاعده هنگام محاسبهٔ یک فیش
+  واقعی ساخته. اگر فردا فرمولی عوض شود، این صفحه خودش عوض می‌شود.
+{% endcomment %}
+
+{% block content %}
+{% if not groups %}
+<div class="panel"><div class="empty">هنوز شرکتی تعریف نشده است.</div></div>
+{% else %}
+
+<div class="note-box" style="margin-bottom:16px;">
+  <b>این صفحه استاتیک نیست.</b> شرح هر قلم از مستندِ همان قاعده در موتور می‌آید و
+  نمونه‌ها، توضیحِ سطرهای واقعیِ تازه‌ترین فیش‌هایند — یعنی همان چیزی که واقعاً
+  اجرا شده. {{ rule_count|fanum }} قاعده در موتور ثبت است.
+  {% if excel_source %}
+  <br>ستون سمت چپ، فرمول همان قلم در فایل «{{ excel_source }}» است.
+  {% endif %}
+</div>
+
+{% for kind, rows in groups.items %}
+<div class="panel">
+  <div class="panel-head">
+    <h3>{{ kind }}</h3>
+    <span class="hint">{{ rows|length|fanum }} قلم</span>
+  </div>
+  <div class="table-wrap">
+    <table class="table formula-book">
+      <thead>
+        <tr>
+          <th style="width:22%;">قلم</th>
+          <th style="width:42%;">آنچه موتور انجام می‌دهد</th>
+          <th style="width:36%;">فرمول اکسل شرکت</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td data-label="قلم">
+            <b>{{ row.component.config_label }}</b>
+            <small class="mono">{{ row.component.code }}</small>
+            <small>{{ row.how }}</small>
+            {% if row.scopes %}
+            <small>دامنه: {{ row.scopes|join:"، " }}</small>
+            {% endif %}
+            {% if row.absorbs %}
+            <small>جذب می‌کند: {{ row.absorbs|join:"، " }}</small>
+            {% endif %}
+            <small>
+              {% if row.component.is_insurable %}مشمول بیمه{% else %}معاف از بیمه{% endif %} ·
+              {% if row.component.is_taxable %}مشمول مالیات{% else %}معاف از مالیات{% endif %}
+            </small>
+          </td>
+
+          <td data-label="موتور">
+            <div class="rule-doc">{{ row.detail }}</div>
+            {% for sample in row.samples %}
+            <div class="rule-sample">
+              <b>{{ sample.who }}</b> · {{ sample.period }} · {{ sample.amount|rial }} ریال
+              <span>{{ sample.text }}</span>
+            </div>
+            {% empty %}
+            <div class="rule-sample muted-note">
+              هنوز روی هیچ فیشی نیامده، پس نمونهٔ اجراشده‌ای ندارد.
+            </div>
+            {% endfor %}
+          </td>
+
+          <td data-label="اکسل">
+            {% if row.excel %}
+            <small>ستون «{{ row.excel.0 }}»</small>
+            <pre class="mono excel-formula">{{ row.excel.1 }}</pre>
+            {% with hit=row.excel.2.0 total=row.excel.2.1 %}
+              {% if hit == total %}
+              <span class="badge ok"><span class="dot"></span>همهٔ {{ total|fanum }} سطر</span>
+              {% else %}
+              <span class="badge wait"><span class="dot"></span>
+                {{ hit|fanum }} از {{ total|fanum }} سطر — بقیه دستی عوض شده‌اند
+              </span>
+              {% endif %}
+            {% endwith %}
+            {% else %}
+            <span class="hint">در فایل اکسل ستون متناظری ندارد</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endfor %}
+
+<div class="panel">
+  <div class="panel-head"><h3>مقایسه با فایل اکسل</h3></div>
+  <div class="panel-body">
+    <p style="margin:0 0 10px;">
+      {{ excel_matched|fanum }} قلم با ستونی در فایل شرکت تطبیق داده شده‌اند.
+    </p>
+    {% if excel_missing %}
+    <div class="note-box" style="margin:0;">
+      <b>{{ excel_missing|length|fanum }} قلم در فایل اکسل ستون متناظر ندارند:</b>
+      {% for item in excel_missing %}«{{ item.name }}»{% if not forloop.last %} · {% endif %}{% endfor %}.
+      <br>یعنی یا در سامانه ساخته شده‌اند و در فایل نبوده‌اند، یا نامشان با
+      ستون فایل یکی نیست. هیچ‌کدام لزوماً ایراد نیست، ولی هرکدام باید دلیل داشته باشد.
+    </div>
+    {% else %}
+    <span class="badge ok"><span class="dot"></span>هر قلمی که باید، ستون متناظرش را دارد</span>
+    {% endif %}
+  </div>
+</div>
+
+{% endif %}
+{% endblock %}

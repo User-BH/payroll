@@ -686,3 +686,22 @@ input.jdate{font-variant-numeric:tabular-nums;}
 
 /* خطای زیر هر ورودی فرم — پیش از این هر قالب استایلش را inline تکرار می‌کرد */
 .field-error{color:var(--red); font-size:11.5px; margin-top:5px; font-weight:600;}
+
+/* ------------------------------------------------------- دفترچه فرمول‌ها
+   سه ستون کنار هم: قلم، آنچه موتور می‌کند، و فرمول اکسل. متن‌ها بلندند پس
+   سطرها از بالا تراز می‌شوند نه از وسط. */
+.formula-book td{vertical-align:top; padding-block:12px;}
+.formula-book td small{display:block; font-size:11px; color:var(--muted); margin-top:3px;}
+.formula-book .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; direction:ltr; text-align:start;}
+.rule-doc{font-size:12.5px; line-height:1.95; white-space:pre-wrap;}
+.rule-sample{
+  margin-top:8px; padding:8px 10px; border-radius:8px;
+  background:var(--paper); border:1px solid var(--line); font-size:11.5px; line-height:1.8;
+}
+.rule-sample span{display:block; color:var(--muted); margin-top:3px;}
+.rule-sample.muted-note{color:var(--muted); background:transparent;}
+.excel-formula{
+  margin:4px 0 8px; padding:8px 10px; border-radius:8px; overflow-x:auto;
+  background:var(--paper); border:1px solid var(--line);
+  font-size:11.5px; line-height:1.7; white-space:pre-wrap; word-break:break-all;
+}

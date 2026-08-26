@@ -277,3 +277,17 @@ def fiscal_settings(request):
             "brackets": brackets,
         },
     )
+
+
+@payroll_staff_required
+def formula_book(request):
+    """دفترچهٔ فرمول‌ها — روش محاسبهٔ هر قلم، از خودِ موتور."""
+    from apps.org.models import Company
+
+    from apps.payroll.formulas import build
+
+    company = Company.objects.first()
+    context = {"company": company}
+    if company is not None:
+        context.update(build(company))
+    return render(request, "settings/formulas.html", context)

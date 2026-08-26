@@ -87,6 +87,7 @@ SECTIONS = {
     # ---------------------------------------------------------- تنظیمات
     "settings_home": ("settings", "home"),
     "component_list": ("settings", "components"),
+    "formula_book": ("settings", "formulas"),
     "component_create": ("settings", "components"),
     "component_edit": ("settings", "components"),
     "component_toggle": ("settings", "components"),
@@ -158,6 +159,7 @@ def _tabs_for(section, period, user):
         tabs = [
             ("home", "همه تنظیمات", "settings_home", []),
             ("components", "اقلام حقوقی", "component_list", []),
+            ("formulas", "دفترچه فرمول‌ها", "formula_book", []),
             ("timesheet_items", "اقلام کارکرد", "timesheet_items", []),
             ("fiscal", "سال مالی و مالیات", "fiscal_settings", []),
             ("org", "شرکت و چارت", "org_settings", []),
