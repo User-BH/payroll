@@ -125,6 +125,7 @@
       <div>
         <span class="k">سهمیه امسال</span>
         <b class="v">{{ lv.total|dhm }}</b>
+        <span class="s">{{ lv.total|equiv }}</span>
         <span class="s">انتقالی {{ lv.carried_over|dhm }} + استحقاقی {{ lv.annual|dhm }}</span>
       </div>
       <div>
@@ -135,7 +136,12 @@
       <div>
         <span class="k">مانده تا آخر سال</span>
         <b class="v hi">{{ lv.remaining|dhm }}</b>
-        <span class="s">&nbsp;</span>
+        {% comment %}
+          معادلِ ساعت کنار روز می‌نشیند تا معلوم باشد آن روز چند ساعت است —
+          مبنایش روزِ کاری ۷ ساعت و ۲۰ دقیقه است، نه ۲۴ ساعت. فیش کاغذی
+          شرکت هم همین را می‌نویسد.
+        {% endcomment %}
+        <span class="s">{{ lv.remaining|equiv }}</span>
       </div>
     </div>
   </div>

@@ -143,3 +143,29 @@ def hours_minutes(value):
     if minutes:
         parts.append(f"{fa_digits(minutes)} دقیقه")
     return sign + " و ".join(parts or [f"{fa_digits(0)} دقیقه"])
+
+
+@register.filter(name="equiv")
+def leave_equivalent(minutes, day_minutes=440):
+    """دقیقهٔ مرخصی → «معادل ۱۱۷ ساعت و ۲۰ دقیقه».
+
+    کنار «۱۶ روز» می‌نشیند تا معلوم باشد آن روز چند ساعت است. مبنایش روزِ
+    کاری است، نه ۲۴ ساعت: هر روز مرخصی ۷ ساعت و ۲۰ دقیقه (۴۴۰ دقیقه) است، و
+    همین عدد در «پارامترهای سال مالی» ثبت می‌شود.
+
+    فیش کاغذی شرکت هم دقیقاً همین را می‌نویسد: «۳۵ روز معادل ۲۵۶ ساعت و ۴۰
+    دقیقه».
+    """
+    from apps.payroll.utils import _to_decimal, fa_digits
+
+    total = _to_decimal(minutes)
+    if total is None or total == 0:
+        return ""
+    sign = "منفی " if total < 0 else ""
+    hours, mins = divmod(int(abs(total)), 60)
+    parts = []
+    if hours:
+        parts.append(f"{fa_digits(hours)} ساعت")
+    if mins:
+        parts.append(f"{fa_digits(mins)} دقیقه")
+    return "معادل " + sign + " و ".join(parts)
