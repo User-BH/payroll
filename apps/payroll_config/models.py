@@ -136,8 +136,9 @@ class LegalParameter(models.Model):
         choices=[
             ("MONTH_DAYS", "به نسبت روزهای همان ماه (کارکرد ÷ طول ماه)"),
             ("FIXED_31", "مخرج ثابت ۳۱ — و کارکرد ۳۰ روز، کاملِ ماه"),
+            ("MONTH_30", "ماهِ کامل → کامل؛ ناقص → کارکرد ÷ ۳۰"),
         ],
-        help_text="حالت دوم روش فایل ۱۴۰۵ این شرکت است",
+        help_text="حالت سوم رویهٔ رایج قانون کار است؛ حالت دوم روش فایل ۱۴۰۵ این شرکت",
     )
     mission_base = models.CharField(
         "مبنای حق مأموریت", max_length=16, default="MONTHLY_RATE",

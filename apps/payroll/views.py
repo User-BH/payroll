@@ -169,6 +169,17 @@ def period_create(request):
             return redirect("period_list")
 
         start, end = jalali_month_range(fiscal_year.year, month)
+        calendar_days = (end - start).days + 1
+        # روزهای ماه کاری از کاربر پرسیده می‌شود ولی پیش‌فرضش تقویم است؛
+        # عددِ بی‌معنا (خارج از ۲۸ تا ۳۱) نادیده گرفته می‌شود تا یک اشتباه
+        # تایپی، مزایای ثابتِ کل دوره را جابه‌جا نکند.
+        try:
+            base_days = int(request.POST.get("base_days") or calendar_days)
+        except ValueError:
+            base_days = calendar_days
+        if not 28 <= base_days <= 31:
+            base_days = calendar_days
+
         period = PayrollPeriod.objects.create(
             company=company,
             fiscal_year=fiscal_year,
@@ -176,6 +187,7 @@ def period_create(request):
             month=month,
             start_date=start,
             end_date=end,
+            base_days=base_days,
         )
         messages.success(
             request, f"دوره {period.title} ساخته شد. حالا کارکرد ماهانه را ثبت کنید."
@@ -188,7 +200,19 @@ def period_create(request):
         "periods/create.html",
         {
             "years": years,
-            "months": list(enumerate(JALALI_MONTHS, start=1)),
+            # روزهای هر ماه کنار نامش می‌رود تا انتخابگرِ «روزهای ماه کاری»
+            # با عوض شدن ماه خودش تنظیم شود. اسفند از تقویم سالِ انتخابی
+            # می‌آید (۲۹ یا ۳۰ در کبیسه)، نه از عددی ثابت.
+            "months": [
+                (
+                    number,
+                    name,
+                    (jalali_month_range(years[0].year, number)[1]
+                     - jalali_month_range(years[0].year, number)[0]).days + 1
+                    if years else 30,
+                )
+                for number, name in enumerate(JALALI_MONTHS, start=1)
+            ],
             "taken": [f"{y}-{m}" for y, m in taken],
         },
     )

@@ -22,10 +22,31 @@
       <div class="field">
         <label for="month">ماه</label>
         <select class="input" id="month" name="month" required>
-          {% for number, name in months %}
-          <option value="{{ number }}">{{ name }}</option>
+          {% for number, name, days in months %}
+          <option value="{{ number }}" data-days="{{ days }}">{{ name }}</option>
           {% endfor %}
         </select>
+      </div>
+      {% comment %}
+        روزهای ماه کاری. پیش‌فرضش از تقویم جلالی می‌آید و با عوض شدن ماه
+        خودش به‌روز می‌شود، ولی قابل تغییر است: تقویم همیشه با رویهٔ کارگاه
+        یکی نیست.
+
+        کارِ این عدد فقط یک تصمیم است — «آیا این پرسنل ماه را کامل کار کرده؟»
+        مزایای ثابت برای ماهِ کامل، کامل پرداخت می‌شوند؛ چه ماه ۲۹ روزه باشد
+        چه ۳۱ روزه.
+      {% endcomment %}
+      <div class="field">
+        <label for="base_days">روزهای ماه کاری</label>
+        <select class="input" id="base_days" name="base_days">
+          <option value="29">۲۹ روز</option>
+          <option value="30">۳۰ روز</option>
+          <option value="31" selected>۳۱ روز</option>
+        </select>
+        <div class="explain">
+          مبنای «ماهِ کامل» برای حق مسکن، بن، اولاد و تأهل — با انتخاب ماه
+          خودش تنظیم می‌شود
+        </div>
       </div>
     </div>
   </div>
@@ -34,4 +55,23 @@
     <a class="btn btn-outline" href="{% url 'period_list' %}">انصراف</a>
   </div>
 </form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  /* «روزهای ماه کاری» با انتخاب ماه خودش تنظیم می‌شود.
+     کاربر همچنان می‌تواند عوضش کند — این فقط پیش‌فرضِ درست را می‌گذارد تا
+     کسی ناچار نباشد یادش بماند اسفند چند روز است. */
+  (function () {
+    var month = document.getElementById('month');
+    var base = document.getElementById('base_days');
+    if (!month || !base) return;
+    function sync() {
+      var days = month.options[month.selectedIndex].getAttribute('data-days');
+      if (days) base.value = days;
+    }
+    month.addEventListener('change', sync);
+    sync();
+  })();
+</script>
 {% endblock %}

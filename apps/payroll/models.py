@@ -50,6 +50,21 @@ class PayrollPeriod(models.Model):
 
     start_date = models.DateField("شروع دوره")
     end_date = models.DateField("پایان دوره")
+
+    # طول ماهِ کاری این دوره — پایهٔ «ماهِ کامل».
+    #
+    # از تقویم جلالی پیش‌فرض می‌گیرد (۳۱ در نیمهٔ اول سال، ۳۰ در نیمهٔ دوم،
+    # اسفند ۲۹ یا ۳۰) ولی هنگام ساخت دوره پرسیده می‌شود، چون همیشه با تقویم
+    # یکی نیست: تعطیلی رسمی، شروع دیرهنگام کارگاه، یا رویهٔ خودِ شرکت
+    # می‌تواند عوضش کند.
+    #
+    # کارِ این عدد فقط یک تصمیم است: «آیا این پرسنل ماه را کامل کار کرده؟»
+    # مبلغِ مزایای ثابت برای ماهِ کامل، کامل پرداخت می‌شود — چه ماه ۲۹ روزه
+    # باشد چه ۳۱ روزه.
+    base_days = models.PositiveSmallIntegerField(
+        "روزهای ماه کاری", null=True, blank=True,
+        help_text="خالی یعنی از تقویم همان ماه گرفته شود",
+    )
     payment_date = models.DateField("تاریخ پرداخت", null=True, blank=True)
 
     status = models.CharField("وضعیت", max_length=20, choices=Status.choices, default=Status.DRAFT)
@@ -105,6 +120,8 @@ class PayrollPeriod(models.Model):
         عددِ «روز کارکرد» هر پرسنل جداگانه و دستی وارد می‌شود؛ این فقط مخرج
         محاسبه و مقدار پیش‌فرض ورودی است.
         """
+        if self.base_days:
+            return Decimal(self.base_days)
         if self.start_date and self.end_date:
             return Decimal((self.end_date - self.start_date).days + 1)
         return None

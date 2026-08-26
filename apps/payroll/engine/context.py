@@ -113,11 +113,27 @@ class PayrollContext:
         """
         if not self.month_days:
             return ZERO
-        if getattr(self.params, "allowance_proration", "") != "FIXED_31":
-            return self.paid_days / self.month_days
-        if self.paid_days >= Decimal("30"):
-            return Decimal("1")
-        return self.paid_days / Decimal("31")
+        mode = getattr(self.params, "allowance_proration", "MONTH_DAYS")
+
+        if mode == "FIXED_31":
+            if self.paid_days >= Decimal("30"):
+                return Decimal("1")
+            return self.paid_days / Decimal("31")
+
+        if mode == "MONTH_30":
+            # رویهٔ رایج: «ماهِ کاری ۳۰ روز است».
+            #
+            # ماهِ کامل — چه ۲۹ روزه باشد چه ۳۱ روزه — مزایای ثابتش کامل
+            # پرداخت می‌شود؛ همان چیزی که قانون کار حقوق ماهانه را با آن
+            # تعریف می‌کند (مزد روزانه × ۳۰). ماهِ ناقص بر ۳۰ تقسیم می‌شود.
+            #
+            # سقف لازم است: در ماه ۳۱ روزه، ۳۱ ÷ ۳۰ می‌شد ۱۰۳٪ و مزایای ثابت
+            # بیشتر از مبلغ ماهانه‌اش پرداخت می‌شد.
+            if self.paid_days >= self.month_days:
+                return Decimal("1")
+            return min(self.paid_days / Decimal("30"), Decimal("1"))
+
+        return self.paid_days / self.month_days
 
     # ---------------------------------------------------------------- مزد
 
