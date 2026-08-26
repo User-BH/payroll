@@ -522,12 +522,13 @@ def _leave_entitlement(sheet, row, employee, period, day_minutes, month_minutes)
     row_obj.opening_used_minutes = opening
     row_obj.opening_through_month = through
     row_obj.note = f"از فایل «{sheet.title}»"
-    if not row_obj.annual_is_manual:
-        gap = annual - row_obj.computed_annual_minutes
+    computed = row_obj.computed_annual_minutes
+    if not row_obj.annual_is_manual and computed is not None:
+        gap = annual - computed
         if annual and gap:
             row_obj.note += (
                 f" · استحقاقی فایل {annual // day_minutes} روز بود، "
-                f"قاعده {row_obj.computed_annual_minutes // day_minutes} روز"
+                f"قاعده {computed // day_minutes} روز"
             )
     row_obj.save()
 

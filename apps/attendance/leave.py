@@ -166,9 +166,9 @@ def balances_for(period, day_minutes=DEFAULT_DAY_MINUTES) -> dict:
             carried_over=item.carried_over_minutes if item else 0,
             annual=(
                 item.annual_minutes if item
-                else annual_entitlement_minutes(
+                else (annual_entitlement_minutes(
                     fallback, period.fiscal_year, params, day_minutes
-                ) if fallback else 0
+                ) or 0) if fallback else 0
             ),
             used_period=int(current.get(employee_id, 0)),
             used_ytd=int(used_ytd),
@@ -224,7 +224,7 @@ def compute_balance(employee, period, day_minutes=DEFAULT_DAY_MINUTES) -> LeaveB
             entitlement.annual_minutes if entitlement
             else annual_entitlement_minutes(
                 employee, period.fiscal_year, day_minutes=day_minutes
-            )
+            ) or 0
         ),
         used_period=int(used_period),
         used_ytd=int(used_ytd),
@@ -255,13 +255,15 @@ def annual_entitlement_days(employee, fiscal_year, params=None):
     if params is None:
         params = fiscal_year.legal_parameters.order_by("-effective_from").first()
     base = Decimal(getattr(params, "annual_leave_days", 0) or 0)
+    # نبودِ پارامتر یعنی «نمی‌دانم»، نه «صفر». اگر صفر برگردانیم، ذخیرهٔ خودکار
+    # سهمیهٔ همه را پاک می‌کند — و پاک شدنش روی فیش دیده می‌شود، نه اینجا.
     if not base:
-        return Decimal("0")
+        return None
 
     hire = getattr(employee, "hire_date", None)
     start = max(hire, fiscal_year.start_date) if hire else fiscal_year.start_date
     if start > fiscal_year.end_date:
-        return Decimal("0")
+        return Decimal("0")  # هنوز استخدام نشده — این یکی واقعاً صفر است
 
     days = Decimal((fiscal_year.end_date - start).days + 1)
     return (base * days / Decimal("365")).quantize(
@@ -276,4 +278,4 @@ def annual_entitlement_minutes(employee, fiscal_year, params=None, day_minutes=N
     if day_minutes is None:
         day_minutes = getattr(params, "leave_day_minutes", DEFAULT_DAY_MINUTES)
     days = annual_entitlement_days(employee, fiscal_year, params)
-    return int(days * Decimal(day_minutes))
+    return None if days is None else int(days * Decimal(day_minutes))

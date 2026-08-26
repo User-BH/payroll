@@ -428,7 +428,9 @@ class LeaveEntitlement(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.annual_is_manual:
-            self.annual_minutes = self.computed_annual_minutes
+            computed = self.computed_annual_minutes
+            if computed is not None:
+                self.annual_minutes = computed
         super().save(*args, **kwargs)
 
     @property

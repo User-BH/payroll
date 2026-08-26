@@ -60,7 +60,9 @@ def _rows(fiscal_year, query):
     for employee in employees:
         item = entitlements.get(employee.pk)
         balance = balances.get(employee.pk)
-        computed = annual_entitlement_minutes(employee, fiscal_year, params, day_minutes)
+        computed = annual_entitlement_minutes(
+            employee, fiscal_year, params, day_minutes
+        ) or 0
         rows.append({
             "employee": employee,
             "carried_days": round((item.carried_over_minutes if item else 0) / day_minutes, 2),
@@ -183,7 +185,7 @@ def entitlement_fill_all(request):
             carried_over_minutes=int(round(float(carried) * day_minutes)),
             annual_minutes=annual_entitlement_minutes(
                 employee, fiscal_year, params, day_minutes
-            ),
+            ) or 0,
         )
         for employee in missing
     ]
