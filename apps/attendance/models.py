@@ -52,6 +52,21 @@ class Timesheet(models.Model):
         "مرخصی استحقاقی (روز)", max_digits=6, decimal_places=2, default=0,
         help_text="خودکار از روی دقیقه محاسبه می‌شود",
     )
+    # مبلغ اضافه‌کاری، وقتی مدیریت خودش عدد می‌دهد.
+    #
+    # روال شرکت این است که روز و ساعت و دقیقهٔ اضافه‌کاری اعلام می‌شود و
+    # **روبه‌رویش مبلغ نوشته می‌شود** — مبلغی که لزوماً از ضربِ ساعت در مبنای
+    # سال درنمی‌آید. تا امروز سامانه فقط ساعت را می‌گرفت و مبلغ را خودش
+    # می‌ساخت، پس آن عدد جایی برای نشستن نداشت.
+    #
+    # `None` یعنی «ثبت نشده، خودت حساب کن» و صفر یعنی «صفر است». این تفاوت
+    # عمدی است: با صفرِ پیش‌فرض، هرکس که مبلغ وارد نمی‌کرد اضافه‌کاری‌اش صفر
+    # می‌شد.
+    overtime_amount = models.DecimalField(
+        "مبلغ اضافه‌کاری (ریال)", max_digits=18, decimal_places=0,
+        null=True, blank=True,
+        help_text="خالی بگذارید تا از ساعت و مبنای سال مالی حساب شود",
+    )
     sick_leave_days = models.DecimalField("مرخصی استعلاجی", max_digits=6, decimal_places=2, default=0)
     mission_days = models.DecimalField("مأموریت", max_digits=6, decimal_places=2, default=0)
 

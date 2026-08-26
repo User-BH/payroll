@@ -33,9 +33,14 @@ class SampleContext:
 
     @property
     def day_ratio(self) -> Decimal:
-        if not self.month_days:
-            return ZERO
-        return self.paid_days / self.month_days
+        """همان قاعدهٔ بسترِ واقعی — عمداً از آن قرض گرفته می‌شود.
+
+        اگر اینجا کپی می‌شد، روزی که قاعده در `PayrollContext` عوض شود
+        پیش‌نمایش عددِ دیگری می‌داد و کاربر بر مبنای آن تصمیم می‌گرفت.
+        """
+        from apps.payroll.engine.context import PayrollContext
+
+        return PayrollContext.day_ratio.fget(self)
 
     def amount_of(self, code: str) -> Decimal:
         return self.amounts.get(code, ZERO)

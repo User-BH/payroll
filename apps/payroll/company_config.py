@@ -122,6 +122,14 @@ def configure(company, stdout=None):
         params.save(update_fields=["overtime_base"])
         say("مبنای اضافه‌کاری → (مزد روزانه + پایه سنوات) × ۳۰ ÷ ساعات کار ماهانه")
 
+    # تسهیم مسکن، بن، اولاد و تأهل روی کارکرد ناقص. فایل شرکت مخرج را ۳۱ ثابت
+    # می‌گیرد و کارکرد ۳۰ روز را کاملِ ماه حساب می‌کند. در تیر و مرداد این با
+    # روش پیش‌فرض یک جواب می‌دهد، ولی از مهر (ماه‌های ۳۰ روزه) جدا می‌شوند.
+    if params and params.allowance_proration != "FIXED_31":
+        params.allowance_proration = "FIXED_31"
+        params.save(update_fields=["allowance_proration"])
+        say("تسهیم مزایای ثابت → مخرج ۳۱، و کارکرد ۳۰ روز کاملِ ماه")
+
     # ------------------------------------------------------- اقلام تازه
     codes_new = {}
     for (code, name, kind, calc, rule, seq, ins, tax, printed, color) in NEW_COMPONENTS:

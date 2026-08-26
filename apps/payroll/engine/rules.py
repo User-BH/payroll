@@ -221,14 +221,26 @@ def overtime(ctx: PayrollContext, component):
             else "مزد ساعتی"
         )
 
-    amount = hourly * factor * hours if hours and hours > 0 else ZERO
+    # مبلغِ اعلامیِ مدیریت، اگر ثبت شده باشد، **کل مبلغ اضافه‌کاری** است و
+    # جای محاسبه را می‌گیرد — نه اینکه رویش اضافه شود. روال شرکت این است که
+    # ساعت اعلام می‌شود و روبه‌رویش مبلغ نوشته می‌شود، و آن مبلغ لزوماً از
+    # ضربِ ساعت در مبنای سال درنمی‌آید.
+    #
+    # ساعت همچنان روی فیش می‌نشیند، چون سطر فیش باید بگوید بابت چند ساعت.
+    declared = getattr(ctx.timesheet, "overtime_amount", None) if ctx.timesheet else None
     parts = []
-    if hours and hours > 0:
-        rate_note = "" if monthly_rate else f" × {fa_number(factor, 3)}"
-        parts.append(
-            f"اضافه‌کاری: {fa_number(hours, 2)} ساعت × {fa_wage(hourly)} ریال "
-            f"{basis}{rate_note}"
-        )
+    if declared is not None:
+        amount = Decimal(declared)
+        hour_note = f" برای {fa_number(hours, 2)} ساعت" if hours and hours > 0 else ""
+        parts.append(f"اضافه‌کاری: مبلغ اعلامی{hour_note}")
+    else:
+        amount = hourly * factor * hours if hours and hours > 0 else ZERO
+        if hours and hours > 0:
+            rate_note = "" if monthly_rate else f" × {fa_number(factor, 3)}"
+            parts.append(
+                f"اضافه‌کاری: {fa_number(hours, 2)} ساعت × {fa_wage(hourly)} ریال "
+                f"{basis}{rate_note}"
+            )
 
     transferred = ctx.commission_to_overtime
     if transferred:
@@ -239,13 +251,15 @@ def overtime(ctx: PayrollContext, component):
             f"({fa_number(ctx.commission_overtime_hours, 2)} ساعت)"
         )
 
+    # با مبلغ اعلامی، صفر هم معنادار است («این ماه اضافه‌کاری ندارد») ولی
+    # سطرِ صفر روی فیش چیزی اضافه نمی‌کند، پس مثل قبل حذف می‌شود.
     if amount <= ZERO:
         return None
     return LineResult(
         amount=amount,
-        base_amount=hourly,
+        base_amount=(amount / hours) if (declared is not None and hours) else hourly,
         quantity=hours,
-        rate=factor,
+        rate=Decimal("1") if declared is not None else factor,
         explanation=" — ".join(parts),
     ).rounded()
 
@@ -618,6 +632,24 @@ def overtime_surplus(ctx: PayrollContext, component):
     ماندهٔ گرد کردن (`residue`) عمداً جبران نمی‌شود — در فایل شرکت هم نمی‌شود —
     ولی در توضیح سطر نوشته می‌شود تا حسابدار ببیندش.
     """
+    # مبلغ اعلامیِ مدیریت اینجا هم مقدم است. اگر کسی مبلغ نوشته باشد، همان
+    # کل اضافه‌کاری اوست و زنجیره برای این سطر دور زده می‌شود.
+    #
+    # روز مأموریتِ زنجیره سر جایش می‌ماند: آن گام جداگانه‌ای است و مبلغی که
+    # برای اضافه‌کاری اعلام شده دربارهٔ مأموریت چیزی نمی‌گوید.
+    declared = getattr(ctx.timesheet, "overtime_amount", None) if ctx.timesheet else None
+    if declared is not None:
+        amount = Decimal(declared)
+        if amount <= ZERO:
+            return None
+        return LineResult(
+            amount=amount,
+            base_amount=amount,
+            quantity=ctx.overtime_minutes / Decimal("60"),
+            rate=Decimal("1"),
+            explanation="اضافه‌کاری: مبلغ اعلامی — جای محاسبهٔ زنجیرهٔ مازاد را گرفت",
+        ).rounded()
+
     plan = ctx.surplus
     hours, minutes = plan.overtime_hours, plan.overtime_extra_minutes
     if not hours and not minutes:

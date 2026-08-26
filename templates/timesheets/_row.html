@@ -73,6 +73,22 @@
     </div>
   </td>
 
+  {% comment %}
+    مبلغ اعلامیِ اضافه‌کاری، کنار ساعت. روال شرکت این است که ساعت اعلام
+    می‌شود و روبه‌رویش مبلغ نوشته می‌شود — مبلغی که لزوماً از ضربِ ساعت در
+    مبنای سال درنمی‌آید.
+
+    خالی یعنی «خودت از ساعت حساب کن»؛ هر عددی که وارد شود **کل مبلغ**
+    اضافه‌کاری همان ماه است.
+  {% endcomment %}
+  <td data-label="مبلغ اضافه‌کاری">
+    <input class="input-cell" style="width:104px;" name="ot_amount"
+           value="{{ ts.overtime_amount|default_if_none:"" }}"
+           placeholder="از ساعت"
+           {% if not period.is_editable %}readonly{% endif %} inputmode="numeric"
+           title="خالی = از ساعت و مبنای سال حساب شود">
+  </td>
+
   {% comment %} ستون‌های تازه — از جدول اقلام کارکرد می‌آیند، نه از این قالب {% endcomment %}
   {% for cell in ts.extra_cells %}
   <td data-label="{{ cell.item.name }}"><input class="input-cell" name="{{ cell.field }}"

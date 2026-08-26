@@ -302,6 +302,12 @@ def timesheet_save(request, pk):
     if any(f in request.POST for f in OVERTIME_FIELDS):
         timesheet.overtime_minutes = minutes_from_parts(request.POST, "ot", day_minutes)
 
+    # مبلغ اعلامیِ اضافه‌کاری. خالی یعنی «خودت از ساعت حساب کن» و صفر یعنی
+    # «صفر است» — پس رشتهٔ خالی به None تبدیل می‌شود، نه به صفر.
+    if "ot_amount" in request.POST:
+        raw = (request.POST.get("ot_amount") or "").strip()
+        timesheet.overtime_amount = parse_decimal(raw) if raw else None
+
     if request.POST.get("approve") == "1":
         timesheet.status = Timesheet.Status.APPROVED
         timesheet.approved_by = request.user
