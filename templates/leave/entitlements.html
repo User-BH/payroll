@@ -3,10 +3,19 @@
 {% block title %}سهمیه مرخصی{% endblock %}
 {% block heading %}سهمیه مرخصی سال {{ fiscal_year.year|fadigits }}{% endblock %}
 {% block subheading %}
-  انتقالی از سال قبل و استحقاقی سال. مصرفی و مانده همیشه از روی کارکرد ساخته می‌شوند — مگر ماه‌هایی که پیش از راه‌اندازی سامانه گذشته‌اند و کارکردی ندارند
+  استحقاقی سال از تاریخ استخدام ساخته می‌شود — ۲۶ روز برای سال کامل، و به تناسب ۳۶۵ روز برای کسی که وسط سال آمده، با گرد کردن به بالا. فقط انتقالی از سال قبل وارد می‌شود. مصرفی و مانده همیشه از روی کارکرد ساخته می‌شوند — مگر ماه‌هایی که پیش از راه‌اندازی سامانه گذشته‌اند و کارکردی ندارند
 {% endblock %}
 
 {% block content %}
+<style>
+  /* کادر استحقاقی: عدد و تیکِ «دستی» کنار هم، بدون شکستن عرض ستون */
+  .ent-annual { display:flex; align-items:center; gap:6px; }
+  .ent-annual .input-cell { flex:1; min-width:0; }
+  .ent-annual .input-cell[readonly] { background:var(--bg-soft,#f6f7f9); color:var(--muted); cursor:not-allowed; }
+  .ent-manual { display:flex; align-items:center; gap:3px; font-size:11px; color:var(--muted); white-space:nowrap; cursor:pointer; }
+  .ent-manual input { margin:0; }
+  .ent-hint { display:block; margin-top:3px; font-size:11px; color:var(--muted); }
+</style>
 {% if not fiscal_year %}
 <div class="panel"><div class="empty">سال مالی تعریف نشده است.</div></div>
 {% else %}
@@ -25,8 +34,10 @@
       {% csrf_token %}
       <input type="hidden" name="fiscal_year" value="{{ fiscal_year.pk }}">
       <div class="field" style="margin:0;">
-        <label for="annual">استحقاقی سال (روز)</label>
-        <input class="input" id="annual" name="annual_days" value="26" style="width:150px;" inputmode="decimal">
+        <label>استحقاقی سال (روز)</label>
+        <div class="input" style="width:230px; display:flex; align-items:center; color:var(--muted); font-size:12px;">
+          از تاریخ استخدام هرکس
+        </div>
       </div>
       <div class="field" style="margin:0;">
         <label for="carried">انتقالی از سال قبل (روز)</label>

@@ -94,6 +94,12 @@ class LegalParameter(models.Model):
 
     # --- مبناهای زمانی
     monthly_days = models.DecimalField("روز کارکرد ماه", max_digits=5, decimal_places=2, default=Decimal("30"))
+    annual_leave_days = models.DecimalField(
+        "مرخصی استحقاقی سال کامل (روز)", max_digits=5, decimal_places=2,
+        default=Decimal("26"),
+        help_text="سهمیهٔ کسی که تمام سال را کار کرده. سهمیهٔ استخدام‌شدهٔ وسط "
+                  "سال از همین عدد و به تناسب ۳۶۵ روز حساب می‌شود.",
+    )
     leave_day_minutes = models.PositiveSmallIntegerField(
         "طول یک روز مرخصی (دقیقه)", default=440,
         help_text="۴۴۰ دقیقه = ۷ ساعت و ۲۰ دقیقه — مطابق فیش فعلی شرکت",

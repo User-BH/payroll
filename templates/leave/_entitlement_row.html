@@ -17,7 +17,19 @@
     </div>
   </td>
   <td data-label="انتقالی (روز)"><input class="input-cell" name="carried_days" value="{{ row.carried_days }}" inputmode="decimal"></td>
-  <td data-label="استحقاقی (روز)"><input class="input-cell" name="annual_days" value="{{ row.annual_days }}" inputmode="decimal"></td>
+  <td data-label="استحقاقی (روز)">
+    <div class="ent-annual">
+      <input class="input-cell" name="annual_days" value="{{ row.annual_days }}"
+             inputmode="decimal"{% if not row.is_manual %} readonly{% endif %}>
+      <label class="ent-manual" title="سهمیه از تاریخ استخدام محاسبه می‌شود؛ برای وارد کردن عدد دیگری این را بزنید">
+        <input type="checkbox" name="annual_is_manual"{% if row.is_manual %} checked{% endif %}>
+        دستی
+      </label>
+    </div>
+    {% if row.is_manual and row.computed_days != row.annual_days %}
+      <small class="ent-hint">قاعده: {{ row.computed_days|fanum }} روز</small>
+    {% endif %}
+  </td>
   <td data-label="مصرفی پیش از سامانه (روز)"><input class="input-cell" name="opening_days" value="{{ row.opening_days }}" inputmode="decimal"></td>
   <td data-label="تا پایان ماه">
     <select class="input-cell" name="opening_through_month">

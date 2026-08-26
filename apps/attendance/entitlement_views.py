@@ -6,7 +6,12 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from apps.accounts.decorators import can_edit_required, payroll_staff_required
-from apps.attendance.leave import DEFAULT_DAY_MINUTES, balances_for, format_dhm
+from apps.attendance.leave import (
+    DEFAULT_DAY_MINUTES,
+    annual_entitlement_minutes,
+    balances_for,
+    format_dhm,
+)
 from apps.attendance.models import LeaveEntitlement
 from apps.employees.models import Employee
 from apps.payroll.models import JALALI_MONTHS, PayrollPeriod
@@ -48,16 +53,22 @@ def _rows(fiscal_year, query):
         PayrollPeriod.objects.filter(fiscal_year=fiscal_year).order_by("-month").first()
     )
     day_minutes = _day_minutes(fiscal_year)
+    params = fiscal_year.legal_parameters.order_by("-effective_from").first()
     balances = balances_for(last_period, day_minutes) if last_period else {}
 
     rows = []
     for employee in employees:
         item = entitlements.get(employee.pk)
         balance = balances.get(employee.pk)
+        computed = annual_entitlement_minutes(employee, fiscal_year, params, day_minutes)
         rows.append({
             "employee": employee,
             "carried_days": round((item.carried_over_minutes if item else 0) / day_minutes, 2),
-            "annual_days": round((item.annual_minutes if item else 0) / day_minutes, 2),
+            "annual_days": round(
+                (item.annual_minutes if item else computed) / day_minutes, 2
+            ),
+            "computed_days": round(computed / day_minutes, 2),
+            "is_manual": bool(item and item.annual_is_manual),
             "opening_days": round((item.opening_used_minutes if item else 0) / day_minutes, 2),
             "opening_through_month": item.opening_through_month if item else 0,
             "months": MONTH_CHOICES,
@@ -125,16 +136,19 @@ def entitlement_save(request):
     if not through or not opening_minutes:
         through, opening_minutes = 0, 0
 
-    LeaveEntitlement.objects.update_or_create(
-        employee=employee,
-        fiscal_year=fiscal_year,
-        defaults={
-            "carried_over_minutes": int(round(float(carried) * day_minutes)),
-            "annual_minutes": int(round(float(annual) * day_minutes)),
-            "opening_used_minutes": opening_minutes,
-            "opening_through_month": through,
-        },
-    )
+    # تا وقتی تیکِ «دستی» نخورده، عددِ داخل کادر خوانده نمی‌شود و قاعده حاکم
+    # است — همان کاری که `LeaveEntitlement.save()` می‌کند.
+    is_manual = request.POST.get("annual_is_manual") in ("on", "1", "true")
+    row_obj = LeaveEntitlement.objects.filter(
+        employee=employee, fiscal_year=fiscal_year
+    ).first() or LeaveEntitlement(employee=employee, fiscal_year=fiscal_year)
+    row_obj.carried_over_minutes = int(round(float(carried) * day_minutes))
+    row_obj.annual_is_manual = is_manual
+    if is_manual:
+        row_obj.annual_minutes = int(round(float(annual) * day_minutes))
+    row_obj.opening_used_minutes = opening_minutes
+    row_obj.opening_through_month = through
+    row_obj.save()
     rows = _rows(fiscal_year, "")
     row = next(r for r in rows if r["employee"].pk == employee.pk)
     return render(
@@ -150,12 +164,8 @@ def entitlement_fill_all(request):
     """ثبت یکجای سهمیه برای همه کسانی که هنوز سهمیه ندارند."""
     fiscal_year = get_object_or_404(FiscalYear, pk=request.POST.get("fiscal_year"))
     day_minutes = _day_minutes(fiscal_year)
-    annual = parse_decimal(request.POST.get("annual_days"), None)
     carried = parse_decimal(request.POST.get("carried_days"))
-
-    if annual is None or annual <= 0:
-        messages.error(request, "مقدار مرخصی استحقاقی سال را وارد کنید.")
-        return redirect(f"/leave/entitlements/?year={fiscal_year.pk}")
+    params = fiscal_year.legal_parameters.order_by("-effective_from").first()
 
     have = set(
         LeaveEntitlement.objects.filter(fiscal_year=fiscal_year).values_list(
@@ -166,18 +176,21 @@ def entitlement_fill_all(request):
         company=fiscal_year.company, status=Employee.Status.ACTIVE
     ).exclude(pk__in=have)
 
-    LeaveEntitlement.objects.bulk_create([
+    created = [
         LeaveEntitlement(
             employee=employee,
             fiscal_year=fiscal_year,
             carried_over_minutes=int(round(float(carried) * day_minutes)),
-            annual_minutes=int(round(float(annual) * day_minutes)),
+            annual_minutes=annual_entitlement_minutes(
+                employee, fiscal_year, params, day_minutes
+            ),
         )
         for employee in missing
-    ])
+    ]
+    LeaveEntitlement.objects.bulk_create(created)
     messages.success(
         request,
-        f"سهمیه برای {missing.count()} نفری که سهمیه نداشتند ثبت شد. "
-        "کسانی که قبلاً سهمیه داشتند دست‌نخورده ماندند.",
+        f"سهمیه برای {len(created)} نفری که سهمیه نداشتند از تاریخ استخدامشان "
+        "محاسبه و ثبت شد. کسانی که قبلاً سهمیه داشتند دست‌نخورده ماندند.",
     )
     return redirect(f"/leave/entitlements/?year={fiscal_year.pk}")

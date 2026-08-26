@@ -393,6 +393,18 @@ class LeaveEntitlement(models.Model):
         help_text="۰ یعنی افتتاحیه‌ای در کار نیست و همه‌چیز از کارکرد ساخته می‌شود",
     )
 
+    # --- سهمیه خودکار از تاریخ استخدام
+    #
+    # قاعده «۳۶۵ روز، گرد به بالا» است و تنها ورودی‌اش تاریخ استخدام؛ یعنی
+    # برای هیچ‌کس لازم نیست عددی تایپ شود. ولی گاهی سهمیهٔ کسی با قاعده جور
+    # درنمی‌آید — قرارداد خاص، توافق جداگانه، یا رقمی که از سال‌های پیش
+    # مانده. برای همان‌ها این تیک هست: با زدنش عددِ تایپ‌شده می‌ماند و
+    # محاسبهٔ خودکار دستش به آن نمی‌رسد.
+    annual_is_manual = models.BooleanField(
+        "استحقاقی سال دستی وارد شده", default=False,
+        help_text="اگر خاموش باشد، سهمیه از تاریخ استخدام محاسبه می‌شود",
+    )
+
     note = models.CharField("توضیح", max_length=200, blank=True)
 
     class Meta:
@@ -402,6 +414,22 @@ class LeaveEntitlement(models.Model):
 
     def __str__(self):
         return f"مرخصی {self.employee.full_name} — {self.fiscal_year.year}"
+
+    @property
+    def computed_annual_minutes(self):
+        """سهمیهٔ این پرسنل طبق قاعده — چه دستی باشد چه نباشد.
+
+        همیشه محاسبه می‌شود تا صفحهٔ سهمیه بتواند عددِ دستی را کنار عددِ قاعده
+        بگذارد و اختلافشان دیده شود.
+        """
+        from apps.attendance.leave import annual_entitlement_minutes
+
+        return annual_entitlement_minutes(self.employee, self.fiscal_year)
+
+    def save(self, *args, **kwargs):
+        if not self.annual_is_manual:
+            self.annual_minutes = self.computed_annual_minutes
+        super().save(*args, **kwargs)
 
     @property
     def total_minutes(self):

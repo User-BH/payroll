@@ -506,16 +506,30 @@ def _leave_entitlement(sheet, row, employee, period, day_minutes, month_minutes)
 
     if not carried and not annual and not opening:
         return
-    LeaveEntitlement.objects.update_or_create(
-        employee=employee, fiscal_year=period.fiscal_year,
-        defaults={
-            "carried_over_minutes": carried,
-            "annual_minutes": annual,
-            "opening_used_minutes": opening,
-            "opening_through_month": through,
-            "note": f"از فایل «{sheet.title}»",
-        },
-    )
+
+    # استحقاقیِ سال از فایل **خوانده نمی‌شود**: سامانه خودش از تاریخ استخدام
+    # می‌سازدش (قاعدهٔ ۳۶۵ روز، گرد به بالا). دلیلش این است که ستون فایل با
+    # خودش هم جور درنمی‌آید — مثلاً دو نفر که هر دو ۱۴۰۵/۰۲/۲۲ استخدام شده‌اند
+    # یکی ۲۰ روز دارد و دیگری ۲۲.
+    #
+    # پس عدد فایل فقط **مقایسه** می‌شود؛ اگر با قاعده نخواند در توضیح ثبت
+    # می‌شود تا کسی که ردیف را باز می‌کند بداند اختلاف هست و تصمیم بگیرد
+    # استثنایش کند یا نه. بارگذاری دوباره هرگز تیکِ «دستی» را برنمی‌دارد.
+    row_obj = LeaveEntitlement.objects.filter(
+        employee=employee, fiscal_year=period.fiscal_year
+    ).first() or LeaveEntitlement(employee=employee, fiscal_year=period.fiscal_year)
+    row_obj.carried_over_minutes = carried
+    row_obj.opening_used_minutes = opening
+    row_obj.opening_through_month = through
+    row_obj.note = f"از فایل «{sheet.title}»"
+    if not row_obj.annual_is_manual:
+        gap = annual - row_obj.computed_annual_minutes
+        if annual and gap:
+            row_obj.note += (
+                f" · استحقاقی فایل {annual // day_minutes} روز بود، "
+                f"قاعده {row_obj.computed_annual_minutes // day_minutes} روز"
+            )
+    row_obj.save()
 
 
 # ---------------------------------------------------------------- وام و اقساط
