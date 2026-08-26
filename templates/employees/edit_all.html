@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% load payroll_extras %}
+{% block title %}{{ title }}{% endblock %}
+{% block heading %}{{ title }}{% endblock %}
+{% block subheading %}
+  هویت، قرارداد و حساب بانکی — هر سه در همین صفحه، با یک بار ذخیره
+{% endblock %}
+
+{% comment %}
+  یک صفحه به‌جای سه تا. پیش از این هر بخش فرم و آدرس خودش را داشت و کاربر
+  برای یک تغییر ساده سه بار رفت‌وبرگشت می‌کرد.
+
+  ذخیره یک‌جاست و همه‌یا‌هیچ: اگر یکی از سه بخش خطا داشته باشد هیچ‌کدام
+  نوشته نمی‌شوند، وگرنه پرسنلی می‌ماند که هویتش عوض شده ولی قراردادش نه.
+{% endcomment %}
+
+{% block content %}
+<form method="post" novalidate>
+  {% csrf_token %}
+
+  {% if form.non_field_errors or contract_form.non_field_errors or bank_form.non_field_errors %}
+  <div class="note-box" style="border-color:var(--red); margin-bottom:16px;">
+    {{ form.non_field_errors }}{{ contract_form.non_field_errors }}{{ bank_form.non_field_errors }}
+  </div>
+  {% endif %}
+
+  <div class="panel">
+    <div class="panel-head"><h3>اطلاعات هویتی</h3></div>
+    <div class="panel-body" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:0 18px;">
+      {% for field in form %}
+      <div class="field">
+        <label for="{{ field.id_for_label }}">
+          {{ field.label }}{% if field.field.required %} <span style="color:var(--red);">*</span>{% endif %}
+        </label>
+        {{ field }}
+        {% if field.help_text %}<div class="explain">{{ field.help_text }}</div>{% endif %}
+        {% if field.errors %}<div class="field-error">{{ field.errors|striptags }}</div>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h3>قرارداد فعال</h3>
+      {% if contract %}
+      <span class="hint">از {{ contract.effective_from|jalali }}</span>
+      {% endif %}
+    </div>
+    {% if contract_form %}
+    <div class="panel-body" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:0 18px;">
+      {% for field in contract_form %}
+      <div class="field">
+        <label for="{{ field.id_for_label }}">
+          {{ field.label }}{% if field.field.required %} <span style="color:var(--red);">*</span>{% endif %}
+        </label>
+        {{ field }}
+        {% if field.help_text %}<div class="explain">{{ field.help_text }}</div>{% endif %}
+        {% if field.errors %}<div class="field-error">{{ field.errors|striptags }}</div>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="panel-body">
+      <div class="empty">
+        این پرسنل قرارداد فعالی ندارد، پس در محاسبهٔ حقوق نمی‌آید.
+        <a href="{% url 'contract_create' employee.pk %}">قرارداد تعریف کنید</a>.
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h3>حساب بانکی</h3>
+      <span class="hint">بدون شماره حساب، پرسنل در فایل پرداخت بانک نمی‌آید</span>
+    </div>
+    <div class="panel-body" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:0 18px;">
+      {% for field in bank_form %}
+      <div class="field">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.help_text %}<div class="explain">{{ field.help_text }}</div>{% endif %}
+        {% if field.errors %}<div class="field-error">{{ field.errors|striptags }}</div>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div style="display:flex; gap:10px; margin-top:18px; flex-wrap:wrap;">
+    <button class="btn btn-primary" type="submit">ذخیره همه</button>
+    <a class="btn btn-outline" href="{% url 'employee_detail' employee.pk %}">انصراف</a>
+  </div>
+</form>
+{% endblock %}

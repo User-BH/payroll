@@ -215,16 +215,82 @@ def employee_create(request):
 
 @can_edit_required
 def employee_edit(request, pk):
+    """ویرایش پرسنل — هویت، قرارداد و حساب بانکی در **یک صفحه**.
+
+    پیش از این هر کدام صفحهٔ خودش را داشت و کاربر برای یک تغییر ساده سه بار
+    رفت‌وبرگشت می‌کرد. بدتر: بین این سه، فقط هویت «ویرایش» نام داشت و آن دو
+    تای دیگر از دکمه‌های جداگانهٔ صفحهٔ جزئیات پیدا می‌شدند، پس کسی که دنبال
+    عوض کردن مزد بود اول به فرم هویت می‌رسید و فکر می‌کرد جایش نیست.
+
+    هر سه با یک بار ذخیره نوشته می‌شوند و **هر سه باید معتبر باشند**؛ ذخیرهٔ
+    نصفه یعنی پرسنلی که هویتش عوض شده ولی قراردادش نه.
+    """
+    from django.db import transaction
+
     employee = get_object_or_404(Employee, pk=pk)
-    form = EmployeeForm(request.POST or None, instance=employee)
-    if request.method == "POST" and form.is_valid():
-        form.save()
-        messages.success(request, "اطلاعات پرسنل به‌روز شد.")
+    contract = employee.contracts.filter(
+        status=EmploymentContract.Status.ACTIVE
+    ).order_by("-effective_from").first()
+    account = employee.bank_accounts.filter(is_default=True).first() or (
+        employee.bank_accounts.first()
+    )
+
+    posting = request.method == "POST"
+    identity = EmployeeForm(request.POST or None, instance=employee)
+    # هر سه فرم prefix دارند چون نام فیلدها بین‌شان مشترک است — «وضعیت» هم
+    # روی پرسنل هست هم روی قرارداد، و بدون prefix یکی مقدار دیگری را
+    # می‌خوانْد و فرم بی‌آنکه معلوم باشد چرا رد می‌شد.
+    contract_form = (
+        ContractForm(
+            request.POST or None, instance=contract, employee=employee,
+            prefix="contract",
+        )
+        if contract is not None else None
+    )
+    bank_form = BankAccountForm(
+        request.POST or None, instance=account, prefix="bank"
+    )
+    # حساب بانکی اختیاری است: اگر شمارهٔ حساب خالی بماند و از قبل هم حسابی
+    # نباشد، اصلاً ساخته نمی‌شود — نه اینکه فرم خطا بدهد.
+    bank_form.fields["account_number"].required = False
+
+    forms_ok = identity.is_valid() if posting else False
+    if posting and contract_form is not None:
+        forms_ok = contract_form.is_valid() and forms_ok
+    if posting:
+        forms_ok = bank_form.is_valid() and forms_ok
+
+    if posting and forms_ok:
+        with transaction.atomic():
+            identity.save()
+            if contract_form is not None:
+                saved = contract_form.save()
+                contract_form.save_fixed_surplus(saved)
+            number = (bank_form.cleaned_data.get("account_number") or "").strip()
+            if number:
+                saved_account = bank_form.save(commit=False)
+                saved_account.employee = employee
+                saved_account.save()
+                if saved_account.is_default:
+                    employee.bank_accounts.exclude(pk=saved_account.pk).update(
+                        is_default=False
+                    )
+            elif account is not None:
+                account.delete()
+        messages.success(request, f"اطلاعات {employee.full_name} به‌روز شد.")
         return redirect("employee_detail", pk=employee.pk)
+
     return render(
         request,
-        "employees/form.html",
-        {"form": form, "title": f"ویرایش {employee.full_name}", "employee": employee},
+        "employees/edit_all.html",
+        {
+            "form": identity,
+            "contract_form": contract_form,
+            "bank_form": bank_form,
+            "employee": employee,
+            "contract": contract,
+            "title": f"ویرایش {employee.full_name}",
+        },
     )
 
 

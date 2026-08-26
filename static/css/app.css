@@ -683,3 +683,6 @@ input.jdate{font-variant-numeric:tabular-nums;}
 .money-flow td:nth-child(2){border-inline-end:2px solid var(--line);}
 .money-flow .total-row{font-weight:800; border-top:2px solid var(--line);}
 .money-flow small.hint{display:block; font-weight:500; font-size:11px; margin-top:2px;}
+
+/* خطای زیر هر ورودی فرم — پیش از این هر قالب استایلش را inline تکرار می‌کرد */
+.field-error{color:var(--red); font-size:11.5px; margin-top:5px; font-weight:600;}

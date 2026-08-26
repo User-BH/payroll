@@ -8,12 +8,13 @@
 {% if user.can_edit_payroll %}
 <div x-data="{ showTerm: false }">
 <div class="search-bar">
-  <a class="btn btn-outline btn-sm" href="{% url 'employee_edit' employee.pk %}">ویرایش اطلاعات</a>
-  {% if current_contract %}
-  <a class="btn btn-outline btn-sm" href="{% url 'contract_edit' current_contract.pk %}">ویرایش قرارداد</a>
-  {% endif %}
+  {% comment %}
+    یک دکمهٔ «ویرایش» به‌جای سه تا: هویت، قرارداد و حساب بانکی همه در همان
+    یک صفحه‌اند. «قرارداد جدید» جداست چون کار دیگری است — قرارداد تازه با
+    تاریخ تازه، نه اصلاح قرارداد فعلی.
+  {% endcomment %}
+  <a class="btn btn-primary btn-sm" href="{% url 'employee_edit' employee.pk %}">ویرایش اطلاعات، قرارداد و حساب</a>
   <a class="btn btn-outline btn-sm" href="{% url 'contract_create' employee.pk %}">قرارداد جدید</a>
-  <a class="btn btn-outline btn-sm" href="{% url 'bank_account_create' employee.pk %}">افزودن حساب بانکی</a>
   <a class="btn btn-outline btn-sm" href="{% url 'dependent_create' employee.pk %}">افزودن تحت تکفل</a>
   {% if employee.status == 'TERMINATED' %}
   <form method="post" action="{% url 'employee_reactivate' employee.pk %}"

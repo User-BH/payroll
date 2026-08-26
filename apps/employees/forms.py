@@ -77,8 +77,18 @@ class EmployeeForm(BootstrapMixin, forms.ModelForm):
         return [self[name] for name in self.BANK_FIELDS]
 
     def clean_national_id(self):
+        """چک‌سام فقط وقتی بررسی می‌شود که مقدار **عوض شده** باشد.
+
+        پرسنلی که از اکسل وارد شده‌اند کد ملی ندارند و سامانه برایشان کد
+        جایگزین ساخته که چک‌سامش نمی‌خواند. با اعتبارسنجی بی‌قید، ویرایشِ
+        موبایل یا مزدِ همان پرسنل هم رد می‌شد — روی فیلدی که کاربر اصلاً دست
+        نزده بود. عملاً یعنی هیچ‌کدام از آن‌ها قابل ویرایش نبودند.
+
+        اگر کاربر عدد را عوض کند، همچنان باید معتبر باشد.
+        """
         value = (self.cleaned_data.get("national_id") or "").strip()
-        if value and not is_valid_national_id(value):
+        unchanged = self.instance.pk and value == (self.instance.national_id or "")
+        if value and not unchanged and not is_valid_national_id(value):
             raise forms.ValidationError("کد ملی معتبر نیست (رقم کنترلی نادرست است).")
         return value
 

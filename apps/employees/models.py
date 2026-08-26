@@ -136,8 +136,27 @@ class Employee(models.Model):
         return f"{self.full_name} ({self.personnel_code})"
 
     def clean(self):
-        if self.national_id and not is_valid_national_id(self.national_id):
-            raise ValidationError({"national_id": "کد ملی معتبر نیست (چک‌سام نادرست)."})
+        """چک‌سام کد ملی — فقط روی مقدارِ **تازه یا عوض‌شده**.
+
+        پرسنلی که از فایل اکسل وارد شده‌اند کد ملی واقعی ندارند و سامانه
+        برایشان کد جایگزین ساخته. اگر این بررسی بی‌قید اجرا شود، ویرایشِ
+        موبایل یا مزدِ همان پرسنل هم رد می‌شود — روی فیلدی که کاربر اصلاً دست
+        نزده. یعنی عملاً هیچ‌کدامشان قابل ویرایش نمی‌مانند.
+
+        مقدارِ ذخیره‌شده هرچه باشد پذیرفته می‌شود؛ به‌محض اینکه کسی عوضش کند،
+        باید معتبر باشد.
+        """
+        if not self.national_id or is_valid_national_id(self.national_id):
+            return
+        if self.pk:
+            stored = (
+                type(self).objects.filter(pk=self.pk)
+                .values_list("national_id", flat=True)
+                .first()
+            )
+            if stored == self.national_id:
+                return
+        raise ValidationError({"national_id": "کد ملی معتبر نیست (چک‌سام نادرست)."})
 
     @property
     def full_name(self):

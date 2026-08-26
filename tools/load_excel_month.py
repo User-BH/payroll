@@ -240,7 +240,13 @@ def placeholder_national_id(code: str) -> str:
     همان عدد دربیاید.
     """
     digest = hashlib.sha1(code.encode("utf-8")).hexdigest()
-    return "9" + str(int(digest[:12], 16))[:9].rjust(9, "0")
+    body = ("9" + str(int(digest[:12], 16))[:9].rjust(9, "0"))[:9]
+    # رقم کنترلی درست حساب می‌شود تا عددِ ساختگی هم از اعتبارسنجی رد شود؛
+    # وگرنه همان پرسنل بعداً در فرم ویرایش گیر می‌کرد، روی فیلدی که کاربر
+    # اصلاً دست نزده بود.
+    total = sum(int(d) * (10 - i) for i, d in enumerate(body))
+    remainder = total % 11
+    return body + str(remainder if remainder < 2 else 11 - remainder)
 
 
 # ---------------------------------------------------------------- پرسنل
