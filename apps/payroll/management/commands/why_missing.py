@@ -94,8 +94,19 @@ class Command(BaseCommand):
             self.stdout.write(
                 f"{head} · فیش دارد · محاسبه {payslip.calculated_at:%Y-%m-%d %H:%M}"
             )
+        # وضع کلِ دوره، نه فقط این پرسنل. «این نفر ورودی ندارد» و «کل دوره
+        # ورودی ندارد» دو مشکل کاملاً متفاوت‌اند و از سطر بالا فرقشان معلوم
+        # نمی‌شود — یکی یعنی جا افتاده، دیگری یعنی دوره اصلاً بار نشده.
+        whole = PayrollInput.objects.filter(period=period)
+        self.stdout.write(
+            f"   مبالغ دستیِ کل دوره: {whole.count()} ردیف · "
+            f"{whole.values('employee_id').distinct().count()} نفر · "
+            f"{whole.values('component_id').distinct().count()} قلم"
+        )
         if not inputs:
-            self.stdout.write("   مبلغ دستی‌ای ثبت نشده.")
+            self.stdout.write(
+                self.style.WARNING("   برای این پرسنل مبلغ دستی‌ای ثبت نشده.")
+            )
             return
 
         contract = self._contract(employee, period)
