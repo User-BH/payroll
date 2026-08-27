@@ -25,8 +25,10 @@ from decimal import Decimal
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
+from apps.attendance.models import Timesheet
 from apps.employees.models import ContractAllowance, Employee, EmploymentContract
 from apps.payroll.models import PayrollInput, PayrollPeriod
+from apps.payroll.management.commands.export_inputs import TIMESHEET_FIELDS
 from apps.payroll_config.models import SalaryComponent
 
 
@@ -44,6 +46,9 @@ class Command(BaseCommand):
         parser.add_argument(
             "--no-allowances", action="store_true", help="مزایای مستمر را رد کن"
         )
+        parser.add_argument(
+            "--no-timesheets", action="store_true", help="کارکرد را رد کن"
+        )
 
     # ------------------------------------------------------------------
 
@@ -52,17 +57,21 @@ class Command(BaseCommand):
             payload = json.load(fh)
 
         self.stdout.write(
-            "فایل: سال {} · ماه‌های {} · {} مبلغ دستی · {} مزایای مستمر".format(
+            "فایل: سال {} · ماه‌های {} · {} مبلغ دستی · {} مزایای مستمر · "
+            "{} کارکرد".format(
                 payload.get("year"),
                 payload.get("months"),
                 len(payload.get("inputs", [])),
                 len(payload.get("allowances", [])),
+                len(payload.get("timesheets", [])),
             )
         )
 
         add, same, differ, skipped = self._inputs(payload, options)
         if not options["no_allowances"]:
             self._allowances(payload, options)
+        if not options["no_timesheets"]:
+            self._timesheets(payload, options)
 
         self.stdout.write("")
         self.stdout.write(
@@ -236,4 +245,104 @@ class Command(BaseCommand):
                             else None
                         ),
                     },
+                )
+
+    # ------------------------------------------------------------------
+
+    def _timesheets(self, payload, options):
+        """کارکرد ماه.
+
+        اینها حساس‌ترین بخش این فایل‌اند: اضافه‌کاری واقعیِ کارکرد به استخر
+        مازاد می‌رود، و نبودنش روی فیش نه به‌صورت «کارکرد خالی» بلکه به‌صورت
+        «یک روز مأموریت کمتر» ظاهر می‌شود — جایی که کسی دنبالش نمی‌گردد.
+
+        `entered_by` و `approved_by` منتقل نمی‌شوند؛ کاربرند و شناسه‌شان بین
+        دو دیتابیس یکی نیست. ردیفِ تازه با منبع «فایل اکسل» ساخته می‌شود.
+        """
+        rows = payload.get("timesheets", [])
+        if not rows:
+            return
+        added = same = differ = skipped = 0
+        writes = []
+        details = []
+
+        for row in rows:
+            period = PayrollPeriod.objects.filter(
+                year=row["year"], month=row["month"]
+            ).first()
+            employee = Employee.objects.filter(
+                personnel_code=row["personnel_code"]
+            ).first()
+            if period is None or employee is None:
+                skipped += 1
+                continue
+            # فیلدی که در مبدأ خالی است اصلاً منتقل نمی‌شود — نه اینکه مقصد
+            # را خالی کند. همان قاعدهٔ همیشگی: این دستور پر می‌کند، پاک نمی‌کند.
+            values = {
+                f: row[f] for f in TIMESHEET_FIELDS
+                if f in row and row[f] is not None
+            }
+            existing = Timesheet.objects.filter(
+                period=period, employee=employee
+            ).first()
+            if existing is None:
+                contract = (
+                    EmploymentContract.objects.filter(
+                        employee=employee,
+                        status=EmploymentContract.Status.ACTIVE,
+                    )
+                    .order_by("-effective_from")
+                    .first()
+                )
+                if contract is None:
+                    skipped += 1
+                    continue
+                added += 1
+                writes.append((period, employee, contract, values, False))
+                continue
+
+            changed = [
+                f for f, v in values.items()
+                if str(getattr(existing, f)) != str(v)
+            ]
+            if not changed:
+                same += 1
+            else:
+                differ += 1
+                writes.append((period, employee, None, values, True))
+                details.append(
+                    "{}/{:02d} · {} · ".format(
+                        row["year"], row["month"], row["employee"]
+                    )
+                    + "، ".join(
+                        "{} اینجا {} ← فایل {}".format(
+                            f, getattr(existing, f), values[f]
+                        )
+                        for f in changed
+                    )
+                )
+
+        self.stdout.write(
+            "کارکرد — نبود: {} · یکسان: {} · متفاوت: {} · نشد: {}".format(
+                added, same, differ, skipped
+            )
+        )
+        for line in details[:30]:
+            self.stdout.write(self.style.WARNING("   متفاوت  " + line))
+        if len(details) > 30:
+            self.stdout.write("   … و {} ردیف دیگر".format(len(details) - 30))
+
+        if not options["apply"]:
+            return
+        with transaction.atomic():
+            for period, employee, contract, values, is_diff in writes:
+                if is_diff and not options["overwrite"]:
+                    continue
+                defaults = dict(values)
+                if contract is not None:
+                    defaults["contract"] = contract
+                    defaults["source"] = Timesheet.Source.IMPORT
+                    defaults["status"] = Timesheet.Status.APPROVED
+                Timesheet.objects.update_or_create(
+                    period=period, employee=employee, defaults=defaults
                 )
