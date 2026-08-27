@@ -12,3 +12,6 @@ venv/
 *.sql
 *.sql.gz
 *.sqlite3
+
+# خروجی export_inputs — دادهٔ واقعی حقوق است، هرگز کامیت نشود
+inputs-*.json
