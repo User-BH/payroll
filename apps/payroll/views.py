@@ -1380,6 +1380,12 @@ def commission_allocations(request, pk):
         return redirect("period_detail", pk=period.pk)
 
     totals = commission_totals(period)
+    # چرا فهرست خالی است؟ دو علتِ کاملاً متفاوت دارد و پیامِ یکسان برای هر دو
+    # گمراه‌کننده بود: صفحه می‌گفت «پورسانتی ثبت نشده» در حالی که ۲۳ نفر
+    # پورسانت داشتند و علت این بود که هیچ قلمی تیکِ «قلم پورسانت» نداشت.
+    from apps.payroll.commission import commission_components
+
+    convertible = list(commission_components(period.company))
     timesheets = {ts.employee_id: ts for ts in Timesheet.objects.filter(period=period)}
     saved = {a.employee_id: a for a in CommissionAllocation.objects.filter(period=period)}
 
@@ -1414,6 +1420,7 @@ def commission_allocations(request, pk):
         {
             "period": period,
             "rows": rows,
+            "convertible": convertible,
             "mission_rate": params.mission_daily_rate,
             "mission_max_days": params.mission_max_days,
             "overtime_rate": params.overtime_hourly_rate,
