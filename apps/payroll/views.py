@@ -840,6 +840,15 @@ def payslip_print(request, pk):
         for line in payslip.lines.select_related("component").order_by("sequence", "id")
         if line.component is None or line.component.print_on_payslip
     ]
+    # دو نسخه از یک فیش:
+    #
+    #   ساده (پیش‌فرض) — همان چیزی که پرسنل می‌بیند: بدون شرحِ محاسبه، و بدون
+    #                    عددِ روزهای ماه جلوی اقلام ثابت.
+    #   با جزئیات      — همان فیش به‌علاوهٔ اینکه هر عدد از کجا آمده.
+    #
+    # پیش‌فرض عمداً سادهٔ است: کسی که فیش را چاپ می‌کند اغلب می‌خواهد به پرسنل
+    # بدهد، و نسخهٔ پرجزئیات را باید خواسته باشد نه اینکه اتفاقی بگیرد.
+    detailed = request.GET.get("detailed") == "1" and request.user.is_superuser
     return render(
         request,
         "payslips/print.html",
@@ -847,6 +856,8 @@ def payslip_print(request, pk):
             "payslip": payslip,
             "earnings": [l for l in lines if l.kind == SalaryComponent.Kind.EARNING],
             "deductions": [l for l in lines if l.kind == SalaryComponent.Kind.DEDUCTION],
+            "detailed": detailed,
+            "can_detail": request.user.is_superuser,
         },
     )
 

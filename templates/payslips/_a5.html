@@ -34,7 +34,7 @@
         <tr>
           <td>
             {{ line.component_name }}
-            {% if line.explanation %}<em class="why">{{ line.explanation }}</em>{% endif %}
+            {% if detailed and line.explanation %}<em class="why">{{ line.explanation }}</em>{% endif %}
           </td>
           {% comment %}
             اضافه‌کاری به ساعت و دقیقه نوشته می‌شود، نه ساعتِ اعشاری: مدیریت
@@ -43,8 +43,15 @@
 
             مأموریت عمداً همین‌جا نیست: روزِ کامل است و اعشار ندارد.
           {% endcomment %}
+          {% comment %}
+            اقلامی که تعدادشان روزهای کارکرد ماه است (مسکن، بن، تأهل، پایه
+            سنوات، مابه‌التفاوت، تلفن، وجه مرخصی، طلب ماه قبل) عدد نشان
+            نمی‌دهند: خوانندهٔ فیش آن را «تعداد» نمی‌فهمد و فقط شلوغ می‌کند.
+            کدامشان، روی خودِ قلم تنظیم می‌شود نه اینجا.
+          {% endcomment %}
           <td class="qty">
-            {% if line.display_unit == 'HOUR' %}{{ line.quantity|hm }}
+            {% if line.component and not line.component.show_quantity and not detailed %}
+            {% elif line.display_unit == 'HOUR' %}{{ line.quantity|hm }}
             {% elif line.quantity and line.quantity != 1 %}{{ line.quantity|fadec }}{% endif %}
           </td>
           <td class="amt">{{ line.amount|rial }}</td>
@@ -63,7 +70,7 @@
         <tr>
           <td>
             {{ line.component_name }}
-            {% if line.explanation %}<em class="why">{{ line.explanation }}</em>{% endif %}
+            {% if detailed and line.explanation %}<em class="why">{{ line.explanation }}</em>{% endif %}
           </td>
           {# اقلام روزی مبلغ ریالی ندارند؛ اثرشان در روز کارکرد اعمال شده است #}
           <td class="amt">

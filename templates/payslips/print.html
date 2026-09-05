@@ -11,6 +11,15 @@
 
 <div class="bar">
   <button class="primary" onclick="window.print()">چاپ / ذخیره PDF</button>
+  {% if can_detail %}
+    {% if detailed %}
+      <a href="?">نسخهٔ پرسنل</a>
+      <span class="mode">نسخهٔ با جزئیات — شرح محاسبهٔ هر سطر</span>
+    {% else %}
+      <a href="?detailed=1">نسخهٔ با جزئیات</a>
+      <span class="mode">نسخهٔ پرسنل — بدون شرح محاسبه</span>
+    {% endif %}
+  {% endif %}
   <a href="{% url 'payslip_batch_print' payslip.period.pk %}">چاپ دسته‌ای دوره</a>
   <a href="{% url 'payslip_detail' payslip.pk %}">بازگشت</a>
 </div>

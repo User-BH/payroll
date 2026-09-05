@@ -82,6 +82,16 @@ NOW_COMPUTED = [
 # ضریب اقلام گروه راننده استجاری، همان‌طور که در فایل شرکت است
 RATES = {"EID": "5", "SEVERANCE": "2.5", "LEAVE_PAY": "16"}
 
+# اقلامی که ستون «تعداد» روی فیش نشان نمی‌دهند.
+#
+# تعدادِ همهٔ اینها روزهای کارکرد ماه است — عددی که خواننده فیش آن را «تعداد»
+# نمی‌فهمد و کنار مبلغ فقط شلوغی است. اضافه‌کاری و مأموریت عمداً در این فهرست
+# نیستند: ساعت و روزشان خودِ اطلاعات است.
+NO_QUANTITY = [
+    "HOUSING", "FOOD", "MARRIAGE", "DIFF", "PHONE", "LEAVE_PAY",
+    "PREV_CLAIM", "SENIORITY",
+]
+
 
 def _scope(component, scope_type, scope_id):
     ComponentScope.objects.get_or_create(
@@ -299,6 +309,15 @@ def configure(company, stdout=None):
         moved = _phone_inputs_to_allowances(phone, say)
         if moved:
             say(f"حق تلفن: {moved} مبلغ دستی به مزایای مستمر منتقل شد")
+
+    # ------------------------------------- ستون «تعداد» روی نسخهٔ سادهٔ فیش
+    hidden = SalaryComponent.objects.filter(
+        company=company, code__in=NO_QUANTITY, show_quantity=True
+    )
+    changed = list(hidden.values_list("name", flat=True))
+    if changed:
+        hidden.update(show_quantity=False)
+        say("تعداد روی فیش نشان داده نمی‌شود برای: " + "، ".join(changed))
 
     comm1 = existing.get("COMM_1")
     if comm1:
