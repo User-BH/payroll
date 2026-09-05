@@ -176,6 +176,19 @@ class Company(models.Model):
     def __str__(self):
         return self.name
 
+    @property
+    def display_name(self) -> str:
+        """نامی که روی فیش و سربرگ چاپ می‌شود.
+
+        `name` نامِ **شعبه** است («تبریز»، «اردبیل») و در سوییچ شعبه دیده
+        می‌شود. ولی روی فیش حقوقی باید نام شرکت بیاید، نه نام شهر — کارمند
+        فیشی می‌گیرد که فرستنده‌اش باید معلوم باشد.
+
+        تا وقتی `legal_name` خالی است همان نام شعبه چاپ می‌شود، پس شرکتی که
+        یک شعبه دارد چیزی را از دست نمی‌دهد.
+        """
+        return self.legal_name or self.name
+
 
 class Branch(models.Model):
     company = models.ForeignKey(

@@ -8,7 +8,7 @@
       پارسال باید همان نامی را نشان بدهد که آن روز چاپ شد.
     {% endcomment %}
     <div class="co">
-      <b>{{ payslip.period.company.name }}</b>
+      <b>{{ payslip.period.company.display_name }}</b>
       {% if payslip.period.company.activity %}
       <span>{{ payslip.period.company.activity }}</span>
       {% endif %}

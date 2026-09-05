@@ -45,3 +45,21 @@ def active_company(request=None):
 
 def set_active_company(request, company) -> None:
     request.session[SESSION_KEY] = company.pk
+
+
+def organization_name() -> str:
+    """نام کل مجموعه، مستقل از شعبه‌ای که کاربر انتخاب کرده.
+
+    شعبه‌ها اسم شهرند («تبریز»، «اردبیل») ولی سربرگ و فیش باید نام سازمان را
+    بگویند. `legal_name` قدیمی‌ترین شعبه ملاک است — همان شعبه‌ای که بقیه از
+    رویش ساخته شده‌اند و `legal_name` را از او به ارث برده‌اند.
+
+    اگر هیچ شعبه‌ای `legal_name` نداشته باشد، نامِ خودِ قدیمی‌ترین شعبه
+    برمی‌گردد؛ پس شرکتی که تک‌شعبه است هیچ‌چیز را از دست نمی‌دهد.
+    """
+    from apps.org.models import Company
+
+    first = Company.objects.order_by("pk").first()
+    if first is None:
+        return ""
+    return first.legal_name or first.name

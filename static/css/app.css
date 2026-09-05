@@ -707,17 +707,58 @@ input.jdate{font-variant-numeric:tabular-nums;}
 }
 
 
-/* --- سوییچ شعبه در سایدبار ------------------------------------------------
-   فقط وقتی رندر می‌شود که بیش از یک شعبه باشد (شرطش در قالب است). */
+/* --- سوییچ شعبه ------------------------------------------------------------
+   فقط وقتی رندر می‌شود که بیش از یک شعبه باشد (شرطش در قالب است).
+
+   ساختارش عمداً مثل `.user-chip` است — نشان + دو خط متن — چون هر دو یک کار
+   می‌کنند: می‌گویند «الان در چه بافتی هستی». ناوبری نیست، پس شکل `.nav-item`
+   را نمی‌گیرد و با آن اشتباه نمی‌شود.
+
+   رنگ‌ها همه از توکن‌ها می‌آیند، پس تم تیره خودبه‌خود درست می‌شود. */
 .branch-switch{
-  display:flex; align-items:center; gap:8px;
-  margin:0 14px 12px; padding:8px 10px;
-  background:rgba(255,255,255,.06); border-radius:10px;
+  display:flex; align-items:center; gap:10px;
+  margin:0 0 14px; padding:8px 10px;
+  background:var(--paper); border:1px solid var(--line); border-radius:12px;
+  cursor:pointer;
+  transition:border-color .18s ease, box-shadow .18s ease, background .18s ease;
 }
-.branch-switch label{font-size:11px; opacity:.7; white-space:nowrap;}
-.branch-switch select{
-  flex:1; min-width:0; background:transparent; color:inherit;
-  border:0; font:inherit; font-size:12px; font-weight:700; cursor:pointer;
-  outline:none;
+.branch-switch:hover{border-color:rgba(226,35,26,.35);}
+/* فوکوسِ صفحه‌کلید روی خودِ کادر دیده می‌شود، نه فقط روی select — وگرنه
+   کسی که با Tab می‌گردد نمی‌فهمد کجاست. */
+.branch-switch:focus-within{
+  border-color:var(--red);
+  box-shadow:0 0 0 3px rgba(226,35,26,.14);
 }
-.branch-switch select option{color:#1a1a1a;}
+
+.branch-mark{
+  width:30px; height:30px; flex-shrink:0; border-radius:9px;
+  display:flex; align-items:center; justify-content:center;
+  background:var(--paper-2); border:1px solid var(--line); color:var(--red);
+}
+.branch-mark svg{width:16px; height:16px;}
+
+.branch-meta{display:flex; flex-direction:column; min-width:0; flex:1;}
+.branch-meta label{
+  font-size:10.5px; color:var(--muted); font-weight:600;
+  letter-spacing:.2px; cursor:pointer;
+}
+
+/* ظاهر پیش‌فرضِ select در هر مرورگر فرق می‌کند و فلشش در RTL سمت غلط
+   می‌افتد؛ برداشته شد و فلشِ خودمان گذاشته شد. */
+.branch-meta select{
+  appearance:none; -webkit-appearance:none;
+  width:100%; max-width:100%; min-width:0;
+  background:transparent; border:0; padding:0; margin:0;
+  font:inherit; font-size:13px; font-weight:700; color:var(--ink);
+  line-height:1.5; cursor:pointer; outline:none;
+  text-overflow:ellipsis;
+}
+.branch-meta select option{
+  color:var(--ink); background:var(--paper-2); font-weight:600;
+}
+
+.branch-chev{
+  width:15px; height:15px; flex-shrink:0; color:var(--muted);
+  transition:color .18s ease, transform .18s ease;
+}
+.branch-switch:hover .branch-chev{color:var(--red); transform:translateY(1px);}

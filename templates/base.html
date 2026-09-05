@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{% block title %}سامانه حقوق و دستمزد{% endblock %} | {{ company.name|default:"سامانه حقوق و دستمزد" }}</title>
+<title>{% block title %}سامانه حقوق و دستمزد{% endblock %} | {{ organization|default:"سامانه حقوق و دستمزد" }}</title>
 <link rel="icon" href="{% static 'img/favicon.png' %}">
 <link rel="stylesheet" href="{% static 'css/app.css' %}">
 <script defer src="{% static 'js/alpine.min.js' %}"></script>
@@ -28,7 +28,7 @@
 <div class="small-screen" id="smallScreen">
   <div class="small-screen-box">
     <div class="brand-mark" style="margin:0 auto 18px;">
-      <img src="{% static 'img/logo.png' %}" alt="نشان {{ company.name|default:"سامانه حقوق و دستمزد" }}">
+      <img src="{% static 'img/logo.png' %}" alt="نشان {{ organization|default:"سامانه حقوق و دستمزد" }}">
     </div>
     <h2>روی رایانه باز کنید</h2>
     <p>
@@ -63,10 +63,10 @@
          hx-swap="outerHTML show:window:top" hx-push-url="true">
     <div class="brand">
       <div class="brand-mark">
-        <img src="{% static 'img/logo.png' %}" alt="نشان {{ company.name|default:"سامانه حقوق و دستمزد" }}">
+        <img src="{% static 'img/logo.png' %}" alt="نشان {{ organization|default:"سامانه حقوق و دستمزد" }}">
       </div>
       <div class="brand-text">
-        <b>{{ company.name|default:"سامانه حقوق و دستمزد" }}</b>
+        <b>{{ organization|default:"سامانه حقوق و دستمزد" }}</b>
         <span>سامانه حقوق و دستمزد</span>
       </div>
     </div>
@@ -79,12 +79,24 @@
     {% if branches %}
     <form class="branch-switch" method="post" action="{% url 'branch_switch' %}">
       {% csrf_token %}
-      <label for="branchPick">شعبه</label>
-      <select id="branchPick" name="company" onchange="this.form.submit()">
-        {% for b in branches %}
-          <option value="{{ b.pk }}"{% if b.pk == company.pk %} selected{% endif %}>{{ b.name }}</option>
-        {% endfor %}
-      </select>
+      <span class="branch-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 21h18"/><path d="M5 21V8l7-5 7 5v13"/>
+          <path d="M10 21v-6h4v6"/>
+        </svg>
+      </span>
+      <span class="branch-meta">
+        <label for="branchPick">شعبه</label>
+        <select id="branchPick" name="company" onchange="this.form.submit()">
+          {% for b in branches %}
+            <option value="{{ b.pk }}"{% if b.pk == company.pk %} selected{% endif %}>{{ b.name }}</option>
+          {% endfor %}
+        </select>
+      </span>
+      <svg class="branch-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"
+           aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
     </form>
     {% endif %}
 

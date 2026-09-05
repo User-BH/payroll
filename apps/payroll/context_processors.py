@@ -14,7 +14,7 @@ def current_period(request):
     # ساخته می‌شود تا صفحهٔ ورود هم داشته باشدش.
     import jdatetime
 
-    from apps.org.current import active_company, companies
+    from apps.org.current import active_company, companies, organization_name
 
     # نام شرکت تا امروز در قالب‌ها سخت‌کد بود («تامین کالا باختر» در سربرگ،
     # صفحهٔ ورود و فیش). یعنی همان کدی که چندشرکتی طراحی شده، روی صفحه اسم
@@ -25,6 +25,11 @@ def current_period(request):
     common = {
         "jalali_year": jdatetime.date.today().year,
         "company": active_company(request),
+        # نام کل مجموعه — **مستقل از شعبهٔ انتخاب‌شده**.
+        #
+        # سربرگ و عنوان صفحه نام سازمان را می‌گویند نه نام شهر، و با سوییچ
+        # شعبه نباید تکان بخورند. نام شعبه جای خودش را دارد: سوییچ.
+        "organization": organization_name(),
     }
 
     if not request.user.is_authenticated:
