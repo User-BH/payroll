@@ -354,6 +354,7 @@ def load_people(company, sheet, departments, centers, jobs, period):
 
         _bank_account(sheet, r, employee)
         _fixed_surplus(sheet, r, contract, period)
+        _recurring(sheet, r, contract, period, "هزینه تلفن", "PHONE")
     return created, updated
 
 
@@ -376,6 +377,38 @@ def _fixed_surplus(sheet, row, contract, period):
     ).first()
     if component is None:
         return
+    if not amount:
+        ContractAllowance.objects.filter(
+            contract=contract, component=component
+        ).delete()
+        return
+    ContractAllowance.objects.update_or_create(
+        contract=contract, component=component,
+        defaults={
+            "amount": amount,
+            "effective_from": period.fiscal_year.start_date,
+            "effective_to": None,
+        },
+    )
+
+
+def _recurring(sheet, row, contract, period, column, code):
+    """هر عددِ ثابتِ ماهانه‌ای که روی قرارداد می‌نشیند، نه در مبالغ دستی.
+
+    همان کاری که `_fixed_surplus` می‌کند، ولی با ستون و قلمِ دلخواه — چون
+    «هزینه تلفن» هم دقیقاً از همان جنس درآمد: در تیر و مرداد هر ۱۱ نفر همان
+    یک میلیون را داشتند و فهرستشان هم عوض نشد.
+
+    صفر یعنی صفر: مزایای مستمرش پاک می‌شود، نه اینکه مقدار قبلی بماند.
+    """
+    from apps.employees.models import ContractAllowance
+
+    component = SalaryComponent.objects.filter(
+        company=contract.employee.company, code=code
+    ).first()
+    if component is None:
+        return
+    amount = sheet.n(column, row)
     if not amount:
         ContractAllowance.objects.filter(
             contract=contract, component=component
@@ -601,9 +634,10 @@ MANUAL = {
     "پورسانت دو": "COMM_2",
     "پورسانت سه": "COMM_3",
     "طلب ماه قبل": "PREV_CLAIM",
-    # هزینه تلفن **مشمول بیمه** است؛ از فیش تیر ۱۴۰۵ آقای سعادتی تأیید شد
+    # «هزینه تلفن» عمداً اینجا نیست: مثل مازاد ثابت روی **قرارداد** می‌نشیند،
+    # نه در مبالغ دستیِ ماه. (بین تیر و مرداد برای هر ۱۱ نفر یکسان بود.)
+    # مشمول بیمه بودنش سر جایش است؛ از فیش تیر ۱۴۰۵ آقای سعادتی تأیید شد
     # (بدون آن بیمه ۱۵٬۷۴۳٬۵۷۷ می‌شد نه ۱۵٬۸۱۳٬۵۷۷ که در فیش چاپ شده).
-    "هزینه تلفن": "PHONE",
     # فقط راننده استجاری: عیدی و پایانکار ماهانه پرداخت می‌شوند نه سالانه
     "علی الحساب واریزی": "ADVANCE",
     "خرید از شرکت": "GOODS",

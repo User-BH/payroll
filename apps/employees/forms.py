@@ -232,6 +232,17 @@ class ContractForm(BootstrapMixin, forms.ModelForm):
                   "می‌شود و در گروه فروش به پورسانت اضافه می‌شود",
     )
 
+    # حق تلفن هم از همان جنس است: عددی ثابت که به افراد مشخصی تعلق می‌گیرد و
+    # هر ماه تکرار نمی‌شود. در تیر و مرداد هر ۱۱ نفرِ دریافت‌کننده دقیقاً یک
+    # میلیون داشتند و فهرستشان هم عوض نشد — یعنی خاصیتِ پرسنل است نه رویدادِ
+    # ماه. وارد کردنش در «مبالغ دستی» یعنی هر ماه باید یازده بار همان عدد
+    # تایپ شود، و ماهی که تایپ نشود بی‌صدا صفر می‌شود.
+    phone_allowance = forms.DecimalField(
+        label="هزینه تلفن (ریال)", required=False, min_value=0,
+        max_digits=18, decimal_places=0,
+        help_text="ماهانه و ثابت؛ خالی یا صفر یعنی به این پرسنل تعلق نمی‌گیرد",
+    )
+
     class Meta:
         model = EmploymentContract
         # «واحد سازمانی» پرسیده نمی‌شود — از مرکز هزینه ساخته می‌شود. روی کل
@@ -245,40 +256,49 @@ class ContractForm(BootstrapMixin, forms.ModelForm):
         ]
         widgets = {"notes": forms.Textarea(attrs={"rows": 2})}
 
-    SURPLUS_CODE = "SURPLUS_FIXED"
+    # نام فیلد فرم → کد قلم حقوقی. هر جفتی که اینجا بیاید خودکار خوانده و
+    # ذخیره می‌شود؛ لازم نیست جای دیگری دست بخورد.
+    RECURRING_FIELDS = {
+        "fixed_surplus": "SURPLUS_FIXED",
+        "phone_allowance": "PHONE",
+    }
 
-    def _surplus_component(self):
+    def _component(self, code):
         from apps.payroll_config.models import SalaryComponent
 
         company = getattr(self.instance, "employee", None)
         company = company.company if company else None
-        return SalaryComponent.objects.filter(
-            company=company, code=self.SURPLUS_CODE
-        ).first()
+        return SalaryComponent.objects.filter(company=company, code=code).first()
 
-    def _surplus_allowance(self):
-        component = self._surplus_component()
+    def _allowance(self, code):
+        component = self._component(code)
         if component is None or not self.instance.pk:
             return None
         return self.instance.allowances.filter(component=component).first()
 
     def save_fixed_surplus(self, contract):
-        """مازاد ثابت را به‌صورت مزایای مستمر قرارداد ذخیره می‌کند."""
-        component = self._surplus_component()
-        if component is None:
-            return
-        amount = self.cleaned_data.get("fixed_surplus") or 0
-        if not amount:
-            contract.allowances.filter(component=component).delete()
-            return
-        contract.allowances.update_or_create(
-            component=component,
-            defaults={
-                "amount": amount,
-                "effective_from": contract.effective_from,
-                "effective_to": None,
-            },
-        )
+        """مزایای مستمرِ فرم را روی قرارداد می‌نشاند.
+
+        **صفر یعنی صفر.** عددی که خالی یا صفر باشد، مزایای مستمرش پاک می‌شود
+        و آن قلم دیگر روی فیش نمی‌آید — نه اینکه مقدار قبلی‌اش بماند. کسی که
+        عدد را صفر می‌کند، منظورش قطع کردن آن قلم است.
+        """
+        for field, code in self.RECURRING_FIELDS.items():
+            component = self._component(code)
+            if component is None:
+                continue
+            amount = self.cleaned_data.get(field) or 0
+            if not amount:
+                contract.allowances.filter(component=component).delete()
+                continue
+            contract.allowances.update_or_create(
+                component=component,
+                defaults={
+                    "amount": amount,
+                    "effective_from": contract.effective_from,
+                    "effective_to": None,
+                },
+            )
 
     effective_from = JalaliDateField(label="شروع اعتبار")
     effective_to = JalaliDateField(label="پایان اعتبار", required=False)
@@ -294,9 +314,11 @@ class ContractForm(BootstrapMixin, forms.ModelForm):
 
         # مقدار فعلی مازاد ثابت از مزایای مستمر قرارداد خوانده می‌شود
         # واحد از مرکز هزینه پر می‌شود، چون مدل هنوز الزامی می‌داندش
-        allowance = self._surplus_allowance()
-        if allowance is not None and not self.is_bound:
-            self.fields["fixed_surplus"].initial = allowance.amount
+        if not self.is_bound:
+            for field, code in self.RECURRING_FIELDS.items():
+                allowance = self._allowance(code)
+                if allowance is not None:
+                    self.fields[field].initial = allowance.amount
 
         # مزد روزانه روی مدل `default=0` دارد و صفر معنای روشنی دارد: «مزد
         # اختصاصی ندارد، از حداقل دستمزد سال استفاده کن». پس اجباری نیست —

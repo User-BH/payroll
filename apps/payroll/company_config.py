@@ -269,6 +269,27 @@ def configure(company, stdout=None):
             component.save(update_fields=["is_commission"])
             say(f"{component.name}: تبدیل خودکار به مأموریت خاموش شد (جذب می‌شود، نه تبدیل)")
 
+    # ------------------------------------- حق تلفن: از «مبالغ دستی» به «پرسنل»
+    #
+    # در تیر و مرداد هر ۱۱ نفرِ دریافت‌کننده دقیقاً یک میلیون داشتند و فهرست
+    # هم عوض نشد. یعنی خاصیتِ پرسنل است نه رویدادِ ماه — از همان جنس مازاد
+    # ثابت. تا وقتی «مبلغ دستی» بود، هر ماه باید یازده بار همان عدد تایپ
+    # می‌شد و ماهی که تایپ نمی‌شد بی‌صدا صفر می‌شد.
+    #
+    # حالا مزایای مستمر قرارداد است: در صفحهٔ ویرایش پرسنل وارد می‌شود، تاریخ
+    # اعتبار دارد، و از فهرست «مبالغ دستی» خودبه‌خود بیرون می‌رود چون آن صفحه
+    # فهرستش را از روی `calc_type` می‌سازد.
+    phone = existing.get("PHONE")
+    if phone is not None:
+        if phone.calc_type != "ENGINE_RULE" or phone.engine_rule_key != "contract_allowance":
+            phone.calc_type = "ENGINE_RULE"
+            phone.engine_rule_key = "contract_allowance"
+            phone.save(update_fields=["calc_type", "engine_rule_key"])
+            say("حق تلفن: از «مبالغ دستی» به «مزایای مستمر پرسنل»")
+        moved = _phone_inputs_to_allowances(phone, say)
+        if moved:
+            say(f"حق تلفن: {moved} مبلغ دستی به مزایای مستمر منتقل شد")
+
     comm1 = existing.get("COMM_1")
     if comm1:
         if comm1.calc_type != "ENGINE_RULE" or comm1.engine_rule_key != "commission_net":
@@ -367,3 +388,51 @@ def configure(company, stdout=None):
             )
 
     return done
+
+
+def _phone_inputs_to_allowances(component, say):
+    """مبالغ دستیِ حق تلفن را به مزایای مستمر قرارداد منتقل می‌کند.
+
+    بدون این انتقال، عددی که یازده نفر داشتند با تغییرِ `calc_type` بی‌صدا از
+    فیش‌ها می‌افتاد: صفحهٔ مبالغ دستی دیگر نشانش نمی‌داد و قاعدهٔ تازه هم
+    چیزی برای خواندن نداشت.
+
+    مبلغِ **تازه‌ترین دوره** ملاک است، چون همان چیزی است که الان برقرار است.
+    قراردادی که از قبل مزایای مستمر دارد دست نمی‌خورد — ورودی دستی نباید
+    عددی را که کسی روی پرسنل ثبت کرده پس بزند.
+    """
+    from apps.employees.models import ContractAllowance, EmploymentContract
+    from apps.payroll.models import PayrollInput
+
+    rows = (
+        PayrollInput.objects.filter(component=component)
+        .select_related("period", "employee")
+        .order_by("employee_id", "-period__year", "-period__month")
+    )
+    latest = {}
+    for row in rows:
+        latest.setdefault(row.employee_id, row)
+
+    moved = 0
+    for employee_id, row in latest.items():
+        contract = (
+            EmploymentContract.objects.filter(
+                employee_id=employee_id,
+                status=EmploymentContract.Status.ACTIVE,
+            )
+            .order_by("-effective_from")
+            .first()
+        )
+        if contract is None:
+            say(f"حق تلفن: {row.employee.full_name} قرارداد فعال ندارد — رد شد")
+            continue
+        if ContractAllowance.objects.filter(
+            contract=contract, component=component
+        ).exists():
+            continue
+        ContractAllowance.objects.create(
+            contract=contract, component=component, amount=row.amount,
+            effective_from=contract.effective_from, effective_to=None,
+        )
+        moved += 1
+    return moved
