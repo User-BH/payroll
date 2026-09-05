@@ -199,7 +199,16 @@ class PayrollContext:
         if not hours:
             return self.hourly_base
         if mode == "MONTHLY_BASE_30":
-            monthly = (self.daily_base + self.seniority_daily) * Decimal("30")
+            # حقوق ماهانه همیشه روزانه×۳۰ است، ولی ضریبِ سنوات ماهانه بین
+            # شعبه‌ها فرق می‌کند: تبریز ۳۰ و اردبیل ۳۱، روی همان ماهِ ۳۱ روزه.
+            # ستون «جمع حقوق وسنوات ماهانه» که ماخذ اضافه‌کاری از آن می‌آید،
+            # در هر دو فایل همین دو تکه است.
+            sen_days = Decimal(
+                getattr(self.params, "seniority_monthly_days", 30) or 30
+            )
+            monthly = (
+                self.daily_base * Decimal("30") + self.seniority_daily * sen_days
+            )
         else:
             monthly = self.daily_base * Decimal("30") + self.seniority_daily * self.paid_days
         return monthly / hours

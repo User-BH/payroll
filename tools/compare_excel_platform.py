@@ -108,12 +108,30 @@ from tools.load_excel_month import (  # noqa: E402
 )
 
 
-def main(path, title):
+def main(path, title, company_name=""):
     sheets = [Sheet(path, name, exempt) for name, exempt in resolve_sheets(path, title)]
     build_key_map(sheets)
     month = MONTH_NAMES.index(title.split()[0]) + 1
     year = int(title.split()[1])
-    period = PayrollPeriod.objects.get(year=year, month=month)
+
+    # با دو شعبه، «دورهٔ تیر ۱۴۰۵» دیگر یکتا نیست. بدون این آرگومان اسکریپت
+    # با MultipleObjectsReturned می‌افتاد — که بهتر از مقایسهٔ خاموشِ فیش‌های
+    # شعبهٔ اشتباه است، ولی باز هم باید صریح گفته شود.
+    periods = PayrollPeriod.objects.filter(year=year, month=month)
+    if company_name:
+        periods = periods.filter(company__name=company_name)
+    period = periods.order_by("company__pk").first()
+    if period is None:
+        raise SystemExit(f"دورهٔ {title} برای شعبهٔ «{company_name or '—'}» نیست.")
+    if periods.count() > 1:
+        names = "، ".join(sorted(
+            {p.company.name for p in periods.select_related("company")}
+        ))
+        raise SystemExit(
+            f"این دوره در چند شعبه هست ({names}). نام شعبه را به‌عنوان "
+            f"آرگومان سوم بدهید."
+        )
+    print(f"شعبه: {period.company.name}")
     period.status = PayrollPeriod.Status.DRAFT
     period.save(update_fields=["status"])
     result = calculate_period(period)
@@ -209,7 +227,7 @@ def main(path, title):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
+    if len(sys.argv) not in (3, 4):
         print(__doc__)
         raise SystemExit(1)
-    main(sys.argv[1], sys.argv[2])
+    main(sys.argv[1], sys.argv[2], sys.argv[3] if len(sys.argv) == 4 else "")

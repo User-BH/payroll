@@ -352,12 +352,16 @@ def load_people(company, sheet, departments, centers, jobs, period):
         contract.daily_wage = sheet.n("مزدروزانه", r)
         # ستون X فایل — نه CC. برای ۲۶ سطر این دو با هم فرق دارند و آنچه
         # مابه‌التفاوت از آن ساخته می‌شود X است.
+        # روی قرارداد «آخرین مقدار» می‌ماند، و پایین‌تر همین عدد برای **همین
+        # ماه** هم ثبت می‌شود — چون فایل در طول سال عوضش می‌کند.
         contract.cumulative_seniority_daily = sheet.n("پایه سنوات تجمیعی روزانه", r)
         contract.status = EmploymentContract.Status.ACTIVE
         contract.save()
 
         _bank_account(sheet, r, employee)
         _fixed_surplus(sheet, r, contract, period)
+        _period_value(sheet, r, employee, period,
+                      "پایه سنوات تجمیعی روزانه", "SENIORITY_CUM")
         _recurring(sheet, r, contract, period, "هزینه تلفن", "PHONE")
     return created, updated
 
@@ -393,6 +397,30 @@ def _fixed_surplus(sheet, row, contract, period):
             "effective_from": period.fiscal_year.start_date,
             "effective_to": None,
         },
+    )
+
+
+def _period_value(sheet, row, employee, period, column, code):
+    """عددی که به **دوره** تعلق دارد نه به قرارداد.
+
+    پایهٔ سنوات تجمیعی روی قرارداد هم هست، ولی قرارداد یک مقدار بیشتر ندارد و
+    فایل در طول سال عوضش می‌کند. بدون ثبتِ ماه‌به‌ماه، بارگذاری ماه جدید
+    مابه‌التفاوتِ ماه‌های قبل را هم عوض می‌کرد.
+    """
+    component = SalaryComponent.objects.filter(
+        company=period.company, code=code
+    ).first()
+    if component is None:
+        return
+    value = sheet.n(column, row)
+    if not value:
+        PayrollInput.objects.filter(
+            period=period, employee=employee, component=component
+        ).delete()
+        return
+    PayrollInput.objects.update_or_create(
+        period=period, employee=employee, component=component,
+        defaults={"amount": value},
     )
 
 

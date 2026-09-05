@@ -69,6 +69,21 @@ NEW_COMPONENTS = [
     # نگه می‌دارد. اطلاعی است: نه به ناخالص اضافه می‌شود نه از آن کم.
     ("COMM_SHORTFALL", "کسری پورسانت", "INFO", "ENGINE_RULE",
      "commission_shortfall", 573, False, False, False, GREY),
+    # کسورِ کسریِ انبار. در فایل تبریز ستونش نیست ولی در اردبیل هست و برای ۵
+    # نفر مقدار دارد؛ بدون این قلم، بارگذاری آن ستون را بی‌صدا رد می‌کرد.
+    # شعبه‌ای که ستونش را ندارد، قلم را با مقدار صفر می‌بیند و روی فیش نمی‌آید.
+    ("STORE", "کسر انبار", "DEDUCTION", "MANUAL", "",
+     340, False, False, True, GREY),
+    # پایهٔ سنوات تجمیعیِ **همان ماه**.
+    #
+    # این عدد روی قرارداد هم هست، ولی قرارداد یک مقدار بیشتر ندارد و فایل
+    # شرکت در طول سال عوضش می‌کند: در اردبیل ۱۰ نفر از ۳۷ نفر. با یک مقدارِ
+    # واحد، بارگذاری ماه جدید عددِ ماه‌های قبل را هم عوض می‌کرد و مابه‌التفاوتِ
+    # فیشِ صادرشده بی‌صدا جابه‌جا می‌شد.
+    #
+    # «اطلاعی» است و روی فیش نمی‌آید؛ فقط ورودیِ محاسبهٔ مابه‌التفاوت است.
+    ("SENIORITY_CUM", "پایه سنوات تجمیعی روزانه", "INFO", "MANUAL", "",
+     574, False, False, False, GREY),
 ]
 
 # اقلامی که از پیش وجود دارند ولی «ورود دستی» بودند و حالا قاعده دارند —
@@ -370,6 +385,21 @@ def configure(company, stdout=None):
             say(f"زنجیرهٔ مازاد برای {len(support)} پست پشتیبانی: "
                 + "، ".join(job.name for job in support))
 
+    # اقلام گروه فروش. تا امروز دامنه‌شان فقط در دیتابیس تبریز نشسته بود و
+    # در این فایل نبود — یعنی شعبهٔ تازه آن‌ها را **بی‌دامنه** می‌گرفت، و قلمِ
+    # بی‌دامنه به همهٔ پرسنل تعلق می‌گیرد. در اردبیل همین باعث شد پورسانت و
+    # حق مأموریت فروش روی فیش کارگر انبار هم بنشیند.
+    if sales:
+        scoped = []
+        for code in ("COMM_1", "COMM_2", "COMM_3", "COMM_RESERVE", "MISSION2"):
+            component = existing.get(code) or codes_new.get(code)
+            if component is None:
+                continue
+            if _reset_scopes(component, [("COST_CENTER", sales.pk)]):
+                scoped.append(component.name)
+        if scoped:
+            say(f"→ فقط {SALES_UNIT}: " + "، ".join(scoped))
+
     # اضافه‌کاری عادی و زنجیره‌ای نباید به یک نفر برسند — دو بار پرداخت است.
     overtime = existing.get("OVERTIME")
     if overtime:
@@ -418,8 +448,12 @@ def configure(company, stdout=None):
         if scoped:
             say("→ فقط راننده استجاری: " + "، ".join(scoped))
     else:
+        # «وجه مرخصی» هم اینجا می‌آید. تا امروز فقط در شاخهٔ بالا بود، یعنی
+        # نبودِ پستِ راننده استجاری آن را **بی‌دامنه و فعال** رها می‌کرد و
+        # به همهٔ پرسنل تعلق می‌گرفت. در اردبیل برای هر ۳۴ نفر روی فیش نشست
+        # — و چون پورسانت آن را هم به خودش اضافه می‌کند، دو بار.
         stopped = []
-        for component, label in driver_only:
+        for component, label in driver_only + [(leave_pay, "وجه مرخصی")]:
             if component is not None and component.is_active:
                 component.is_active = False
                 component.save(update_fields=["is_active"])

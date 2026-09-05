@@ -181,7 +181,26 @@ def seniority_diff(ctx: PayrollContext, component):
 
     روی ۱۳۵ سطرِ تیر و مرداد، هر ۱۳۵ مورد با فایل خواند.
     """
-    cumulative = Decimal(getattr(ctx.contract, "cumulative_seniority_daily", 0) or 0)
+    # اول عددِ همین ماه، بعد عددِ قرارداد.
+    #
+    # عددِ قرارداد «آخرین مقدارِ شناخته‌شده» است و یک‌دانه بیشتر نیست؛ فایل
+    # شرکت ولی در طول سال عوضش می‌کند (در اردبیل ۱۰ نفر از ۳۷). اگر فقط از
+    # قرارداد می‌خواندیم، بارگذاری ماه جدید مابه‌التفاوتِ ماه‌های قبل را هم
+    # عوض می‌کرد — روی فیشی که قبلاً صادر شده.
+    cumulative = ctx.amount_of("SENIORITY_CUM")
+    if not cumulative:
+        component = next(
+            (c for c in ctx.applicable_components if c.code == "SENIORITY_CUM"),
+            None,
+        )
+        if component is not None:
+            cumulative = Decimal(
+                ctx.manual_inputs.get(component.id, ZERO) or ZERO
+            )
+    if not cumulative:
+        cumulative = Decimal(
+            getattr(ctx.contract, "cumulative_seniority_daily", 0) or 0
+        )
     if not cumulative:
         return None
     gap = cumulative - ctx.seniority_daily
@@ -204,15 +223,23 @@ def seniority_diff(ctx: PayrollContext, component):
 def late_deduction(ctx: PayrollContext, component):
     """کسر بابت تأخیر ورود، از ساعت و دقیقهٔ ثبت‌شده در جدول کارکرد.
 
-        مبنا = (مزد روزانه + پایه سنوات روزانه) × ۳۰ + مسکن + اولاد + تأهل + بن
+        مبنا = مزد روزانه × ۳۰ + پایه سنوات روزانه × n + مسکن + اولاد + تأهل + بن
         کسر  = مبنا ÷ ۲۲۰ × ساعت  +  مبنا ÷ ۱۱۴۴۰ × دقیقه
+
+    عددِ n «ضریب پایه سنوات ماهانه» است و از پارامترهای سال می‌آید: در فایل
+    تبریز ۳۰ و در فایل اردبیل ۳۱ — روی همان ماهِ ۳۱ روزه، یعنی انتخابِ شعبه
+    است نه تابعی از تقویم.
 
     مبنا **مبلغ کاملِ ماهانه** است، نه تسهیم‌شده: تأخیر از حقوق ماه کم می‌شود،
     و ماهی که تأخیر دارد هنوز ماه کامل است.
 
-    مخرج دقیقه در فایل شرکت ۱۱۴۴۰ است، نه ۱۳۲۰۰ که از ۲۲۰ ساعت درمی‌آید.
-    عمداً همان‌طور که هست پیاده شد، ولی **آزموده نشده**: در تیر و مرداد ستون
-    «تأخیر دقیقه» برای هیچ‌کس پر نیست، پس این مخرج از داده قابل تأیید نبود.
+    مخرج دقیقه ۱۱۴۴۰ است، نه ۱۳۲۰۰ که از ۲۲۰ ساعت درمی‌آید — و **آزموده
+    شد**. فایل تبریز ستون «تأخیر دقیقه» را برای هیچ‌کس پر نکرده بود، ولی فایل
+    اردبیل دارد:
+
+        ۲۹ سطرِ کسر کار در تیر و مرداد اردبیل، شش‌تا با دقیقهٔ ناصفر
+        مخرج ۱۱۴۴۰ → هر ۲۹ سطر می‌خواند
+        مخرج ۱۳۲۰۰ → ۲۳ سطر (روی هر شش سطرِ دقیقه‌دار می‌افتد)
     """
     if not ctx.timesheet:
         return None
@@ -221,7 +248,10 @@ def late_deduction(ctx: PayrollContext, component):
     if hours <= ZERO and minutes <= ZERO:
         return None
 
-    monthly = (ctx.daily_base + ctx.seniority_daily) * Decimal("30")
+    # حقوق ماهانه همیشه روزانه×۳۰ است، ولی ضریبِ سنوات ماهانه بین شعبه‌ها
+    # فرق می‌کند (تبریز ۳۰، اردبیل ۳۱) و از پارامترهای سال خوانده می‌شود.
+    sen_days = Decimal(getattr(ctx.params, "seniority_monthly_days", 30) or 30)
+    monthly = ctx.daily_base * Decimal("30") + ctx.seniority_daily * sen_days
     monthly += Decimal(ctx.params.housing_allowance or ZERO)
     monthly += Decimal(ctx.params.food_allowance or ZERO)
     monthly += ctx.full_child_allowance

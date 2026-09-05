@@ -94,6 +94,17 @@ class LegalParameter(models.Model):
 
     # --- مبناهای زمانی
     monthly_days = models.DecimalField("روز کارکرد ماه", max_digits=5, decimal_places=2, default=Decimal("30"))
+    # ضریبِ «پایه سنوات ماهانه» در ماخذ کسر کار.
+    #
+    # فایل تبریز این عدد را روزانه×۳۰ می‌گیرد و فایل اردبیل روزانه×۳۱ — روی
+    # همان ماهِ ۳۱ روزه، یعنی انتخابِ شعبه است نه تابعی از تقویم. تنها جایی
+    # که اثر دارد ماخذ کسر کار و تأخیر است؛ خودِ سطر «پایه سنوات» فیش از
+    # کارکرد قابل پرداخت می‌آید و به این عدد کاری ندارد.
+    seniority_monthly_days = models.PositiveSmallIntegerField(
+        "ضریب پایه سنوات ماهانه (روز)", default=30,
+        help_text="فقط در ماخذ کسر کار و تأخیر استفاده می‌شود؛ تبریز ۳۰، اردبیل ۳۱",
+    )
+
     annual_leave_days = models.DecimalField(
         "مرخصی استحقاقی سال کامل (روز)", max_digits=5, decimal_places=2,
         default=Decimal("26"),
