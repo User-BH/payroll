@@ -3,6 +3,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from apps.accounts.decorators import can_edit_required, payroll_staff_required
+from apps.org.current import active_company
 from apps.org.models import Company
 from apps.payroll_config.forms import (
     ComponentScopeForm,
@@ -31,7 +32,7 @@ def settings_home(request):
     from apps.org.models import Company, CostCenter, Department
     from apps.payroll_config.models import FiscalYear
 
-    company = Company.objects.first()
+    company = active_company(request)
     cards = [
         {
             "title": "اقلام حقوقی", "route": "component_list",
@@ -48,7 +49,8 @@ def settings_home(request):
         {
             "title": "سال مالی و مالیات", "route": "fiscal_settings",
             "note": "حداقل دستمزد، حق مسکن، بن، نرخ‌های بیمه و پلکان مالیات هر سال",
-            "count": FiscalYear.objects.count(), "unit": "سال مالی",
+            "count": FiscalYear.objects.filter(company=company).count(),
+            "unit": "سال مالی",
         },
         {
             "title": "شرکت و چارت سازمانی", "route": "org_settings",
@@ -126,7 +128,7 @@ def _preview(component, company):
 
 @can_edit_required
 def component_create(request):
-    company = Company.objects.first()
+    company = active_company(request)
     form = SalaryComponentForm(request.POST or None, company=company)
     if request.method == "POST" and form.is_valid():
         component = form.save(commit=False)
@@ -252,7 +254,10 @@ def tax_brackets_edit(request, pk):
 @payroll_staff_required
 def fiscal_settings(request):
     year_id = request.GET.get("year")
-    years = FiscalYear.objects.select_related("company").order_by("-year")
+    years = (
+        FiscalYear.objects.filter(company=active_company(request))
+        .select_related("company").order_by("-year")
+    )
     fiscal_year = years.filter(pk=year_id).first() if year_id else years.first()
 
     params = None
@@ -286,7 +291,7 @@ def formula_book(request):
 
     from apps.payroll.formulas import build
 
-    company = Company.objects.first()
+    company = active_company(request)
     context = {"company": company}
     if company is not None:
         context.update(build(company))

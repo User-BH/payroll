@@ -107,6 +107,8 @@ urlpatterns = [
     # ---- شرکت و ساختار سازمانی
     path("org/", org_views.org_settings, name="org_settings"),
     path("org/company/", org_views.company_edit, name="company_edit"),
+    path("org/branch/new/", org_views.branch_create, name="branch_create"),
+    path("org/branch/switch/", org_views.branch_switch, name="branch_switch"),
     path("org/<str:kind>/new/", org_views.org_item_form, name="org_item_create"),
     path("org/<str:kind>/<int:pk>/edit/", org_views.org_item_form, name="org_item_edit"),
     path("org/<str:kind>/<int:pk>/delete/", org_views.org_item_delete, name="org_item_delete"),

@@ -4,11 +4,14 @@ from django import forms
 from django.contrib import messages
 from django.db.models import ProtectedError
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from apps.accounts.decorators import can_edit_required, payroll_staff_required
 from apps.employees.forms import BootstrapMixin
 from apps.employees.models import EmploymentContract
+from apps.org.clone import clone_configuration
+from apps.org.current import active_company, set_active_company
 from apps.org.models import Company, CostCenter, Department, JobTitle
 from apps.org.tree import walk
 
@@ -59,6 +62,22 @@ class CompanyForm(BootstrapMixin, forms.ModelForm):
         return ",".join(columns)
 
 
+class BranchCreateForm(BootstrapMixin, forms.ModelForm):
+    """فقط چیزهایی که ساختنِ شعبه لازم دارد؛ بقیه بعداً در «اطلاعات شرکت»."""
+
+    class Meta:
+        model = Company
+        fields = ["name", "legal_name", "national_id", "economic_code",
+                  "insurance_workshop_code", "address", "phone"]
+        widgets = {"address": forms.Textarea(attrs={"rows": 2})}
+
+    def clean_name(self):
+        name = (self.cleaned_data.get("name") or "").strip()
+        if Company.objects.filter(name=name).exists():
+            raise forms.ValidationError("شعبه‌ای با این نام از قبل هست.")
+        return name
+
+
 class _OrgFormBase(BootstrapMixin, forms.ModelForm):
     """پایه مشترک فرم‌های ساختار سازمانی.
 
@@ -69,10 +88,12 @@ class _OrgFormBase(BootstrapMixin, forms.ModelForm):
     روی نمونه می‌گذاریم و از فهرست کنارگذاشته‌ها بیرونش می‌آوریم.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, company=None, **kwargs):
         super().__init__(*args, **kwargs)
         if not self.instance.company_id:
-            self.instance.company = Company.objects.first()
+            # شعبهٔ فعال از ویو می‌آید. اگر نیامد، اولین شعبهٔ فعال — که فقط
+            # در تک‌شعبه‌ای درست است و همان حالتِ تا امروز بوده.
+            self.instance.company = company or active_company()
 
     def validate_unique(self):
         exclude = self._get_validation_exclusions()
@@ -111,9 +132,11 @@ class _TreeFormMixin:
 
     TREE_FIELDS = ()
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        company = Company.objects.first()
+    def __init__(self, *args, company=None, **kwargs):
+        # company به پایه هم رد می‌شود، وگرنه `_OrgFormBase` که بعد از این در
+        # MRO است آن را نمی‌بیند و شعبهٔ اشتباه روی نمونه می‌نشیند.
+        super().__init__(*args, company=company, **kwargs)
+        company = company or getattr(self.instance, "company", None) or active_company()
         for name in self.TREE_FIELDS:
             field = self.fields.get(name)
             if field is None:
@@ -160,7 +183,7 @@ KINDS = {
 
 @payroll_staff_required
 def org_settings(request):
-    company = Company.objects.first()
+    company = active_company(request)
     # فقط مراکز هزینه در چارت دیده می‌شوند؛ واحدها دیگر گرهِ جدا نیستند.
     tree = [
         {
@@ -192,7 +215,7 @@ def org_settings(request):
 
 @can_edit_required
 def company_edit(request):
-    company = Company.objects.first()
+    company = active_company(request)
     if company is None:
         messages.error(request, "شرکتی تعریف نشده است. ابتدا setup_operational را اجرا کنید.")
         return redirect("org_settings")
@@ -206,6 +229,48 @@ def company_edit(request):
 
 
 @can_edit_required
+def branch_create(request):
+    """ساخت شعبهٔ تازه، با همان پیکربندیِ محاسباتیِ شعبهٔ فعلی.
+
+    شعبه در این سامانه یک `Company` مستقل است، نه یک `Branch` زیر شرکت. دلیلش
+    این است که هر چیزی که باید بین شعبه‌ها جدا باشد از قبل به شرکت گره خورده:
+    پرسنل، دوره‌های حقوق، اقلام حقوقی، سال مالی و پارامترهای قانونی. با شعبهٔ
+    زیرمجموعه، دورهٔ «مرداد» یکی می‌شد و نمی‌شد محاسبات دو شعبه را جدا وارد
+    کرد — دقیقاً همان چیزی که لازم است.
+
+    «فیلدها و محاسبات دقیقاً مثل تبریز» یعنی اقلام و دامنه‌ها و پارامترها
+    دوباره ساخته می‌شوند، نه به اشتراک گذاشته: هر شعبه می‌تواند فردا نرخ خودش
+    را داشته باشد بی‌آنکه شعبهٔ دیگر تکان بخورد.
+    """
+    source = active_company(request)
+    form = BranchCreateForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        company = form.save(commit=False)
+        if source is not None:
+            # مشخصاتی که شعبه‌ها معمولاً مشترک دارند؛ بقیه خالی می‌ماند تا
+            # کسی به اشتباه کد کارگاه یا پروندهٔ مالیاتیِ شعبهٔ دیگر را نبیند.
+            company.activity = source.activity
+            company.legal_name = source.legal_name
+        company.save()
+        stats = clone_configuration(source, company)
+        set_active_company(request, company)
+        messages.success(
+            request,
+            "شعبهٔ «{}» ساخته شد و انتخاب شد — {} قلم حقوقی، {} سال مالی، "
+            "{} مجموعه پارامتر و {} پلهٔ مالیاتی از «{}» کپی شد. حالا ساختار "
+            "سازمانی و پرسنلش را وارد کنید.".format(
+                company.name, stats["components"], stats["fiscal_years"],
+                stats["parameters"], stats["brackets"],
+                source.name if source else "—",
+            )
+        )
+        return redirect("org_settings")
+    return render(
+        request, "org/branch_form.html", {"form": form, "source": source}
+    )
+
+
+@can_edit_required
 def org_item_form(request, kind, pk=None):
     if kind not in KINDS:
         messages.error(request, "نوع نامعتبر است.")
@@ -213,12 +278,13 @@ def org_item_form(request, kind, pk=None):
 
     model, form_class, label = KINDS[kind]
     instance = get_object_or_404(model, pk=pk) if pk else None
-    form = form_class(request.POST or None, instance=instance)
+    form = form_class(request.POST or None, instance=instance,
+                      company=active_company(request))
 
     if request.method == "POST" and form.is_valid():
         item = form.save(commit=False)
         if instance is None:
-            item.company = Company.objects.first()
+            item.company = active_company(request)
         item.save()
         messages.success(request, f"«{item.name}» ذخیره شد.")
         return redirect("org_settings")
@@ -258,3 +324,26 @@ def org_item_delete(request, kind, pk):
     else:
         messages.success(request, f"«{name}» حذف شد.")
     return redirect("org_settings")
+
+
+@require_POST
+@payroll_staff_required
+def branch_switch(request):
+    """جابه‌جایی بین شعبه‌ها.
+
+    POST است نه GET: حالتِ نشست را عوض می‌کند، و کاری که حالت را عوض می‌کند
+    نباید با باز کردن یک لینک یا پیش‌بارگذاریِ مرورگر اتفاق بیفتد.
+
+    بعدش به همان صفحه‌ای برمی‌گردد که کاربر بود — ولی فقط اگر مسیرِ داخلی
+    باشد. `Referer` را مهاجم هم می‌تواند بنویسد، و بازگرداندنِ بی‌قیدش یعنی
+    صفحهٔ ما به هر جایی که او بخواهد هدایت کند.
+    """
+    company = get_object_or_404(
+        Company, pk=request.POST.get("company"), is_active=True
+    )
+    set_active_company(request, company)
+    messages.success(request, f"شعبهٔ «{company.name}» انتخاب شد.")
+    back = request.META.get("HTTP_REFERER") or ""
+    return redirect(back if url_has_allowed_host_and_scheme(
+        back, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ) else "dashboard")

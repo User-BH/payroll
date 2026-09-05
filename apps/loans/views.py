@@ -11,6 +11,8 @@ from django import forms
 from django.contrib import messages
 from django.db.models import Q, Sum
 from django.shortcuts import get_object_or_404, redirect, render
+
+from apps.org.current import active_company
 from django.views.decorators.http import require_POST
 
 from apps.accounts.decorators import can_edit_required, payroll_staff_required
@@ -93,7 +95,11 @@ def loan_list(request):
     query = request.GET.get("q", "").strip()
     status = request.GET.get("status", "").strip()
 
-    loans = Loan.objects.select_related("employee").order_by("-id")
+    loans = (
+        Loan.objects.filter(employee__company=active_company(request))
+        .select_related("employee")
+        .order_by("-id")
+    )
     if query:
         loans = loans.filter(
             Q(employee__first_name__icontains=query)

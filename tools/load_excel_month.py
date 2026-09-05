@@ -1,6 +1,10 @@
 """بارگذاری یک ماهِ فایل اکسل شرکت در سامانه، برای مقایسهٔ ریال‌به‌ریال.
 
     python tools/load_excel_month.py /path/to/1405.xlsx "تیر 1405"
+    python tools/load_excel_month.py /path/to/1405.xlsx "تیر 1405" "اردبیل"
+
+آرگومان سوم شعبهٔ مقصد است. بدون آن، قدیمی‌ترین شعبه — که تا وقتی یک شعبه
+بیشتر نبود همیشه درست بود و حالا دیگر نیست.
 
 چرا این اسکریپت هست: بهترین آزمونِ یک سامانهٔ حقوق این است که همان ورودی‌هایی
 که حسابدار در اکسل وارد می‌کند به سامانه داده شود و خروجی‌ها کنار هم گذاشته
@@ -719,8 +723,17 @@ def resolve_sheets(path, title):
     return [(name, "بدون بیمه" in name) for name in found]
 
 
-def main(path, title):
-    company = Company.objects.first()
+def main(path, title, company_name=""):
+    # با دو شعبه، «اولین شرکت» دیگر جواب نیست: فایل اردبیل روی تبریز می‌نشست
+    # و کسی تا موقع دیدن فیش‌ها نمی‌فهمید.
+    if company_name:
+        company = Company.objects.filter(name=company_name).first()
+        if company is None:
+            names = "، ".join(Company.objects.values_list("name", flat=True))
+            raise SystemExit(f"شعبهٔ «{company_name}» پیدا نشد. شعبه‌ها: {names}")
+    else:
+        company = Company.objects.order_by("pk").first()
+    print(f"شعبهٔ مقصد: {company.name}")
     month = MONTH_NAMES.index(title.split()[0]) + 1
     year = int(title.split()[1])
 
@@ -823,7 +836,7 @@ def main(path, title):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
+    if len(sys.argv) not in (3, 4):
         print(__doc__)
         raise SystemExit(1)
-    main(sys.argv[1], sys.argv[2])
+    main(sys.argv[1], sys.argv[2], sys.argv[3] if len(sys.argv) == 4 else "")

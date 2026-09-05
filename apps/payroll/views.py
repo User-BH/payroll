@@ -12,6 +12,7 @@ from django.views.decorators.http import require_POST
 from apps.accounts.decorators import can_edit_required, payroll_staff_required
 from apps.attendance.models import Timesheet
 from apps.employees.models import Employee, EmploymentContract
+from apps.org.current import active_company
 from apps.org.models import CostCenter, Department
 from apps.org.tree import (
     aggregate_period,
@@ -58,7 +59,12 @@ def _period_progress(period):
 
 @payroll_staff_required
 def dashboard(request):
-    period = PayrollPeriod.objects.select_related("company").order_by("-year", "-month").first()
+    period = (
+        PayrollPeriod.objects.filter(company=active_company(request))
+        .select_related("company")
+        .order_by("-year", "-month")
+        .first()
+    )
 
     progress = _period_progress(period)
     previous = None
@@ -136,7 +142,8 @@ def dashboard(request):
 @payroll_staff_required
 def period_list(request):
     periods = (
-        PayrollPeriod.objects.select_related("company")
+        PayrollPeriod.objects.filter(company=active_company(request))
+        .select_related("company")
         .annotate(payslip_count=Count("payslips"))
         .order_by("-year", "-month")
     )
@@ -149,13 +156,10 @@ def period_create(request):
     from apps.payroll.utils import JALALI_MONTHS, jalali_month_range
     from apps.payroll_config.models import FiscalYear
 
-    company = PayrollPeriod.objects.first().company if PayrollPeriod.objects.exists() else None
-    if company is None:
-        from apps.org.models import Company
-
-        company = Company.objects.first()
-
-    years = FiscalYear.objects.order_by("-year")
+    # شعبهٔ فعال، نه «شرکتِ اولین دوره». دومی یعنی در شعبهٔ تازه، دوره‌ای
+    # ساخته می‌شد که به شعبهٔ قدیمی می‌چسبید.
+    company = active_company(request)
+    years = FiscalYear.objects.filter(company=company).order_by("-year")
     if request.method == "POST":
         fiscal_year = get_object_or_404(FiscalYear, pk=request.POST.get("fiscal_year"))
         month = int(request.POST.get("month") or 0)
@@ -194,7 +198,9 @@ def period_create(request):
         )
         return redirect("timesheet_grid", pk=period.pk)
 
-    taken = set(PayrollPeriod.objects.values_list("year", "month"))
+    taken = set(
+        PayrollPeriod.objects.filter(company=company).values_list("year", "month")
+    )
     return render(
         request,
         "periods/create.html",

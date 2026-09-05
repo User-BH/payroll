@@ -71,6 +71,23 @@
       </div>
     </div>
 
+    {% comment %}
+      سوییچ شعبه فقط وقتی می‌آید که بیش از یک شعبه باشد. جابه‌جایی POST است
+      نه لینک: حالت نشست را عوض می‌کند و نباید با باز کردن یک لینکِ قدیمی یا
+      پیش‌بارگذاری مرورگر اتفاق بیفتد.
+    {% endcomment %}
+    {% if branches %}
+    <form class="branch-switch" method="post" action="{% url 'branch_switch' %}">
+      {% csrf_token %}
+      <label for="branchPick">شعبه</label>
+      <select id="branchPick" name="company" onchange="this.form.submit()">
+        {% for b in branches %}
+          <option value="{{ b.pk }}"{% if b.pk == company.pk %} selected{% endif %}>{{ b.name }}</option>
+        {% endfor %}
+      </select>
+    </form>
+    {% endif %}
+
     <a class="nav-item {% if section == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></svg>
       داشبورد

@@ -3,6 +3,8 @@ from django.contrib import messages
 from django.db.models import Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+
+from apps.org.current import active_company
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
@@ -394,7 +396,7 @@ def timesheet_items(request):
     from apps.attendance.models import TimesheetItem
     from apps.org.models import Company
 
-    company = Company.objects.first()
+    company = active_company(request)
     can_edit = getattr(request.user, "can_edit_payroll", False)
     form = TimesheetItemForm(
         request.POST or None, company=company

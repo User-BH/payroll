@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}شعبه جدید{% endblock %}
+{% block heading %}افزودن شعبه{% endblock %}
+{% block subheading %}
+  پرسنل و دوره‌های حقوق هر شعبه جداست؛ اقلام و پارامترهای محاسباتی هم برای هر
+  شعبه جداگانه ساخته می‌شوند تا تغییر نرخ یکی، دیگری را تکان ندهد
+{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width:720px;">
+  <form method="post">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    <div class="form-grid">
+      {% for field in form %}
+        <div class="field{% if field.errors %} has-error{% endif %}">
+          <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {{ field }}
+          {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
+          {{ field.errors }}
+        </div>
+      {% endfor %}
+    </div>
+    <div style="margin-top:18px; display:flex; gap:10px; align-items:center;">
+      <button class="btn primary" type="submit">ساخت شعبه</button>
+      <a class="btn" href="{% url 'org_settings' %}">انصراف</a>
+    </div>
+  </form>
+
+  {% if source %}
+  <p style="margin-top:18px; color:var(--muted); line-height:2; font-size:12px;">
+    پس از ساخت، شعبهٔ تازه انتخاب می‌شود و باید ساختار سازمانی، سال مالی و
+    پارامترهای قانونی‌اش وارد شود. برای اینکه اقلام حقوقی و دامنه‌هایش دقیقاً
+    مثل «{{ source.name }}» باشد، این دستور را روی همان شعبه اجرا کنید:
+  </p>
+  <pre style="background:var(--bg-soft,#f6f7f9); padding:10px; border-radius:8px;
+              direction:ltr; text-align:left; font-size:12px; overflow-x:auto;"
+  >python manage.py configure_1405 --company "نام شعبه"</pre>
+  {% endif %}
+</div>
+{% endblock %}

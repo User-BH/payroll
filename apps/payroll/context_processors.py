@@ -14,7 +14,7 @@ def current_period(request):
     # ساخته می‌شود تا صفحهٔ ورود هم داشته باشدش.
     import jdatetime
 
-    from apps.org.models import Company
+    from apps.org.current import active_company, companies
 
     # نام شرکت تا امروز در قالب‌ها سخت‌کد بود («تامین کالا باختر» در سربرگ،
     # صفحهٔ ورود و فیش). یعنی همان کدی که چندشرکتی طراحی شده، روی صفحه اسم
@@ -24,14 +24,22 @@ def current_period(request):
     # می‌دهد و آن‌جا هنوز کاربری در کار نیست.
     common = {
         "jalali_year": jdatetime.date.today().year,
-        "company": Company.objects.filter(is_active=True).first(),
+        "company": active_company(request),
     }
 
     if not request.user.is_authenticated:
         return common
 
+    # فهرست شعبه‌ها فقط وقتی به قالب می‌رود که بیش از یکی باشد — سوییچی که
+    # همیشه یک گزینه دارد، فضای هدر را بی‌دلیل می‌گیرد.
+    branches = list(companies())
+    common["branches"] = branches if len(branches) > 1 else []
+
+    # دورهٔ جاریِ همین شعبه — وگرنه منو و نوار بالا دورهٔ شعبهٔ دیگر را
+    # نشان می‌دهند و کاربر روی دادهٔ اشتباه کار می‌کند.
     period = (
-        PayrollPeriod.objects.select_related("company")
+        PayrollPeriod.objects.filter(company=common["company"])
+        .select_related("company")
         .order_by("-year", "-month")
         .first()
     )

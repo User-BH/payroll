@@ -24,6 +24,7 @@ from apps.employees.services import (
     missing_org_labels,
     org_defaults,
 )
+from apps.org.current import active_company
 from apps.org.models import Company
 from apps.attendance.models import Timesheet
 from apps.payroll.models import PayrollPeriod, Payslip
@@ -33,7 +34,13 @@ def _filtered_employees(request):
     query = request.GET.get("q", "").strip()
     status = request.GET.get("status", "").strip()
 
-    employees = Employee.objects.select_related("company").prefetch_related("contracts")
+    # محدود به شعبهٔ فعال. بدون این، سوییچ شعبه فقط نامِ هدر را عوض می‌کرد و
+    # فهرست پرسنلِ هر دو شعبه با هم دیده می‌شد.
+    employees = (
+        Employee.objects.filter(company=active_company(request))
+        .select_related("company")
+        .prefetch_related("contracts")
+    )
     if query:
         employees = employees.filter(
             Q(first_name__icontains=query)
@@ -125,7 +132,7 @@ def employee_create(request):
     """
     from apps.attendance.services import default_work_days, open_period_for, set_initial_timesheet
 
-    company = Company.objects.first()
+    company = active_company(request)
     if company is None:
         messages.error(
             request,
@@ -486,7 +493,7 @@ def employee_import(request):
         try:
             result = import_employees(
                 form.cleaned_data["file"],
-                Company.objects.first(),
+                active_company(request),
                 create_contracts=form.cleaned_data["create_contracts"],
             )
         except Exception as exc:  # noqa: BLE001 — خطای فایل باید به کاربر نشان داده شود

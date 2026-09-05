@@ -3,6 +3,8 @@
 from django.contrib import messages
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
+
+from apps.org.current import active_company
 from django.views.decorators.http import require_POST
 
 from apps.accounts.decorators import can_edit_required, payroll_staff_required
@@ -82,7 +84,10 @@ def _rows(fiscal_year, query):
 
 
 def _fiscal_year(request):
-    years = FiscalYear.objects.select_related("company").order_by("-year")
+    years = (
+        FiscalYear.objects.filter(company=active_company(request))
+        .select_related("company").order_by("-year")
+    )
     year_id = request.GET.get("year")
     return years.filter(pk=year_id).first() if year_id else years.first(), years
 
