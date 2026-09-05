@@ -297,12 +297,21 @@ def configure(company, stdout=None):
     # «مبنای روزانهٔ مأموریت» برای آن ماه ثبت شده بود، تبدیل خودکار روشن شد و
     # ۱۴ فیش از ۶۸ فیش را خراب کرد: حق مأموریت بی‌دلیل بالا رفت و پورسانت یک
     # همان‌قدر پایین آمد — تا جایی که برای چند نفر **منفی** شد.
-    for code in ("COMM_1", "COMM_2", "COMM_3"):
-        component = existing.get(code)
-        if component is not None and component.is_commission:
-            component.is_commission = False
-            component.save(update_fields=["is_commission"])
-            say(f"{component.name}: تبدیل خودکار به مأموریت خاموش شد (جذب می‌شود، نه تبدیل)")
+    # این دستور دیگر تیک را **زورکی خاموش نمی‌کند**، فقط گزارش می‌دهد.
+    #
+    # تا امروز هر اجرا خاموشش می‌کرد، یعنی تصمیمِ کسی که عمداً روشنش کرده بود
+    # بی‌صدا برگردانده می‌شد و او تا دیدن فیش‌ها نمی‌فهمید. انتخاب مال کاربر
+    # است؛ کار این دستور گفتنِ پیامد است، نه گرفتنِ تصمیم.
+    live = [
+        existing[code] for code in ("COMM_1", "COMM_2", "COMM_3")
+        if existing.get(code) is not None and existing[code].is_commission
+    ]
+    if live:
+        say(
+            "تبدیل خودکار پورسانت **روشن** است برای: "
+            + "، ".join(c.name for c in live)
+            + " — در مرداد ۱۴۰۵ تبریز این حالت ۱۶ فیش از ۶۸ فیش را جابه‌جا کرد."
+        )
 
     # ------------------------------------- حق تلفن: از «مبالغ دستی» به «پرسنل»
     #

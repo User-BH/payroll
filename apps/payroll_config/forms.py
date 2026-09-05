@@ -90,7 +90,8 @@ class SalaryComponentForm(BootstrapMixin, forms.ModelForm):
         fields = [
             "code", "name", "kind", "calc_type", "engine_rule_key",
             "base_source", "quantity_source", "base_component", "timesheet_item",
-            "rate", "fixed_amount", "absorbs", "allocation_role",
+            "rate", "fixed_amount", "absorbs", "adds", "allocation_role",
+            "is_commission", "show_quantity",
             "display_unit", "is_insurable", "is_taxable",
             "affects_eid", "affects_severance",
             "sequence", "gl_account", "color", "print_on_payslip",
@@ -103,10 +104,10 @@ class SalaryComponentForm(BootstrapMixin, forms.ModelForm):
         ("نحوه محاسبه", [
             "calc_type", "base_source", "quantity_source", "base_component",
             "timesheet_item", "rate", "fixed_amount", "engine_rule_key",
-            "absorbs", "allocation_role",
+            "absorbs", "adds", "allocation_role", "is_commission",
         ]),
         ("رفتار در فیش و گزارش", [
-            "display_unit", "is_insurable", "is_taxable",
+            "display_unit", "show_quantity", "is_insurable", "is_taxable",
             "affects_eid", "affects_severance", "print_on_payslip",
         ]),
         ("نمایش و سایر", ["gl_account", "color", "is_active", "description"]),
