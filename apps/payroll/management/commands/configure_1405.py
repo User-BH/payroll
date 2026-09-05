@@ -29,14 +29,28 @@ class Command(BaseCommand):
     @transaction.atomic
     def handle(self, *args, **options):
         name = options["company"]
-        company = (
-            Company.objects.filter(name=name).first() if name else Company.objects.first()
-        )
-        if company is None:
-            self.stdout.write(self.style.ERROR(
-                "شرکتی پیدا نشد. اول `python manage.py setup_operational` را اجرا کنید."
-            ))
-            return
+        if name:
+            company = Company.objects.filter(name=name).first()
+            if company is None:
+                # پیام قبلی می‌گفت «شرکتی پیدا نشد، setup_operational را اجرا
+                # کنید» — که وقتی شعبه‌ها هستند و فقط این یکی نیست، آدم را
+                # دنبال کار اشتباه می‌فرستد.
+                names = "، ".join(Company.objects.values_list("name", flat=True))
+                self.stdout.write(self.style.ERROR(
+                    f"شعبه‌ای به نام «{name}» نیست."
+                    + (f" شعبه‌های موجود: {names}" if names else "")
+                ))
+                self.stdout.write(
+                    f'برای ساختنش: python manage.py branches --add "{name}"'
+                )
+                return
+        else:
+            company = Company.objects.order_by("pk").first()
+            if company is None:
+                self.stdout.write(self.style.ERROR(
+                    "شرکتی پیدا نشد. اول `python manage.py setup_operational` را اجرا کنید."
+                ))
+                return
 
         self.stdout.write(f"شرکت: {company.name}\n")
         changes = configure(company, stdout=self.stdout)
