@@ -49,6 +49,10 @@ class PayrollContext:
     applicable_components: list = field(default_factory=list)
     _surplus: object = None
 
+    # مبلغی که جذبِ پورسانت بیش از خودِ پورسانت بوده و روی کف صفر متوقف شده.
+    # صفر یعنی چنین چیزی پیش نیامده. قاعدهٔ «کسری پورسانت» از همین می‌خواند.
+    commission_shortfall: Decimal = ZERO
+
     # نتایج تجمعی حین محاسبه
     amounts: dict = field(default_factory=dict)   # component_code -> Decimal
     gross: Decimal = ZERO

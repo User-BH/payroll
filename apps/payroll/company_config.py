@@ -59,6 +59,16 @@ NEW_COMPONENTS = [
      101, True, True, True, GREEN),
     ("SEVERANCE", "پایانکار", "EARNING", "ENGINE_RULE", "severance_monthly",
      102, True, True, True, GREEN),
+    # --- دو قلمِ فرمول پورسانت که تا امروز مدل نشده بودند ------------------
+    # ستون «کسر مازاد پرداختی فروش» در فرمول فایل از پورسانت کم می‌شود. در
+    # فایل ۱۴۰۵ برای همهٔ سطرهای فروش صفر است، ولی نبودنش یعنی فرمول سامانه
+    # با فرمول فایل یکی نیست و روزی که ناصفر شود، بی‌صدا از قلم می‌افتد.
+    ("SALES_SURPLUS_DEDUCT", "کسر مازاد پرداختی فروش", "INFO", "MANUAL", "",
+     572, False, False, False, GREY),
+    # کف صفرِ پورسانت مبلغی را پرداخت‌نشده می‌گذارد؛ این سطر همان را پیدا
+    # نگه می‌دارد. اطلاعی است: نه به ناخالص اضافه می‌شود نه از آن کم.
+    ("COMM_SHORTFALL", "کسری پورسانت", "INFO", "ENGINE_RULE",
+     "commission_shortfall", 573, False, False, False, GREY),
 ]
 
 # اقلامی که از پیش وجود دارند ولی «ورود دستی» بودند و حالا قاعده دارند —
@@ -297,10 +307,25 @@ def configure(company, stdout=None):
             comm1.engine_rule_key = "commission_net"
             comm1.save(update_fields=["calc_type", "engine_rule_key"])
             say("پورسانت یک → قاعدهٔ «پورسانت پس از جذب»")
-        wanted = [existing[c] for c in ("MISSION2", "DIFF", "COMM_RESERVE") if c in existing]
+        # فرمول کامل ستون پورسانت در فایل ۱۴۰۵ (در هر سه شیت یکسان):
+        #   (پورسانت یک + مازاد ثابت + وجه مرخصی)
+        # − (مابه‌التفاوت + ذخیره پورسانت + کسر مازاد پرداختی فروش + مبلغ مأموریت)
+        pool = {**existing, **codes_new}
+        wanted = [
+            pool[c] for c in
+            ("MISSION2", "DIFF", "COMM_RESERVE", "SALES_SURPLUS_DEDUCT")
+            if c in pool
+        ]
         if set(comm1.absorbs.all()) != set(wanted):
             comm1.absorbs.set(wanted)
             say("پورسانت یک جذب می‌کند: " + "، ".join(c.name for c in wanted))
+        # «مازاد ثابت» از راه `allocation_role` اضافه می‌شود (زنجیرهٔ مازاد)،
+        # پس فقط «وجه مرخصی» اینجا می‌ماند.
+        adds = [pool[c] for c in ("LEAVE_PAY",) if c in pool]
+        if set(comm1.adds.all()) != set(adds):
+            comm1.adds.set(adds)
+            say("پورسانت یک به آن اضافه می‌شود: "
+                + "، ".join(c.name for c in adds))
 
     # ------------------------------------------------------------ دامنه‌ها
     sales = CostCenter.objects.filter(company=company, name=SALES_UNIT).first()

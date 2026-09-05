@@ -770,10 +770,26 @@ def commission_net(ctx: PayrollContext, component):
     # تا وقتی مازاد ثابت ورودی ماهانه بود، بارگذار آن را با پورسانت خام یک‌جا
     # وارد می‌کرد. حالا که روی قرارداد نشسته، همین‌جا خوانده می‌شود.
     surplus_add = ZERO
+    add_pieces = []
     for other in ctx.applicable_components:
         if getattr(other, "allocation_role", "") == "ADD":
             surplus_add += ctx.recurring_or_manual(other)
     raw += surplus_add
+
+    # افزوده‌شونده‌های صریح (`adds`) — در فایل شرکت «وجه مرخصی».
+    #
+    # هشدار: این قلم روی فیش سطر مستقل هم دارد. اضافه شدنش به پورسانت یعنی
+    # همان مبلغ دو بار به ناخالص می‌رود. در فایل ۱۴۰۵ برای **هیچ** سطر فروشی
+    # ناصفر نیست (هر ۱۴ شیت، هر دو فایل)، پس امروز بی‌اثر است و عیناً طبق
+    # فرمول فایل پیاده شد. اگر روزی برای یک فروشنده ناصفر شد، همین‌جا باید
+    # دوباره تصمیم گرفته شود.
+    for other in component.adds.all():
+        extra = ctx.amount_of(other.code)
+        if not extra:
+            extra = Decimal(ctx.manual_inputs.get(other.id, ZERO) or ZERO)
+        if extra:
+            raw += extra
+            add_pieces.append(f"{other.name} {fa_money(extra)}")
 
     absorbed = ZERO
     pieces = []
@@ -791,13 +807,64 @@ def commission_net(ctx: PayrollContext, component):
         return None
 
     note = f" − ({' + '.join(pieces)})" if pieces else ""
-    add_note = f" (شامل {fa_money(surplus_add)} ریال مازاد ثابت)" if surplus_add else ""
+    added = []
+    if surplus_add:
+        added.append(f"{fa_money(surplus_add)} ریال مازاد ثابت")
+    added.extend(add_pieces)
+    add_note = f" (شامل {' + '.join(added)})" if added else ""
+    net = raw - absorbed
+    shortfall = ZERO
+    if net < ZERO:
+        # کف صفر: جذب بیشتر از خودِ پورسانت بوده. مبلغِ کسری **گم نمی‌شود** —
+        # روی همین سطر نوشته می‌شود و در قلم اطلاعیِ «کسری پورسانت» هم ثبت
+        # می‌شود تا ماه بعد بتوان با «بدهی از ماه قبل» تسویه‌اش کرد.
+        #
+        # فایل شرکت این کف را ندارد و در تنها موردِ منفیِ دو فایل (اردبیل،
+        # اردیبهشت، علی قاسمی ایرلو) عدد منفی را همان‌طور رها کرده و ماه بعد
+        # هم چیزی منتقل نکرده. یعنی آن ۹۸۰٬۸۴۳ ریال از ناخالصِ همان ماه کم شده
+        # و دیگر دنبال نشده. کف صفر آن را به کسی برنمی‌گرداند، فقط پیدا نگهش
+        # می‌دارد.
+        shortfall = -net
+        net = ZERO
+        ctx.commission_shortfall = shortfall
+
+    short_note = (
+        f"؛ جذب {fa_money(shortfall)} ریال بیش از پورسانت بود و روی صفر متوقف شد"
+        if shortfall else ""
+    )
     return LineResult(
-        amount=raw - absorbed,
+        amount=net,
         base_amount=raw,
         quantity=Decimal("1"),
         rate=Decimal("1"),
-        explanation=f"{component.name}: {fa_money(raw)} ریال{add_note}{note}",
+        explanation=(
+            f"{component.name}: {fa_money(raw)} ریال{add_note}{note}{short_note}"
+        ),
+    ).rounded()
+
+
+@rule("commission_shortfall", "کسری پورسانت")
+def commission_shortfall(ctx: PayrollContext, component):
+    """مبلغی که جذب از خودِ پورسانت بیشتر بوده و پرداخت نشده.
+
+    قلمِ اطلاعی است: نه به ناخالص اضافه می‌شود نه از آن کم — فقط پیدا نگه
+    می‌دارد. بدون این سطر، کف صفرِ پورسانت یعنی مبلغی بی‌صدا ناپدید شود، و
+    ناپدید شدنِ بی‌صدا همان چیزی است که کف صفر باید از آن جلوگیری کند.
+
+    ترتیبش روی فیش باید **بعد از** پورسانت یک باشد، وگرنه هنوز صفر است.
+    """
+    amount = Decimal(getattr(ctx, "commission_shortfall", 0) or 0)
+    if not amount:
+        return None
+    return LineResult(
+        amount=amount,
+        base_amount=amount,
+        quantity=Decimal("1"),
+        rate=Decimal("1"),
+        explanation=(
+            f"جذب {fa_money(amount)} ریال بیش از پورسانت بود؛ پورسانت روی صفر "
+            f"متوقف شد و این مبلغ پرداخت نشده است"
+        ),
     ).rounded()
 
 
