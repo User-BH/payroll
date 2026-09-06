@@ -102,6 +102,13 @@ RATES = {"EID": "5", "SEVERANCE": "2.5", "LEAVE_PAY": "16"}
 # تعدادِ همهٔ اینها روزهای کارکرد ماه است — عددی که خواننده فیش آن را «تعداد»
 # نمی‌فهمد و کنار مبلغ فقط شلوغی است. اضافه‌کاری و مأموریت عمداً در این فهرست
 # نیستند: ساعت و روزشان خودِ اطلاعات است.
+# اقلامی که تعدادشان «روز» است و باید کنار عدد نوشته شود.
+#
+# ستون تعداد فیش برای اضافه‌کاری «ساعت و دقیقه» می‌نویسد و برای اینها عددِ
+# خالی می‌نوشت — خواننده نمی‌فهمید ۳۱ چیست. `display_unit` از قبل همین کار را
+# برای ساعت می‌کرد، پس واحد تازه‌ای لازم نبود.
+DAY_QUANTITY = ["BASE_SALARY", "MISSION", "MISSION2", "MISSION_SURPLUS"]
+
 NO_QUANTITY = [
     "HOUSING", "FOOD", "MARRIAGE", "DIFF", "PHONE", "LEAVE_PAY",
     "PREV_CLAIM", "SENIORITY",
@@ -333,6 +340,30 @@ def configure(company, stdout=None):
         moved = _phone_inputs_to_allowances(phone, say)
         if moved:
             say(f"حق تلفن: {moved} مبلغ دستی به مزایای مستمر منتقل شد")
+
+    # ------------------------------------------------ واحدِ «روز» کنار تعداد
+    day_unit = SalaryComponent.objects.filter(
+        company=company, code__in=DAY_QUANTITY
+    ).exclude(display_unit="DAY")
+    changed = list(day_unit.values_list("name", flat=True))
+    if changed:
+        day_unit.update(display_unit="DAY")
+        say("تعدادشان با واحد «روز» چاپ می‌شود: " + "، ".join(changed))
+
+    # --------------------------- مازاد ثابت: از «مبالغ دستی» به «مزایای مستمر»
+    #
+    # مثل حق تلفن، عددی سالانه است که روی قرارداد می‌نشیند — در فایل شرکت بین
+    # تیر و مرداد برای هر ۶۶ نفر یکسان بود. تا وقتی MANUAL بود، در فهرست
+    # «مبالغ دستی» می‌آمد و هر ماه دوباره پرسیده می‌شد.
+    #
+    # زنجیرهٔ مازاد از `recurring_or_manual` می‌خواند که **اول** مزایای مستمر
+    # قرارداد را نگاه می‌کند، پس استخر دست‌نخورده می‌ماند.
+    surplus = existing.get("SURPLUS_FIXED") or codes_new.get("SURPLUS_FIXED")
+    if surplus is not None and surplus.calc_type != "ENGINE_RULE":
+        surplus.calc_type = "ENGINE_RULE"
+        surplus.engine_rule_key = "contract_allowance"
+        surplus.save(update_fields=["calc_type", "engine_rule_key"])
+        say("مازاد ثابت: از «مبالغ دستی» به «مزایای مستمر پرسنل»")
 
     # ------------------------------------- ستون «تعداد» روی نسخهٔ سادهٔ فیش
     hidden = SalaryComponent.objects.filter(

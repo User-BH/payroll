@@ -47,9 +47,30 @@ class Command(BaseCommand):
             "--no-allowances", action="store_true",
             help="فقط مبالغ دستی؛ مزایای مستمر قرارداد را نگیر",
         )
+        parser.add_argument(
+            "--company", default="", help="نام شعبه (پیش‌فرض: قدیمی‌ترین)"
+        )
 
     def handle(self, *args, **options):
-        periods = PayrollPeriod.objects.filter(year=options["year"])
+        # با دو شعبه، «دورهٔ تیر ۱۴۰۵» دیگر یکتا نیست. بدون تفکیک شعبه،
+        # خروجی مبالغ هر دو شعبه را قاتی می‌کرد و ورودی هم نمی‌فهمید هرکدام
+        # مالِ کجاست.
+        from apps.org.models import Company
+
+        name = options["company"]
+        if name:
+            company = Company.objects.filter(name=name).first()
+            if company is None:
+                names = "، ".join(Company.objects.values_list("name", flat=True))
+                self.stderr.write(f"شعبهٔ «{name}» نیست. شعبه‌ها: {names}")
+                return
+        else:
+            company = Company.objects.order_by("pk").first()
+        self.stdout.write(f"شعبه: {company.name}")
+
+        periods = PayrollPeriod.objects.filter(
+            year=options["year"], company=company
+        )
         if options.get("month"):
             periods = periods.filter(month=options["month"])
         periods = list(periods.order_by("month"))
@@ -116,6 +137,7 @@ class Command(BaseCommand):
 
         payload = {
             "note": "برای import_inputs — هویت‌ها کد پرسنلی و کد قلم است، نه شناسهٔ عددی",
+            "company": company.name,
             "year": options["year"],
             "months": [p.month for p in periods],
             "inputs": inputs,

@@ -37,13 +37,17 @@ def settings_home(request):
         {
             "title": "اقلام حقوقی", "route": "component_list",
             "note": "استحقاقی، کسورات و مبناهای محاسبه — نحوه محاسبه و دامنه شمول هر قلم",
-            "count": SalaryComponent.objects.filter(is_active=True).count(),
+            "count": SalaryComponent.objects.filter(
+                company=company, is_active=True
+            ).count(),
             "unit": "قلم فعال",
         },
         {
             "title": "اقلام کارکرد", "route": "timesheet_items",
             "note": "ستون‌های جدول کارکرد ماهانه — جمعه‌کاری و هر قلم تازه با یک تیک اضافه می‌شود",
-            "count": TimesheetItem.objects.filter(is_active=True).count(),
+            "count": TimesheetItem.objects.filter(
+                company=company, is_active=True
+            ).count(),
             "unit": "ستون فعال",
         },
         {
@@ -55,7 +59,10 @@ def settings_home(request):
         {
             "title": "شرکت و چارت سازمانی", "route": "org_settings",
             "note": "اطلاعات شرکت، مراکز هزینه، واحدها و پست‌های سازمانی",
-            "count": CostCenter.objects.count() + Department.objects.count(),
+            "count": (
+                CostCenter.objects.filter(company=company).count()
+                + Department.objects.filter(company=company).count()
+            ),
             "unit": "گره چارت",
         },
     ]
@@ -72,6 +79,7 @@ def settings_home(request):
                 "title": "حساب‌های پرتال", "route": "portal_accounts",
                 "note": "دسترسی خود پرسنل به فیش و مانده مرخصی",
                 "count": EmploymentContract.objects.filter(
+                    employee__company=company,
                     status=EmploymentContract.Status.ACTIVE
                 ).count(),
                 "unit": "قرارداد فعال",
@@ -82,8 +90,12 @@ def settings_home(request):
 
 @payroll_staff_required
 def component_list(request):
+    # محدود به شعبهٔ فعال. بدون این، فهرست اقلامِ **همهٔ** شعبه‌ها را کنار هم
+    # می‌گذاشت و چون کدها بین شعبه‌ها تکرار می‌شوند، هر قلم دو بار دیده می‌شد
+    # — که به‌نظر «دوبل شدن داده» می‌آمد، در حالی که فقط فیلتر جا افتاده بود.
     components = (
-        SalaryComponent.objects.select_related("base_component")
+        SalaryComponent.objects.filter(company=active_company(request))
+        .select_related("base_component")
         .prefetch_related("scopes")
         .order_by("sequence", "id")
     )

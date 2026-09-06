@@ -418,7 +418,7 @@ def timesheet_items(request):
     from apps.payroll_config.models import SalaryComponent
 
     for component in SalaryComponent.objects.filter(
-        timesheet_item__isnull=False
+        company=company, timesheet_item__isnull=False
     ).select_related("timesheet_item"):
         used_by.setdefault(component.timesheet_item_id, []).append(component)
 

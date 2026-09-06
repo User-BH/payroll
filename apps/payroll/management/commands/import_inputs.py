@@ -124,10 +124,17 @@ class Command(BaseCommand):
                 ).first()
             return employees[code]
 
-        def component_of(code):
-            if code not in components:
-                components[code] = SalaryComponent.objects.filter(code=code).first()
-            return components[code]
+        def component_of(code, company_id):
+            # کلید **کد به‌علاوهٔ شعبه** است، نه فقط کد. با دو شعبه، کد یکسان
+            # دو قلم دارد و `filter(code=...).first()` هرکدام را که زودتر
+            # بیاید برمی‌داشت — یعنی مبلغ روی قلمِ شعبهٔ دیگر می‌نشست و تا
+            # غلط شدن فیش کسی دیده نمی‌شد.
+            key = (code, company_id)
+            if key not in components:
+                components[key] = SalaryComponent.objects.filter(
+                    code=code, company_id=company_id
+                ).first()
+            return components[key]
 
         for row in rows:
             amount = Decimal(row["amount"])
@@ -136,7 +143,7 @@ class Command(BaseCommand):
             )
             period = period_of(row["year"], row["month"])
             employee = employee_of(row["personnel_code"])
-            component = component_of(row["component"])
+            component = component_of(row["component"], period.company_id) if period else None
             if period is None:
                 skipped.append(label + " — این دوره در سامانه نیست")
                 continue
@@ -192,8 +199,8 @@ class Command(BaseCommand):
                 personnel_code=row["personnel_code"]
             ).first()
             component = SalaryComponent.objects.filter(
-                code=row["component"]
-            ).first()
+                code=row["component"], company=employee.company
+            ).first() if employee else None
             if employee is None or component is None:
                 skipped += 1
                 continue
