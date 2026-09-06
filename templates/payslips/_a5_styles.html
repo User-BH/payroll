@@ -82,7 +82,25 @@
 
   /* اطلاعات پرداخت: تمام‌عرض و دو ستونه، چون کادر «مبنای محاسبه» حذف شد و
      تنها ماندنِ یک کادر باریک در نیمهٔ برگه بدقواره بود */
-  .pay-grid{display:grid; grid-template-columns:1fr 1fr; gap:0 14px;}
+  /* اطلاعات پرداخت: همه در **یک ردیف**.
+     پیش از این گرید دو ستونی بود و «مبلغ واریزی» به سطر دوم می‌افتاد، در
+     حالی که جا داشت. فلکس، تعداد قلم‌ها را هم مهم نمی‌کند: با یا بدون شبا،
+     همه در یک خط پخش می‌شوند. */
+  .pay-grid{display:flex; align-items:stretch; gap:0;}
+  /* `.box .row` پایین‌تر `padding:1px 0` می‌گذارد و padding اینجا را خنثی
+     می‌کرد؛ با همان ویژگی نوشته شد تا برنده باشد. */
+  .box .pay-grid > .row{flex:1; min-width:0; padding:1px 10px;}
+  .box .pay-grid > .row:first-child{padding-inline-start:0;}
+  .box .pay-grid > .row:last-child{padding-inline-end:0;}
+  .pay-grid > .row + .row{border-inline-start:1px solid var(--line);}
+  /* برچسب و مقدار کنار هم، نه دو سرِ ستون — همان فاصلهٔ زیادی که بین
+     «بانک عامل» و «رسالت» دیده می‌شد. */
+  .pay-grid .row{
+    display:flex; justify-content:flex-start; align-items:baseline; gap:6px;
+  }
+  .pay-grid .row b{
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0;
+  }
 
   /* مرخصی: سه ستون، با عددِ شخصی درشت و سیاستِ شرکت ریز زیرش */
   .leave-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:0 10px; text-align:center;}
