@@ -138,8 +138,12 @@ def commission_components(company):
     )
 
 
-def commission_totals(period):
-    """جمع پورسانت هر پرسنل در یک دوره — {employee_id: مبلغ}."""
+def commission_holders(period):
+    """چه کسانی در این دوره پورسانت **ثبت‌شده** دارند — {employee_id: خام}.
+
+    فقط برای پیدا کردن نفرات است، نه برای مبلغِ قابل تخصیص؛ آن یکی خالص است
+    و از `commission_totals` می‌آید.
+    """
     from django.db.models import Sum
 
     from apps.payroll.models import PayrollInput
@@ -152,6 +156,31 @@ def commission_totals(period):
         .annotate(total=Sum("amount"))
     )
     return {row["employee_id"]: row["total"] or ZERO for row in rows}
+
+
+def commission_totals(period, contexts=None):
+    """مبلغِ **قابل تخصیص** هر پرسنل — پورسانت خالصِ پیش از مأموریت.
+
+        پورسانت یک + مازاد ثابت + وجه مرخصی
+      − (مابه‌التفاوت + ذخیره پورسانت + کسر مازاد پرداختی فروش)
+
+    «مبلغ مأموریت» کسر نمی‌شود چون خروجیِ همین تخصیص است.
+
+    محاسبه‌اش در `PayrollContext.commission_available` است — یک جا، تا صفحهٔ
+    تخصیص و موتور نتوانند دو جواب متفاوت بدهند. اگر contexts داده نشود (مثلاً
+    فقط فهرست نفرات لازم باشد) همان مبلغ خام برمی‌گردد.
+    """
+    holders = commission_holders(period)
+    if contexts is None:
+        return holders
+    result = {}
+    for employee_id in holders:
+        ctx = contexts.get(employee_id)
+        if ctx is None:
+            continue
+        available = ctx.commission_available
+        result[employee_id] = available if available > ZERO else ZERO
+    return result
 
 
 def build_plan(period, employee, params, source, timesheet=None, contract=None):

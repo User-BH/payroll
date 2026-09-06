@@ -511,7 +511,9 @@ def mission_allowance(ctx: PayrollContext, component):
         else "مبنای روزانهٔ این ماه"
     )
 
-    amount = rate * days * factor
+    # از بافت خوانده می‌شود نه دوباره ضرب، تا با محاسبهٔ «پورسانت قابل تبدیل»
+    # نتوانند از هم جدا بیفتند.
+    amount = ctx.mission_real_amount
     parts = []
     if amount:
         factor_note = f" × ضریب {fa_number(factor, 3)}" if factor != 1 else ""
@@ -833,7 +835,17 @@ def commission_net(ctx: PayrollContext, component):
             absorbed += amount
             pieces.append(f"{other.name} {fa_money(amount)}")
 
-    if not raw and not absorbed:
+    # جذب فقط وقتی معنا دارد که پورسانتی برای جذب کردن در کار باشد.
+    #
+    # سند EXCEL-1405 (بخش «پس چرا دو ستون شده؟») همین را می‌گوید: در گروه فروش
+    # مابه‌التفاوت از پورسانت کسر می‌شود، و در گروه پشتیبانی که پورسانت ندارد،
+    # روی بسته **اضافه** می‌شود. پس فروشنده‌ای که این ماه پورسانت نداشته، باید
+    # مثل گروه پشتیبانی رفتار کند نه اینکه مابه‌التفاوتش به کسری تبدیل شود.
+    #
+    # بدون این شرط، مرتضی محمدی تازه کند در شهریور — که پورسانتی ثبت نشده —
+    # ۳۷٬۷۴۵٬۵۰۷ ریال «کسری پورسانت» می‌گرفت و مابه‌التفاوتش عملاً پرداخت
+    # نمی‌شد.
+    if not raw:
         return None
 
     note = f" − ({' + '.join(pieces)})" if pieces else ""

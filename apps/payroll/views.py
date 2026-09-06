@@ -1396,7 +1396,12 @@ def commission_allocations(request, pk):
         messages.error(request, "پارامتر قانونی این سال تعریف نشده است.")
         return redirect("period_detail", pk=period.pk)
 
-    totals = commission_totals(period)
+    # بافت‌ها یک بار ساخته می‌شوند: مبلغِ قابل تخصیص «پورسانت خالص» است و
+    # محاسبه‌اش همان‌جایی است که موتور دارد، نه نسخهٔ دومی در این صفحه.
+    from apps.payroll.engine.runner import build_contexts
+
+    contexts = build_contexts(period, params)
+    totals = commission_totals(period, contexts)
     # چرا فهرست خالی است؟ دو علتِ کاملاً متفاوت دارد و پیامِ یکسان برای هر دو
     # گمراه‌کننده بود: صفحه می‌گفت «پورسانتی ثبت نشده» در حالی که ۲۳ نفر
     # پورسانت داشتند و علت این بود که هیچ قلمی تیکِ «قلم پورسانت» نداشت.
@@ -1418,7 +1423,11 @@ def commission_allocations(request, pk):
         if employee is None:
             continue
         allocation = saved.get(employee_id)
-        plan = build_plan(period, employee, params, source, timesheets.get(employee_id))
+        ctx = contexts.get(employee_id)
+        plan = build_plan(
+            period, employee, params, source, timesheets.get(employee_id),
+            contract=getattr(ctx, "contract", None),
+        )
         if allocation is not None:
             plan.manual(allocation.to_mission, allocation.to_overtime)
         else:
@@ -1467,7 +1476,10 @@ def commission_allocations_save(request, pk):
         return redirect("commission_allocations", pk=period.pk)
 
     params = resolve_effective_params(period, resolve_legal_parameter(period))
-    totals = commission_totals(period)
+    from apps.payroll.engine.runner import build_contexts
+
+    contexts = build_contexts(period, params)
+    totals = commission_totals(period, contexts)
     timesheets = {ts.employee_id: ts for ts in Timesheet.objects.filter(period=period)}
 
     if request.POST.get("action") == "auto":
@@ -1484,8 +1496,11 @@ def commission_allocations_save(request, pk):
         prefix = f"emp__{employee.pk}"
         if f"{prefix}__mission" not in request.POST:
             continue
+        ctx = contexts.get(employee.pk)
         plan = build_plan(
-            period, employee, params, totals[employee.pk], timesheets.get(employee.pk)
+            period, employee, params, totals[employee.pk],
+            timesheets.get(employee.pk),
+            contract=getattr(ctx, "contract", None),
         ).manual(
             parse_decimal(request.POST.get(f"{prefix}__mission"), 0),
             parse_decimal(request.POST.get(f"{prefix}__overtime"), 0),

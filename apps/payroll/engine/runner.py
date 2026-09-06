@@ -78,7 +78,40 @@ def resolve_effective_params(period, legal_parameter) -> EffectiveParams:
     return EffectiveParams(legal_parameter, overrides)
 
 
-def ensure_commission_allocations(period, params, timesheets):
+def build_contexts(period, params, data=None):
+    """`PayrollContext` همهٔ پرسنل یک دوره — بدون محاسبه، فقط بافت.
+
+    صفحهٔ «تخصیص پورسانت» هم لازمش دارد: مبلغِ قابل تخصیص، پورسانتِ خالص است
+    و محاسبه‌اش به مابه‌التفاوت و مزایای مستمر و مازاد ثابت نیاز دارد — یعنی
+    به همان چیزی که موتور در بافت دارد. بدون این، صفحه مجبور می‌شد نسخهٔ دوم
+    آن محاسبه را بنویسد و دو جواب متفاوت بدهند.
+    """
+    if data is None:
+        data = gather_period_inputs(period, params)
+    components = data["components"]
+    contexts = {}
+    for contract in data["contracts"]:
+        employee = contract.employee
+        ctx = PayrollContext(
+            period=period,
+            employee=employee,
+            contract=contract,
+            timesheet=data["timesheets"].get(employee.pk),
+            params=params,
+            children_count=employee.children_count_on(period.end_date),
+            manual_inputs=data["manual_inputs"].get(employee.pk, {}),
+            contract_allowances=data["allowances"].get(contract.pk, {}),
+            due_installments=data["installments"].get(employee.pk, []),
+        )
+        # دامنه شمول لازم است تا بافت بداند چه اقلامی به این نفر می‌خورند.
+        ctx.applicable_components = [
+            c for c in components if c.applies_to(contract)
+        ]
+        contexts[employee.pk] = ctx
+    return contexts
+
+
+def ensure_commission_allocations(period, params, timesheets, contexts=None):
     """تخصیص پورسانت همهٔ پرسنل دوره — {employee_id: CommissionAllocation}.
 
     برای کسی که پورسانت دارد ولی تخصیصش ثبت نشده، تقسیم خودکار انجام و ذخیره
@@ -91,7 +124,9 @@ def ensure_commission_allocations(period, params, timesheets):
     from apps.payroll.commission import build_plan, commission_totals
     from apps.payroll.models import CommissionAllocation
 
-    totals = commission_totals(period)
+    if contexts is None:
+        contexts = build_contexts(period, params)
+    totals = commission_totals(period, contexts)
     existing = {
         item.employee_id: item
         for item in CommissionAllocation.objects.filter(period=period)
@@ -109,8 +144,10 @@ def ensure_commission_allocations(period, params, timesheets):
         )
         if employee is None:
             continue
+        ctx = contexts.get(employee_id)
         plan = build_plan(
-            period, employee, params, source, timesheets.get(employee_id)
+            period, employee, params, source, timesheets.get(employee_id),
+            contract=getattr(ctx, "contract", None),
         ).auto()
         allocation, _ = CommissionAllocation.objects.update_or_create(
             period=period, employee_id=employee_id,

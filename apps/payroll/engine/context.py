@@ -71,6 +71,7 @@ class PayrollContext:
     # مبلغی که جذبِ پورسانت بیش از خودِ پورسانت بوده و روی کف صفر متوقف شده.
     # صفر یعنی چنین چیزی پیش نیامده. قاعدهٔ «کسری پورسانت» از همین می‌خواند.
     commission_shortfall: Decimal = ZERO
+    _commission_available: object = None
 
     # نتایج تجمعی حین محاسبه
     amounts: dict = field(default_factory=dict)   # component_code -> Decimal
@@ -397,6 +398,107 @@ class PayrollContext:
         return not getattr(self.employee, "is_insurance_exempt", False)
 
     # ------------------------------------------------------------- پورسانت
+
+    @property
+    def mission_component(self):
+        """قلمِ مأموریتی که به این قرارداد می‌خورد — از دامنه شمول، نه کدِ ثابت."""
+        for component in self.applicable_components:
+            if component.code in ("MISSION", "MISSION2", "MISSION_SALES",
+                                  "MISSION_SURPLUS"):
+                return component
+        return None
+
+    @property
+    def mission_real_amount(self) -> Decimal:
+        """مبلغ مأموریتِ **روزهای واقعیِ کارکرد** — بدون آنچه از پورسانت آمده.
+
+        فرمول پورسانت «مبلغ مأموریت» را کسر می‌کند، ولی آنچه خودش از پورسانت
+        به مأموریت رفته نباید دوباره کسر شود — یک ریال دو بار برداشته می‌شد و
+        نتیجه‌اش «کسری پورسانت» بود. پس تنها بخشِ واقعی اینجا حساب می‌شود.
+        """
+        days = (self.timesheet.mission_days if self.timesheet else ZERO) or ZERO
+        if not days:
+            return ZERO
+        component = self.mission_component
+        factor = Decimal(component.rate) if component and component.rate else Decimal("1")
+        return self.mission_daily_base * Decimal(days) * factor
+
+    @property
+    def commission_available(self) -> Decimal:
+        """پورسانتِ **خالصِ پیش از مأموریت** — همان مبلغی که می‌تواند تبدیل شود.
+
+            پورسانت یک + مازاد ثابت + وجه مرخصی
+          − (مابه‌التفاوت + ذخیره پورسانت + کسر مازاد پرداختی فروش)
+
+        «مبلغ مأموریت» عمداً کسر نمی‌شود: خروجیِ همین محاسبه است، نه ورودی‌اش.
+        اگر کسر می‌شد حلقه بسته می‌شد.
+
+        تا امروز تخصیص روی مبلغ **خام** انجام می‌شد و نتیجه‌اش این بود که همان
+        مبلغ یک بار به مأموریت می‌رفت و یک بار هم به‌عنوان «مبلغ مأموریت» از
+        پورسانت جذب می‌شد — پس پورسانت منفی می‌شد و «کسری پورسانت» می‌ساخت.
+        روی اسماعیل حیدری گلدر در مرداد ۱۲۹٬۴۰۸٬۵۰۷ ریال کسری درمی‌آمد.
+
+        قاعده‌ها **مستقیم صدا زده می‌شوند** نه از روی سطرهای فیش، چون قلم
+        مأموریت (ترتیب ۸۱) پیش از مابه‌التفاوت (۱۲۰) حساب می‌شود و آن سطرها
+        هنوز وجود ندارند. همان الگویی که `recurring_or_manual` دارد.
+        """
+        if self._commission_available is None:
+            self._commission_available = self._compute_commission_available()
+        return self._commission_available
+
+    def _compute_commission_available(self) -> Decimal:
+        from apps.payroll.engine.rules import get_rule
+
+        MISSION = {"MISSION", "MISSION2", "MISSION_SALES", "MISSION_SURPLUS"}
+
+        # فقط اقلامی که دامنه‌شان به این قرارداد می‌خورد.
+        #
+        # بدون این شرط، قاعده‌ها بی‌قید صدا زده می‌شدند و قلمی که به این نفر
+        # نمی‌رسد هم مبلغ می‌ساخت: «وجه مرخصی» دامنه‌اش راننده استجاری است ولی
+        # برای اسماعیل حیدری گلدر ۱۱٬۱۶۸٬۷۸۴ ریال به پورسانتِ قابل تبدیل اضافه
+        # می‌کرد — و همان مبلغ بعداً به‌صورت «کسری پورسانت» ظاهر می‌شد.
+        applicable = {c.id for c in self.applicable_components}
+
+        def amount_of_component(component):
+            """مبلغ یک قلم — از قاعده‌اش اگر دارد، وگرنه از ورودی دستی."""
+            if component.id not in applicable:
+                return ZERO
+            manual = Decimal(self.manual_inputs.get(component.id, ZERO) or ZERO)
+            if manual:
+                return manual
+            key = getattr(component, "engine_rule_key", "")
+            func = get_rule(key) if key else None
+            if func is None:
+                return ZERO
+            result = func(self, component)
+            return Decimal(result.amount) if result is not None else ZERO
+
+        total = ZERO
+        has_commission = False
+        for component in self.applicable_components:
+            if not getattr(component, "is_commission", False):
+                continue
+            raw = Decimal(self.manual_inputs.get(component.id, ZERO) or ZERO)
+            if raw:
+                has_commission = True
+            total += raw
+            for other in component.adds.all():
+                total += amount_of_component(other)
+            for other in component.absorbs.all():
+                if other.code in MISSION:
+                    # فقط مأموریتِ روزهای واقعی کسر می‌شود؛ بخشِ منتقل‌شده از
+                    # پورسانت خروجیِ همین محاسبه است و کسرش یعنی دوبار.
+                    total -= self.mission_real_amount
+                    continue
+                total -= amount_of_component(other)
+
+        # «مازاد ثابت» از راه نقشِ استخر اضافه می‌شود، مثل خودِ قاعدهٔ پورسانت.
+        for component in self.applicable_components:
+            if getattr(component, "allocation_role", "") == "ADD":
+                total += self.recurring_or_manual(component)
+        # کسی که این ماه پورسانتی ندارد، چیزی هم برای تبدیل ندارد — و
+        # جذبِ اقلامش نباید به عددِ منفی تبدیل شود.
+        return total if has_commission else ZERO
 
     @property
     def commission_to_mission(self) -> Decimal:

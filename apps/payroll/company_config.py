@@ -314,13 +314,31 @@ def configure(company, stdout=None):
     # EXCEL-1405، بخش ۲). پس ماه‌هایی که با فایل تطبیق داده شده‌اند با این
     # حالت دیگر ریال‌به‌ریال نمی‌خوانند — چیزی که با اندازه‌گیری روی مرداد
     # ۱۴۰۵ تبریز دیده شد.
+    # **فقط پورسانت یک.** فرمول شرکت تنها همین یکی را وارد می‌کند:
+    #
+    #     پورسانت یک + مازاد ثابت + وجه مرخصی
+    #   − (مابه‌التفاوت + ذخیره پورسانت + کسر مازاد + مبلغ مأموریت)
+    #
+    # پورسانت دو و سه سطر مستقل خودشان را دارند و در فایل هم دست‌نخورده
+    # عبور می‌کنند (`AS = CO`). وقتی آن‌ها هم وارد استخر شدند، مبلغشان به
+    # مأموریت می‌رفت و سطر خودشان خالی می‌شد — روی مسعود ذاکری میلانی در تیر
+    # ۱۷۶٬۴۴۴٬۵۰۰ ریال «کسری پورسانت» درمی‌آمد که دقیقاً پورسانت دوی خودش بود.
     turned = []
-    for code in ("COMM_1", "COMM_2", "COMM_3"):
+    for code in ("COMM_1",):
         component = existing.get(code)
         if component is not None and not component.is_commission:
             component.is_commission = True
             component.save(update_fields=["is_commission"])
             turned.append(component.name)
+    off = []
+    for code in ("COMM_2", "COMM_3"):
+        component = existing.get(code)
+        if component is not None and component.is_commission:
+            component.is_commission = False
+            component.save(update_fields=["is_commission"])
+            off.append(component.name)
+    if off:
+        say("از استخر تبدیل بیرون آمدند (سطر مستقل دارند): " + "، ".join(off))
     if turned:
         say(
             "تبدیل خودکار پورسانت روشن شد برای: " + "، ".join(turned)
