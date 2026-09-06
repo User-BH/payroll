@@ -108,7 +108,12 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="3.5"/><path d="M4.5 20c1.4-4 4-6 7.5-6s6.1 2 7.5 6"/></svg>
       پرسنل
     </a>
-    <a class="nav-item {% if section == 'periods' %}active{% endif %}" href="{% if current_period %}{% url 'period_detail' current_period.pk %}{% else %}{% url 'period_list' %}{% endif %}">
+    {% comment %}
+      `tab_period` دورهٔ همین صفحه است (از روی آدرس) و `current_period`
+      تازه‌ترین دوره. منو باید اولی را ببرد: کسی که در مرداد کار می‌کند و روی
+      «دوره حقوقی» می‌زند، نباید به شهریور پرت شود.
+    {% endcomment %}
+    <a class="nav-item {% if section == 'periods' %}active{% endif %}" href="{% if tab_period %}{% url 'period_detail' tab_period.pk %}{% elif current_period %}{% url 'period_detail' current_period.pk %}{% else %}{% url 'period_list' %}{% endif %}">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3.5" y="4.5" width="17" height="16" rx="3"/><path d="M3.5 9.5h17M8 3v3M16 3v3"/></svg>
       دوره حقوقی
     </a>
@@ -165,10 +170,15 @@
           `firstof` اینجا کار نمی‌کند: خروجی‌اش را به **رشته** تبدیل می‌کند و
           بعد `.pk` خالی درمی‌آید. پس شرط صریح.
         {% endcomment %}
-        {% if period.pk %}
+        {% if period.pk %}{# دورهٔ خودِ صفحه #}
         <a class="period-select" href="{% url 'period_detail' period.pk %}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3.5" y="4.5" width="17" height="16" rx="3"/><path d="M3.5 9.5h17"/></svg>
           {{ period.title }}
+        </a>
+        {% elif tab_period %}
+        <a class="period-select" href="{% url 'period_detail' tab_period.pk %}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3.5" y="4.5" width="17" height="16" rx="3"/><path d="M3.5 9.5h17"/></svg>
+          {{ tab_period.title }}
         </a>
         {% elif current_period %}
         <a class="period-select" href="{% url 'period_detail' current_period.pk %}">

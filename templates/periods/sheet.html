@@ -88,8 +88,12 @@
 <style>
   /* جدولی به عرض ده‌ها ستون: ستون نام می‌چسبد، بقیه افقی اسکرول می‌شوند.
      ارتفاع محدود تا سر ستون‌ها هم هنگام اسکرول عمودی سر جایشان بمانند. */
+  /* ارتفاع را جاوااسکریپت از موقعیت واقعیِ خودِ جدول می‌گذارد (پایین‌تر).
+     عددِ ثابت جواب نمی‌داد: به ارتفاع سربرگ و زیرنویس بسته است و با کمی
+     تفاوت، **نوار اسکرول افقی زیر لبهٔ صفحه می‌افتاد** و دست به آن نمی‌رسید.
+     این مقدار فقط تا وقتی است که اسکریپت اجرا شود. */
   .sheet-wrap{
-    overflow:auto; max-height:calc(100vh - 210px);
+    overflow:auto; max-height:60vh;
     overscroll-behavior-x:contain;
     scrollbar-color:var(--muted) transparent;
   }
@@ -141,4 +145,31 @@
   }
   .cell-note.is-active{border-color:var(--red); background:var(--red-soft);}
 </style>
+
+<script>
+  // ارتفاع جدول = فاصله تا پایین پنجره، منهای کمی حاشیه.
+  //
+  // بدون این، نوار اسکرول افقی — که در پایین جعبه است — زیر لبهٔ صفحه
+  // می‌افتاد و کاربر نمی‌توانست به ستون‌های سمت چپ برسد. با ۳۶ ستون این
+  // یعنی نیمی از برگه عملاً در دسترس نبود.
+  (function () {
+    var wrap = document.querySelector('.sheet-wrap');
+    if (!wrap) return;
+    function fit() {
+      var top = wrap.getBoundingClientRect().top + window.scrollY;
+      var room = window.innerHeight - (top - window.scrollY) - 18;
+      wrap.style.maxHeight = Math.max(room, 260) + 'px';
+    }
+    fit();
+    window.addEventListener('resize', fit);
+    // چرخ ماوس عمودی را به حرکت افقی تبدیل می‌کند وقتی جدول عمودی جا دارد —
+    // روی ماوس‌های بدون چرخ افقی، تنها راه رسیدن به ستون‌های دور همین است.
+    wrap.addEventListener('wheel', function (e) {
+      if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+      var atTop = wrap.scrollTop === 0;
+      var atBottom = wrap.scrollTop + wrap.clientHeight >= wrap.scrollHeight - 1;
+      if ((e.deltaY < 0 && atTop) || (e.deltaY > 0 && atBottom)) return;
+    }, { passive: true });
+  })();
+</script>
 {% endblock %}

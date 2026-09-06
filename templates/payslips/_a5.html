@@ -110,7 +110,6 @@
       {% if payslip.iban_snapshot %}
       <div class="row"><span>شماره شبا</span><b class="num" style="direction:ltr;">{{ payslip.iban_snapshot }}</b></div>
       {% endif %}
-      <div class="row"><span>روز کارکرد</span><b class="num">{{ payslip.work_days|fadec }}</b></div>
       <div class="row"><span>مبلغ واریزی</span><b class="num">{{ payslip.net_payable|rial }}</b></div>
     </div>
   </div>

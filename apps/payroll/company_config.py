@@ -399,6 +399,19 @@ def configure(company, stdout=None):
         hidden.update(show_quantity=False)
         say("تعداد روی فیش نشان داده نمی‌شود برای: " + "، ".join(changed))
 
+    # پورسانت یک درست **زیر** حق مأموریت فروش بنشیند: آن دو یک روایت‌اند —
+    # ماندهٔ پورسانت است که به مأموریت تبدیل شده و بقیه‌اش اینجا مانده. با
+    # فاصلهٔ ترتیبی، خواننده باید بین دو سر فیش چشم بگرداند.
+    #
+    # جابه‌جایی بی‌خطر است چون جذب دیگر به ترتیب وابسته نیست: اگر قلم
+    # جذب‌شونده هنوز سطر نساخته باشد، قاعده‌اش مستقیم صدا زده می‌شود.
+    mission2 = existing.get("MISSION2")
+    comm1_seq = existing.get("COMM_1")
+    if mission2 and comm1_seq and comm1_seq.sequence != mission2.sequence + 1:
+        comm1_seq.sequence = mission2.sequence + 1
+        comm1_seq.save(update_fields=["sequence"])
+        say(f"پورسانت یک زیر «{mission2.name}» نشست (ترتیب {comm1_seq.sequence})")
+
     comm1 = existing.get("COMM_1")
     if comm1:
         if comm1.calc_type != "ENGINE_RULE" or comm1.engine_rule_key != "commission_net":

@@ -151,16 +151,29 @@
   .tag{font-size:6pt; color:var(--muted); text-align:center; margin-top:5px;}
 
   /* ===== نوار ابزار (چاپ نمی‌شود) ===== */
-  .bar{width:148mm; margin:0 auto 12px; display:flex; gap:7px; justify-content:flex-end;}
-  .bar button, .bar a{
-    font-family:inherit; font-size:8.5pt; font-weight:700; padding:7px 14px;
-    border-radius:7px; border:1px solid var(--line); background:#fff; color:var(--ink);
-    cursor:pointer; text-decoration:none;
+  /* نوار ابزار بالای فیش.
+     `justify-content:flex-end` در RTL دکمه‌ها را به سمت چپ می‌چسباند و
+     ترتیبشان را وارونه نشان می‌داد؛ `flex-start` با جهت صفحه هم‌سو است.
+     اندازه هم به pt بود (واحد چاپ) و روی صفحه بزرگ درمی‌آمد. */
+  .bar{
+    width:148mm; margin:0 auto 12px;
+    display:flex; flex-wrap:wrap; gap:8px; align-items:center;
+    justify-content:flex-start;
   }
+  .bar button, .bar a{
+    font-family:inherit; font-size:12px; font-weight:600; line-height:1.6;
+    padding:7px 13px; border-radius:9px; border:1px solid var(--line);
+    background:#fff; color:var(--ink); cursor:pointer; text-decoration:none;
+    white-space:nowrap; transition:border-color .15s ease, background .15s ease;
+  }
+  .bar button:hover, .bar a:hover{border-color:var(--red); color:var(--red);}
   .bar .primary{background:var(--red); color:#fff; border-color:var(--red);}
-  /* برچسبِ «الان کدام نسخه را می‌بینی» — سمت چپ نوار، بی‌رنگ و بی‌قاب */
-  .bar .mode{margin-inline-end:auto; align-self:center; font-size:11px;
-             color:var(--muted);}
+  .bar .primary:hover{background:var(--red-deep); color:#fff; border-color:var(--red-deep);}
+  /* برچسبِ «الان کدام نسخه را می‌بینی» — ته نوار، بی‌رنگ و بی‌قاب */
+  .bar .mode{
+    margin-inline-start:auto; align-self:center;
+    font-size:11px; color:var(--muted); font-weight:500;
+  }
 
   @media print{
     body{background:#fff; padding:0;}

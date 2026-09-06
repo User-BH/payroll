@@ -14,10 +14,10 @@
   {% if can_detail %}
     {% if detailed %}
       <a href="?">نسخهٔ پرسنل</a>
-      <span class="mode">نسخهٔ با جزئیات — شرح محاسبهٔ هر سطر</span>
+      <span class="mode" title="شرح محاسبهٔ هر سطر زیر آن نوشته شده">با جزئیات</span>
     {% else %}
       <a href="?detailed=1">نسخهٔ با جزئیات</a>
-      <span class="mode">نسخهٔ پرسنل — بدون شرح محاسبه</span>
+      <span class="mode" title="همان چیزی که پرسنل می‌بیند — بدون شرح محاسبه">نسخهٔ پرسنل</span>
     {% endif %}
   {% endif %}
   <a href="{% url 'payslip_batch_print' payslip.period.pk %}">چاپ دسته‌ای دوره</a>

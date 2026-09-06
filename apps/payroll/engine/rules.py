@@ -816,6 +816,8 @@ def commission_net(ctx: PayrollContext, component):
     # فرمول فایل پیاده شد. اگر روزی برای یک فروشنده ناصفر شد، همین‌جا باید
     # دوباره تصمیم گرفته شود.
     for other in component.adds.all():
+        if other.id not in {c.id for c in ctx.applicable_components}:
+            continue
         extra = ctx.amount_of(other.code)
         if not extra:
             extra = Decimal(ctx.manual_inputs.get(other.id, ZERO) or ZERO)
@@ -825,12 +827,25 @@ def commission_net(ctx: PayrollContext, component):
 
     absorbed = ZERO
     pieces = []
+    applicable = {c.id for c in ctx.applicable_components}
     for other in component.absorbs.all():
-        # قلمی که سطر ساخته، از سطرش خوانده می‌شود؛ قلمی که فقط ورودی دستی
-        # است (مثل ذخیره پورسانت که روی فیش نمی‌آید) از همان ورودی.
+        if other.id not in applicable:
+            continue
+        # ترتیبِ محاسبه نباید مهم باشد: تا امروز اگر قلمِ جذب‌شونده **بعد از**
+        # پورسانت می‌آمد، سطرش هنوز ساخته نشده بود و صفر خوانده می‌شد. حالا
+        # اول از سطر، بعد از ورودی دستی، و در آخر از خودِ قاعده — همان
+        # ترتیبی که `commission_available` دارد. این باعث شد بشود پورسانت را
+        # زیر حق مأموریت آورد بی‌آنکه جذب بشکند.
         amount = ctx.amount_of(other.code)
         if not amount:
             amount = Decimal(ctx.manual_inputs.get(other.id, ZERO) or ZERO)
+        if not amount:
+            key = getattr(other, "engine_rule_key", "")
+            func = get_rule(key) if key else None
+            if func is not None:
+                result = func(ctx, other)
+                if result is not None:
+                    amount = Decimal(result.amount)
         if amount:
             absorbed += amount
             pieces.append(f"{other.name} {fa_money(amount)}")
