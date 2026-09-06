@@ -154,21 +154,101 @@ def commission_totals(period):
     return {row["employee_id"]: row["total"] or ZERO for row in rows}
 
 
-def build_plan(period, employee, params, source, timesheet=None):
-    """ساخت نقشهٔ تخصیص با مبناها و سقف‌های همان ماه."""
+def build_plan(period, employee, params, source, timesheet=None, contract=None):
+    """ساخت نقشهٔ تخصیص با مبناها و سقف‌های همان ماه.
+
+    مبنای روزانهٔ مأموریت از **همان تابعی** می‌آید که موتور استفاده می‌کند، نه
+    از نرخ ثابت ماهانه. تا امروز اینجا `params.mission_daily_rate` خوانده
+    می‌شد و چون این شرکت حالت «مزد خودِ پرسنل» را دارد آن عدد صفر بود — یعنی
+    ظرفیت مأموریت صفر می‌شد و **هیچ پورسانتی هرگز تبدیل نمی‌شد**، بی‌آنکه
+    خطایی دیده شود یا صفحه چیزی بگوید.
+    """
+    from apps.payroll.engine.context import mission_daily_base
+
     used_mission_days = getattr(timesheet, "mission_days", ZERO) or ZERO
     used_overtime_hours = getattr(timesheet, "overtime_hours", ZERO) or ZERO
+    contract = contract or _contract_of(employee, period)
+    daily_wage = _daily_wage(contract, params)
+
+    # ضریبِ قلم مأموریتی که به همین پرسنل می‌خورَد — در گروه فروش ۲.
+    #
+    # بدون آن، ظرفیت نصف حساب می‌شد و «۲۵ روز» روی فیش کنار مبلغی می‌نشست که
+    # نصفِ ۲۵ روزِ واقعی است. سند EXCEL-1405 صریح است: نرخ مأموریت فروش
+    # «روز × (مزد + سنوات) × ۲» است، پس هر روزِ مصرف‌شده از سقف دو برابر
+    # ارزش دارد.
+    rate = mission_daily_base(params, daily_wage, params.seniority_daily)
+    rate *= _mission_factor(period, contract)
+
     return AllocationPlan(
         source=source,
-        mission_rate=params.mission_daily_rate,
+        mission_rate=rate,
         mission_max_days=params.mission_max_days,
-        overtime_rate=_overtime_rate(params),
+        overtime_rate=_overtime_rate(params, daily_wage),
         overtime_max_hours=params.overtime_max_hours,
         used_mission_days=used_mission_days,
         used_overtime_hours=used_overtime_hours,
     )
 
 
-def _overtime_rate(params) -> Decimal:
-    """مبنای ساعتی اضافه‌کاری همان ماه. صفر یعنی تعریف نشده."""
-    return Decimal(params.overtime_hourly_rate or ZERO)
+def _contract_of(employee, period):
+    """قرارداد فعالِ همان دوره — همان شرطی که موتور می‌گذارد."""
+    from django.db.models import Q
+
+    from apps.employees.models import EmploymentContract
+
+    return (
+        EmploymentContract.objects.filter(
+            employee=employee,
+            status=EmploymentContract.Status.ACTIVE,
+            effective_from__lte=period.end_date,
+        )
+        .filter(Q(effective_to__isnull=True) | Q(effective_to__gte=period.start_date))
+        .order_by("-effective_from")
+        .first()
+    )
+
+
+MISSION_CODES = ("MISSION2", "MISSION", "MISSION_SURPLUS")
+
+
+def _mission_factor(period, contract) -> Decimal:
+    """ضریبِ قلمِ مأموریتی که به این قرارداد تعلق می‌گیرد.
+
+    از **دامنه شمول** پیدا می‌شود نه از کدِ سخت‌شده، چون همان ساز و کاری است
+    که موتور با آن تصمیم می‌گیرد کدام قلم مأموریت به چه کسی برسد. اگر هیچ‌کدام
+    نخورد یا ضریبی ثبت نشده باشد، ۱ برمی‌گردد و رفتار عوض نمی‌شود.
+    """
+    from apps.payroll_config.models import SalaryComponent
+
+    if contract is None:
+        return Decimal("1")
+    for component in (
+        SalaryComponent.objects.filter(
+            company=period.company, code__in=MISSION_CODES, is_active=True
+        )
+        .prefetch_related("scopes")
+        .order_by("sequence")
+    ):
+        if component.applies_to(contract) and component.rate:
+            return Decimal(component.rate)
+    return Decimal("1")
+
+
+def _daily_wage(contract, params) -> Decimal:
+    """مزد روزانه؛ قراردادِ بی‌عدد از حداقل دستمزد سال پر می‌شود — مثل موتور."""
+    wage = Decimal(getattr(contract, "daily_wage", 0) or 0)
+    return wage if wage else Decimal(params.min_daily_wage or ZERO)
+
+
+def _overtime_rate(params, daily_wage=None) -> Decimal:
+    """مبنای ساعتی اضافه‌کاری همان ماه.
+
+    اگر نرخ مشترکِ ماه ثبت نشده باشد، از مزد خودِ پرسنل ساخته می‌شود — همان
+    کاری که موتور برای اضافه‌کاری می‌کند. صفر بودنِ نرخِ مشترک نباید یعنی
+    «انتقال به اضافه‌کاری ممکن نیست».
+    """
+    rate = Decimal(params.overtime_hourly_rate or ZERO)
+    if rate or daily_wage is None:
+        return rate
+    hours = Decimal(params.daily_work_hours or Decimal("7.33"))
+    return (Decimal(daily_wage) / hours) if hours else ZERO

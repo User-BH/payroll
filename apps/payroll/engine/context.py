@@ -28,6 +28,25 @@ class LineResult:
         return self
 
 
+def mission_daily_base(params, daily_wage, seniority_daily) -> Decimal:
+    """مبنای روزانهٔ حق مأموریت برای یک نفر.
+
+    دو حالت دارد و انتخابش در پارامترهای سال است:
+
+        MONTHLY_RATE  عددِ مشترکِ ثبت‌شده در آیتم‌های ماهانه
+        PERSON_WAGE   مزد روزانهٔ خودِ پرسنل + پایهٔ سنوات روزانه‌اش
+
+    دومی در فایل این شرکت به کار می‌رود و چون به مزد هر نفر بسته است، با یک
+    عدد مشترک قابل بیان نبود.
+
+    بیرون از کلاس است تا صفحهٔ «تخصیص پورسانت» — که `PayrollContext` ندارد —
+    بتواند همین را صدا بزند.
+    """
+    if getattr(params, "mission_base", "MONTHLY_RATE") == "PERSON_WAGE":
+        return Decimal(daily_wage or ZERO) + Decimal(seniority_daily or ZERO)
+    return Decimal(getattr(params, "mission_daily_rate", 0) or ZERO)
+
+
 @dataclass
 class PayrollContext:
     """بستر محاسبه یک پرسنل در یک دوره."""
@@ -257,15 +276,15 @@ class PayrollContext:
 
     @property
     def mission_daily_base(self) -> Decimal:
-        """مبنای روزانهٔ حق مأموریت.
+        """مبنای روزانهٔ حق مأموریت — از تابع مشترک، نه پیاده‌سازی جدا.
 
-        یا عددِ مشترکِ ثبت‌شده در آیتم‌های ماهانه، یا مزد خودِ پرسنل به‌علاوهٔ
-        پایهٔ سنوات روزانه‌اش. دومی در فایل شرکت به کار می‌رود و چون به مزد هر
-        نفر بسته است، با یک عدد مشترک قابل بیان نبود.
+        صفحهٔ «تخصیص پورسانت» هم به همین مبنا نیاز دارد. تا امروز آنجا
+        پیاده‌سازی دومی بود که همیشه نرخ ثابت ماهانه را می‌خواند، و چون این
+        شرکت حالت «مزد خودِ پرسنل» را دارد آن نرخ صفر بود — یعنی ظرفیت تخصیص
+        صفر می‌شد و هیچ پورسانتی هرگز به مأموریت تبدیل نمی‌شد، بی‌آنکه خطایی
+        دیده شود. حالا هر دو از یک تابع می‌خوانند و نمی‌توانند از هم جدا بیفتند.
         """
-        if getattr(self.params, "mission_base", "MONTHLY_RATE") == "PERSON_WAGE":
-            return self.daily_base + self.seniority_daily
-        return Decimal(self.params.mission_daily_rate or ZERO)
+        return mission_daily_base(self.params, self.daily_base, self.seniority_daily)
 
     @property
     def hourly_base(self) -> Decimal:
