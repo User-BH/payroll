@@ -16,7 +16,7 @@
    می‌کند — وگرنه سقف قانونی رد می‌شود.
 """
 
-from decimal import Decimal
+from decimal import ROUND_FLOOR, Decimal
 
 from apps.payroll.utils import quantize_rial
 
@@ -71,12 +71,26 @@ class AllocationPlan:
     # ------------------------------------------------------------ تخصیص
 
     def auto(self):
-        """تقسیم خودکار: اول مأموریت تا سقف، بعد اضافه‌کاری تا سقف، بقیه مانده."""
+        """تقسیم خودکار: اول مأموریت تا سقف، بعد اضافه‌کاری تا سقف، بقیه مانده.
+
+        مأموریت **روزِ کامل** می‌گیرد، نه اعشار: «۱۴٫۰۴ روز» روی فیش معنایی
+        ندارد و مأموریت واحدش روز است. پس تا نزدیک‌ترین روزِ پایین‌تر گرد
+        می‌شود و باقی‌ماندهٔ ریالی در سطر پورسانت می‌ماند — گم نمی‌شود.
+        """
         rest = self.source
-        self.to_mission = min(rest, self.mission_capacity)
+        self.to_mission = self._whole_days(min(rest, self.mission_capacity))
         rest -= self.to_mission
         self.to_overtime = min(rest, self.overtime_capacity)
         return self
+
+    def _whole_days(self, amount: Decimal) -> Decimal:
+        """مبلغ را به پایین‌ترین مضربِ «یک روز مأموریت» گرد می‌کند."""
+        if not self.mission_rate or amount <= ZERO:
+            return ZERO
+        days = (Decimal(amount) / self.mission_rate).to_integral_value(
+            rounding=ROUND_FLOOR
+        )
+        return quantize_rial(days * self.mission_rate)
 
     def manual(self, to_mission=None, to_overtime=None):
         """تقسیم دستی — هر دو عدد به ظرفیت و به مبلغ پورسانت مقید می‌شوند.
@@ -87,6 +101,9 @@ class AllocationPlan:
         """
         mission = self.to_mission if to_mission is None else quantize_rial(to_mission)
         mission = max(min(mission, self.mission_capacity, self.source), ZERO)
+        # حتی در تقسیم دستی هم روزِ کامل — وگرنه کاربر می‌تواند عددی بگذارد
+        # که روی فیش «۱۴٫۰۴ روز» چاپ شود.
+        mission = self._whole_days(mission)
         self.to_mission = mission
 
         rest = self.source - mission
@@ -104,6 +121,7 @@ class AllocationPlan:
 
     @property
     def mission_days(self) -> Decimal:
+        """همیشه عددِ صحیح، چون تخصیص روی مضربِ یک روز گرد شده است."""
         if not self.mission_rate:
             return ZERO
         return _q2(self.to_mission / self.mission_rate)

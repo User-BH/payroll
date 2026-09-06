@@ -155,7 +155,22 @@
         </div>
       </div>
       <div class="topbar-actions">
-        {% if current_period %}
+        {% comment %}
+          دورهٔ **همین صفحه**، نه تازه‌ترین دوره. صفحه‌هایی که روی یک دوره کار
+          می‌کنند `period` را در بافت دارند؛ تا امروز نوار بالا آن را نادیده
+          می‌گرفت و همیشه آخرین ماه را نشان می‌داد — یعنی وقتی کاربر در مرداد
+          بود، بالای صفحه «شهریور» می‌نوشت.
+        {% endcomment %}
+        {% comment %}
+          `firstof` اینجا کار نمی‌کند: خروجی‌اش را به **رشته** تبدیل می‌کند و
+          بعد `.pk` خالی درمی‌آید. پس شرط صریح.
+        {% endcomment %}
+        {% if period.pk %}
+        <a class="period-select" href="{% url 'period_detail' period.pk %}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3.5" y="4.5" width="17" height="16" rx="3"/><path d="M3.5 9.5h17"/></svg>
+          {{ period.title }}
+        </a>
+        {% elif current_period %}
         <a class="period-select" href="{% url 'period_detail' current_period.pk %}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3.5" y="4.5" width="17" height="16" rx="3"/><path d="M3.5 9.5h17"/></svg>
           {{ current_period.title }}

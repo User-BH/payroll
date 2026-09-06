@@ -604,6 +604,18 @@ def _sheet_data(period):
             for line in members
         )
 
+    # دو قلم می‌توانند هم‌نام باشند (مثل «اضافه کار» عادی و زنجیره‌ای). در
+    # سرستون‌های کنار هم این یعنی خواننده نمی‌فهمد کدام کدام است، پس فقط برای
+    # نام‌های تکراری کد قلم هم می‌آید.
+    seen_names = {}
+    for column in columns:
+        seen_names[column["name"]] = seen_names.get(column["name"], 0) + 1
+    for column in columns:
+        column["label"] = (
+            f"{column['name']} ({column['code']})"
+            if seen_names[column["name"]] > 1 else column["name"]
+        )
+
     # ---- سطرها و جمع ستون‌ها
     rows, totals = [], {column["code"]: ZERO for column in columns}
     for payslip in payslips:
@@ -629,78 +641,6 @@ def _sheet_data(period):
     }
 
 
-def _read_simulation(request, period, data):
-    """پارامترهای «اجرای آزمایشی» از URL، و تفاوت هر سلول با وضع موجود.
-
-    آزمایش با GET انجام می‌شود نه POST، چون هیچ چیزی تغییر نمی‌دهد و باید
-    بشود نتیجه‌اش را با لینک به دیگری نشان داد.
-    """
-    from apps.payroll.engine.simulate import PARAM_LABELS, TESTABLE_PARAMS, simulate_period
-
-    param_key = request.GET.get("param") or ""
-    param_value = (request.GET.get("value") or "").strip()
-    component_id = request.GET.get("component") or ""
-    component_field = request.GET.get("field") or "rate"
-    component_value = (request.GET.get("cvalue") or "").strip()
-
-    params_overrides, component_overrides = {}, {}
-    if param_key in PARAM_LABELS and param_value:
-        params_overrides[param_key] = param_value
-    if component_id and component_value and component_field in ("rate", "fixed_amount"):
-        component_overrides[component_id] = {component_field: component_value}
-
-    context = {
-        "testable_params": TESTABLE_PARAMS,
-        "sim_param": param_key,
-        "sim_value": param_value,
-        "sim_component": component_id,
-        "sim_field": component_field,
-        "sim_cvalue": component_value,
-        "editable_components": SalaryComponent.objects.filter(
-            company=period.company, is_active=True
-        ).exclude(kind=SalaryComponent.Kind.INFO).order_by("sequence", "id"),
-        "simulation": None,
-    }
-    if not (params_overrides or component_overrides):
-        return context
-
-    result = simulate_period(period, params_overrides, component_overrides)
-
-    # تفاوت هر سلول و هر ستون نسبت به وضع موجود
-    for row in data["rows"]:
-        employee_id = row["payslip"].employee_id
-        for index, column in enumerate(data["columns"]):
-            cell = row["cells"][index]
-            line = cell["line"]
-            current = ZERO
-            if line is not None:
-                current = line.quantity if line.display_unit in ("DAY", "HOUR") else line.amount
-            after = result["cells"].get((employee_id, column["code"]), ZERO)
-            cell["delta"] = after - current
-
-    for index, column in enumerate(data["columns"]):
-        data["totals"][index]["delta"] = (
-            result["totals"].get(column["code"], ZERO) - data["totals"][index]["value"]
-        )
-    current_net = sum((row["payslip"].net_payable for row in data["rows"]), ZERO)
-    new_net = sum((item["net"] for item in result["employees"].values()), ZERO)
-    current_cost = sum((row["payslip"].employer_total_cost for row in data["rows"]), ZERO)
-    new_cost = sum((item["employer_cost"] for item in result["employees"].values()), ZERO)
-
-    context["simulation"] = {
-        "net_before": current_net,
-        "net_after": new_net,
-        "net_delta": new_net - current_net,
-        "cost_before": current_cost,
-        "cost_after": new_cost,
-        "cost_delta": new_cost - current_cost,
-        "param_label": PARAM_LABELS.get(param_key, ""),
-        "param_value": param_value,
-        "component_changes": result["component_changes"],
-    }
-    return context
-
-
 @payroll_staff_required
 def period_sheet(request, pk):
     """برگهٔ محاسبهٔ دوره — همان شیت اکسل، ولی هر سلول می‌داند از کجا آمده."""
@@ -711,7 +651,7 @@ def period_sheet(request, pk):
     return render(
         request,
         "periods/sheet.html",
-        {"period": period, **data, **_read_simulation(request, period, data)},
+        {"period": period, **data},
     )
 
 

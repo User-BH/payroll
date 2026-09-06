@@ -7,86 +7,6 @@
 {% block content %}
 <div x-data="{ cell: null }">
 
-  <div class="search-bar no-print">
-    <a class="btn btn-outline btn-sm" href="{% url 'period_detail' period.pk %}">بازگشت به دوره</a>
-    <a class="btn btn-outline btn-sm" href="{% url 'payslip_list' period.pk %}">فیش‌ها</a>
-    <a class="btn btn-primary btn-sm" href="{% url 'period_sheet_export' period.pk %}">خروجی اکسل همین برگه</a>
-  </div>
-
-  {% comment %} ---- اجرای آزمایشی: یک عدد را عوض کنید و اثرش را روی کل برگه ببینید.
-       با GET کار می‌کند چون هیچ چیزی تغییر نمی‌دهد و باید بشود نتیجه‌اش را
-       با لینک نشان داد. {% endcomment %}
-  <form method="get" class="panel" style="padding:14px 16px; margin-bottom:14px;">
-    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
-      <div class="field" style="margin:0; min-width:210px;">
-        <label>پارامتر سال</label>
-        <select class="input" name="param">
-          <option value="">— بدون تغییر —</option>
-          {% for key, label, unit in testable_params %}
-          <option value="{{ key }}" {% if sim_param == key %}selected{% endif %}>{{ label }} ({{ unit }})</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="field" style="margin:0; width:170px;">
-        <label>مقدار آزمایشی</label>
-        <input class="input num" name="value" value="{{ sim_value }}" inputmode="decimal" placeholder="مثلاً ۳۰۰۰۰۰۰۰">
-      </div>
-      <div class="field" style="margin:0; min-width:200px;">
-        <label>یا ضریب/مبلغ یک قلم</label>
-        <select class="input" name="component">
-          <option value="">— بدون تغییر —</option>
-          {% for item in editable_components %}
-          <option value="{{ item.pk }}" {% if sim_component == item.pk|stringformat:"s" %}selected{% endif %}>{{ item.config_label }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="field" style="margin:0; width:140px;">
-        <label>کدام مقدار</label>
-        <select class="input" name="field">
-          <option value="rate" {% if sim_field == 'rate' %}selected{% endif %}>ضریب / نرخ</option>
-          <option value="fixed_amount" {% if sim_field == 'fixed_amount' %}selected{% endif %}>مبلغ ثابت</option>
-        </select>
-      </div>
-      <div class="field" style="margin:0; width:150px;">
-        <label>مقدار آزمایشی</label>
-        <input class="input num" name="cvalue" value="{{ sim_cvalue }}" inputmode="decimal">
-      </div>
-      <button class="btn btn-primary" type="submit">اجرای آزمایشی</button>
-      {% if simulation %}
-      <a class="btn btn-outline" href="{% url 'period_sheet' period.pk %}">پاک کردن</a>
-      {% endif %}
-    </div>
-  </form>
-
-  {% if simulation %}
-  <div class="note-box" style="border-color:var(--amber);">
-    <b>این یک اجرای آزمایشی است — هیچ چیزی ذخیره نشده.</b>
-    {% if simulation.param_label %}«{{ simulation.param_label }}» روی {{ simulation.param_value|fadigits }} گذاشته شد.{% endif %}
-    {% for change in simulation.component_changes %}
-      «{{ change.name }}» از {{ change.before|fadec }} به {{ change.after|fadec }} تغییر کرد.
-    {% endfor %}
-    برای اینکه واقعاً اعمال شود، باید مقدار را در «تنظیمات سال مالی» یا در خود قلم
-    ذخیره کنید و دوره را دوباره محاسبه بگیرید.
-  </div>
-
-  <div class="stat-row">
-    <div class="stat"><b>خالص فعلی</b><span>{{ simulation.net_before|rial }}</span></div>
-    <div class="stat"><b>خالص با این تغییر</b><span>{{ simulation.net_after|rial }}</span></div>
-    <div class="stat">
-      <b>تفاوت خالص</b>
-      <span style="color:{% if simulation.net_delta > 0 %}var(--green){% elif simulation.net_delta < 0 %}var(--red){% else %}var(--muted){% endif %};">
-        {% if simulation.net_delta > 0 %}+{% endif %}{{ simulation.net_delta|rial }}
-      </span>
-    </div>
-    <div class="stat">
-      <b>تفاوت هزینه کارفرما</b>
-      <span style="color:{% if simulation.cost_delta > 0 %}var(--green){% elif simulation.cost_delta < 0 %}var(--red){% else %}var(--muted){% endif %};">
-        {% if simulation.cost_delta > 0 %}+{% endif %}{{ simulation.cost_delta|rial }}
-      </span>
-    </div>
-  </div>
-  {% endif %}
-
   {# نوار توضیح سلول: تا وقتی سلولی انتخاب نشده، راهنما نشان می‌دهد #}
   <div class="cell-note" :class="cell ? 'is-active' : ''">
     <template x-if="!cell">
@@ -114,7 +34,12 @@
           </tr>
           <tr>
             {% for column in columns %}
-            <th class="col-head">{{ column.config_label }}</th>
+            {% comment %}
+              ستون‌ها دیکشنری‌اند نه شیء قلم؛ `config_label` روی آن‌ها وجود
+              ندارد و بی‌صدا خالی رندر می‌شد — یعنی سرستون‌ها هیچ‌وقت دیده
+              نشدند. کلید درست `name` است.
+            {% endcomment %}
+            <th class="col-head" title="{{ column.label }}">{{ column.label }}</th>
             {% endfor %}
           </tr>
         </thead>
@@ -131,12 +56,10 @@
                 @click="cell = { title: '{{ row.payslip.employee.full_name|escapejs }} — {{ cell.line.component_name|escapejs }}', note: '{{ cell.line.explanation|escapejs }}' }">
               {% if cell.line.display_unit == 'DAY' or cell.line.display_unit == 'HOUR' %}{{ cell.line.quantity|fadec }}
               {% else %}{{ cell.line.amount|rial }}{% endif %}
-              {% if cell.delta %}<span class="delta {% if cell.delta > 0 %}up{% else %}down{% endif %}">{% if cell.delta > 0 %}+{% endif %}{{ cell.delta|rial }}</span>{% endif %}
             </td>
             {% else %}
             <td class="num empty-cell">
               —
-              {% if cell.delta %}<span class="delta up">+{{ cell.delta|rial }}</span>{% endif %}
             </td>
             {% endif %}
             {% endfor %}
@@ -152,7 +75,6 @@
             {% for total in totals %}
             <td class="num">
               {% if total.value %}{{ total.value|rial }}{% else %}—{% endif %}
-              {% if total.delta %}<span class="delta {% if total.delta > 0 %}up{% else %}down{% endif %}">{% if total.delta > 0 %}+{% endif %}{{ total.delta|rial }}</span>{% endif %}
             </td>
             {% endfor %}
           </tr>
@@ -166,16 +88,39 @@
 <style>
   /* جدولی به عرض ده‌ها ستون: ستون نام می‌چسبد، بقیه افقی اسکرول می‌شوند.
      ارتفاع محدود تا سر ستون‌ها هم هنگام اسکرول عمودی سر جایشان بمانند. */
-  .sheet-wrap{overflow:auto; max-height:calc(100vh - 260px);}
+  .sheet-wrap{
+    overflow:auto; max-height:calc(100vh - 210px);
+    overscroll-behavior-x:contain;
+    scrollbar-color:var(--muted) transparent;
+  }
+  /* نوار اسکرول افقی پررنگ‌تر و بلندتر — با ده‌ها ستون، نوارِ نازکِ پیش‌فرض
+     هم دیده نمی‌شد هم گرفتنش سخت بود. */
+  .sheet-wrap::-webkit-scrollbar{height:12px; width:12px;}
+  .sheet-wrap::-webkit-scrollbar-track{background:transparent;}
+  .sheet-wrap::-webkit-scrollbar-thumb{
+    background:var(--line); border-radius:8px; border:3px solid transparent;
+    background-clip:content-box;
+  }
+  .sheet-wrap:hover::-webkit-scrollbar-thumb{background:var(--muted); background-clip:content-box;}
+
   table.sheet{border-collapse:separate; border-spacing:0; font-size:12px; min-width:100%;}
   table.sheet th, table.sheet td{
     border-bottom:1px solid var(--line); border-inline-start:1px solid var(--line);
     padding:7px 10px; white-space:nowrap; background:var(--paper-2);
   }
-  table.sheet thead th{position:sticky; z-index:3; background:var(--paper); font-size:11.5px;}
-  table.sheet thead tr:first-child th{top:0;}
-  table.sheet thead tr:last-child th{top:31px;}
-  table.sheet th.col-head{font-weight:700; color:var(--muted); max-width:150px; white-space:normal;}
+  /* ارتفاعِ ثابتِ سطر اول لازم است: سطر دوم با `top` به آن می‌چسبد و اگر
+     ارتفاع واقعی فرق کند، یکی روی دیگری می‌افتد و عنوان ستون‌ها دیده نمی‌شود. */
+  table.sheet thead th{
+    position:sticky; z-index:3; background:var(--paper); font-size:11.5px;
+    box-shadow:inset 0 -1px 0 var(--line);
+  }
+  table.sheet thead tr:first-child th{top:0; height:34px; box-sizing:border-box;}
+  table.sheet thead tr:last-child th{top:34px;}
+  table.sheet th.col-head{
+    font-weight:700; color:var(--ink); max-width:130px; min-width:78px;
+    white-space:normal; line-height:1.35; vertical-align:bottom;
+    text-align:center; font-size:11px;
+  }
   .stick{
     position:sticky; inset-inline-start:0; z-index:4; min-width:210px;
     border-inline-start:none; box-shadow:1px 0 0 var(--line);
@@ -195,9 +140,5 @@
     background:var(--paper-2); min-height:56px;
   }
   .cell-note.is-active{border-color:var(--red); background:var(--red-soft);}
-  /* تفاوت اجرای آزمایشی، زیر خودِ عدد فعلی — تا مقایسه بدون جابه‌جایی چشم باشد */
-  .delta{display:block; font-size:10.5px; font-weight:800; margin-top:2px;}
-  .delta.up{color:var(--green);}
-  .delta.down{color:var(--red);}
 </style>
 {% endblock %}
