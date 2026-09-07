@@ -33,6 +33,10 @@ COLUMNS = [
     ("ot_h", "اضافه‌کاری — ساعت", False),
     ("ot_d", "اضافه‌کاری — روز", False),
     ("holiday_hours", "تعطیل‌کاری (ساعت)", False),
+    # تأخیر ورود در انتهای فهرست است تا فایل‌هایی که کاربر پیش از این دانلود
+    # کرده هنوز خوانده شوند؛ سلولِ نبوده «دست نزن» معنا می‌دهد نه «صفر کن».
+    ("late_h", "تأخیر ورود — ساعت", False),
+    ("late_m", "تأخیر ورود — دقیقه", False),
 ]
 
 # شب‌کاری و جمعه‌کاری از فایل کارکرد برداشته شده‌اند؛ اضافه‌کاری مثل مرخصی
@@ -87,6 +91,7 @@ def build_template(period) -> bytes:
             timesheet.mission_days,
             overtime["m"], overtime["h"], overtime["d"],
             timesheet.holiday_hours,
+            timesheet.late_hours, timesheet.late_minutes,
         ])
 
     buffer = io.BytesIO()
@@ -162,6 +167,12 @@ def import_timesheets(file_obj, period, user=None, file_name="") -> dict:
         else:
             timesheet.leave_minutes = minutes_from_parts(data, "leave", day_minutes)
             timesheet.overtime_minutes = minutes_from_parts(data, "ot", day_minutes)
+            # ساعت و دقیقهٔ تأخیر جدا می‌مانند (هرکدام مخرجِ خودش را دارد) و
+            # سلولِ خالی یعنی «تغییر نده»، نه «صفر کن».
+            if data.get("late_h") not in (None, ""):
+                timesheet.late_hours = max(parse_decimal(data["late_h"]), 0)
+            if data.get("late_m") not in (None, ""):
+                timesheet.late_minutes = int(max(parse_decimal(data["late_m"]), 0))
             timesheet.source = Timesheet.Source.IMPORT
             timesheet.entered_by = user
             timesheet.save()

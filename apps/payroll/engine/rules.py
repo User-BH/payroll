@@ -8,7 +8,7 @@
 ارزشمندتر از انعطافِ فرمول‌نویسی داخل دیتابیس (و eval کردن آن) است.
 """
 
-from decimal import Decimal
+from decimal import ROUND_DOWN, Decimal
 
 from apps.payroll.engine.context import ZERO, LineResult, PayrollContext
 from apps.payroll.utils import fa_money, fa_number, fa_wage
@@ -224,22 +224,25 @@ def late_deduction(ctx: PayrollContext, component):
     """کسر بابت تأخیر ورود، از ساعت و دقیقهٔ ثبت‌شده در جدول کارکرد.
 
         مبنا = مزد روزانه × ۳۰ + پایه سنوات روزانه × n + مسکن + اولاد + تأهل + بن
-        کسر  = مبنا ÷ ۲۲۰ × ساعت  +  مبنا ÷ ۱۱۴۴۰ × دقیقه
+        کسر  = مبنا ÷ ساعت کار ماهانه × ساعت  +  مبنا ÷ دقیقهٔ کار ماهانه × دقیقه
 
-    عددِ n «ضریب پایه سنوات ماهانه» است و از پارامترهای سال می‌آید: در فایل
-    تبریز ۳۰ و در فایل اردبیل ۳۱ — روی همان ماهِ ۳۱ روزه، یعنی انتخابِ شعبه
-    است نه تابعی از تقویم.
+    هر دو مخرج از پارامترهای سال می‌آیند (`monthly_work_hours` و
+    `monthly_work_minutes`)، نه از کد.
+
+    عددِ n «ضریب پایه سنوات ماهانه» است و آن هم از پارامترهای سال می‌آید: در
+    فایل تبریز ۳۰ و در فایل اردبیل ۳۱ — روی همان ماهِ ۳۱ روزه، یعنی انتخابِ
+    شعبه است نه تابعی از تقویم.
 
     مبنا **مبلغ کاملِ ماهانه** است، نه تسهیم‌شده: تأخیر از حقوق ماه کم می‌شود،
-    و ماهی که تأخیر دارد هنوز ماه کامل است.
+    و ماهی که تأخیر دارد هنوز ماه کامل است. حق اولاد هم در مبناست — ستون
+    «ماخد کسر کار - دیر کرد» فایل واقعی روی هر ۷۴ سطرِ پنج ماهِ اردبیل و هر
+    ۱۴ سطرِ تبریز فقط با احتساب اولاد بازسازی می‌شود.
 
-    مخرج دقیقه ۱۱۴۴۰ است، نه ۱۳۲۰۰ که از ۲۲۰ ساعت درمی‌آید — و **آزموده
-    شد**. فایل تبریز ستون «تأخیر دقیقه» را برای هیچ‌کس پر نکرده بود، ولی فایل
-    اردبیل دارد:
+    پیش‌فرضِ مخرج دقیقه ۱۱۴۴۰ است نه ۱۳۲۰۰ که از ۲۲۰ ساعت درمی‌آید — و
+    **آزموده شد**: روی همان ۷۴ سطر، ۱۱۴۴۰ همه را می‌خوانَد و ۱۳۲۰۰ نه.
 
-        ۲۹ سطرِ کسر کار در تیر و مرداد اردبیل، شش‌تا با دقیقهٔ ناصفر
-        مخرج ۱۱۴۴۰ → هر ۲۹ سطر می‌خواند
-        مخرج ۱۳۲۰۰ → ۲۳ سطر (روی هر شش سطرِ دقیقه‌دار می‌افتد)
+    اعشار **بریده** می‌شود نه گرد: خواستهٔ صریح شرکت. اختلافش با گرد کردنِ
+    اکسل حداکثر یک ریال است.
     """
     if not ctx.timesheet:
         return None
@@ -257,19 +260,26 @@ def late_deduction(ctx: PayrollContext, component):
     monthly += ctx.full_child_allowance
     monthly += ctx.full_marriage_allowance
 
-    amount = monthly / Decimal("220") * hours + monthly / Decimal("11440") * minutes
+    hour_divisor = Decimal(getattr(ctx.params, "monthly_work_hours", 0) or 220)
+    minute_divisor = Decimal(getattr(ctx.params, "monthly_work_minutes", 0) or 11440)
+    amount = monthly / hour_divisor * hours + monthly / minute_divisor * minutes
+    # بریدن اعشار، نه گرد کردن.
+    amount = amount.to_integral_value(rounding=ROUND_DOWN)
     parts = []
     if hours:
-        parts.append(f"{fa_number(hours, 2)} ساعت")
+        parts.append(f"{fa_number(hours, 2)} ساعت ÷ {fa_number(hour_divisor, 2)}")
     if minutes:
-        parts.append(f"{fa_number(minutes, 0)} دقیقه")
+        parts.append(f"{fa_number(minutes, 0)} دقیقه ÷ {fa_number(minute_divisor, 2)}")
     return LineResult(
         amount=amount,
         base_amount=monthly,
-        quantity=hours,
+        # مقدار، ساعتِ کاملِ تأخیر است (دقیقه هم در آن) تا فیش «۲ ساعت و ۳۰
+        # دقیقه» چاپ کند نه «۲» — مخرج‌ها در توضیح می‌مانند.
+        quantity=hours + minutes / Decimal("60"),
         rate=Decimal("1"),
         explanation=(
-            f"کسر تأخیر: {' و '.join(parts)} از مبنای ماهانهٔ {fa_money(monthly)} ریال"
+            f"کسر تأخیر: مبنای ماهانهٔ {fa_money(monthly)} ریال × "
+            f"({' + '.join(parts)}) — اعشار بریده شد"
         ),
     ).rounded()
 

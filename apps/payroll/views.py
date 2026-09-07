@@ -1378,6 +1378,7 @@ def commission_allocations(request, pk):
             "plan": plan,
             "allocation": allocation,
             "is_manual": bool(allocation and allocation.is_manual),
+            "excluded": plan.excluded,
         })
 
     return render(
@@ -1405,7 +1406,9 @@ def commission_allocations(request, pk):
 @require_POST
 def commission_allocations_save(request, pk):
     """ذخیره تقسیم دستی، یا برگرداندن همه به تقسیم خودکار."""
-    from apps.payroll.commission import build_plan, commission_totals
+    from apps.payroll.commission import (
+        build_plan, commission_totals, converts_commission,
+    )
     from apps.payroll.engine.runner import (
         resolve_effective_params, resolve_legal_parameter,
     )
@@ -1435,6 +1438,9 @@ def commission_allocations_save(request, pk):
     for employee in Employee.objects.filter(pk__in=totals.keys()):
         prefix = f"emp__{employee.pk}"
         if f"{prefix}__mission" not in request.POST:
+            continue
+        # مستثنا شده روی پروندهٔ خودش — تقسیم دستی هم برایش ثبت نمی‌شود.
+        if not converts_commission(employee):
             continue
         ctx = contexts.get(employee.pk)
         plan = build_plan(

@@ -25,7 +25,9 @@ class LegalParameterForm(BootstrapMixin, forms.ModelForm):
             "ins_employee_rate", "ins_employer_rate", "unemployment_rate",
             "ins_ceiling_factor",
             "overtime_factor", "night_factor", "friday_factor", "holiday_factor",
-            "monthly_days", "daily_work_hours", "monthly_work_hours", "leave_day_minutes",
+            "monthly_days", "daily_work_hours", "monthly_work_hours",
+            "monthly_work_minutes", "seniority_monthly_days",
+            "leave_day_minutes", "annual_leave_days",
             "overtime_base", "mission_base",
             "rounding_unit", "deduct_insurance_from_tax_base",
         ]
@@ -46,7 +48,9 @@ class LegalParameterForm(BootstrapMixin, forms.ModelForm):
             "overtime_factor", "night_factor", "friday_factor", "holiday_factor",
         ]),
         ("مبناهای زمانی و گرد کردن", [
-            "monthly_days", "daily_work_hours", "monthly_work_hours", "leave_day_minutes",
+            "monthly_days", "daily_work_hours", "monthly_work_hours",
+            "monthly_work_minutes", "seniority_monthly_days",
+            "leave_day_minutes", "annual_leave_days",
             "overtime_base", "mission_base",
             "rounding_unit", "deduct_insurance_from_tax_base",
         ]),

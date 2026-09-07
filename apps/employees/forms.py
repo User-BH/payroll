@@ -37,6 +37,7 @@ class EmployeeForm(BootstrapMixin, forms.ModelForm):
             "insurance_number", "mobile", "email", "address", "postal_code",
             "hire_date", "termination_date", "rehire_date", "status",
             "is_insurance_exempt", "insurance_exempt_reason", "prior_service_months",
+            "commission_to_mission",
         ]
         widgets = {"address": forms.Textarea(attrs={"rows": 2})}
 

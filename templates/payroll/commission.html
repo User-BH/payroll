@@ -68,6 +68,9 @@
                 <div>
                   <b>{{ row.employee.full_name }}</b>
                   <small>کد {{ row.employee.personnel_code|fadigits }}{% if row.is_manual %} · دستی{% endif %}</small>
+                  {% if row.excluded %}
+                    <small><span class="badge wait" title="در پروندهٔ این پرسنل، «تبدیل پورسانت به مأموریت و اضافه‌کاری» خاموش است">مستثنا از تبدیل</span></small>
+                  {% endif %}
                 </div>
               </div>
             </td>
@@ -80,7 +83,7 @@
               <input class="input num" style="width:145px; min-width:145px; font-size:12.5px;"
                      name="emp__{{ row.employee.pk }}__mission" inputmode="decimal"
                      value="{{ row.plan.to_mission|floatformat:"0" }}"
-                     {% if period.is_locked %}readonly{% endif %}>
+                     {% if period.is_locked or row.excluded %}readonly{% endif %}>
             </td>
             <td data-label="روز معادل" class="num">{{ row.plan.mission_days|fadec }}</td>
             <td data-label="ظرفیت اضافه‌کاری" class="num" style="color:var(--muted); white-space:nowrap;">
@@ -91,7 +94,7 @@
               <input class="input num" style="width:145px; min-width:145px; font-size:12.5px;"
                      name="emp__{{ row.employee.pk }}__overtime" inputmode="decimal"
                      value="{{ row.plan.to_overtime|floatformat:"0" }}"
-                     {% if period.is_locked %}readonly{% endif %}>
+                     {% if period.is_locked or row.excluded %}readonly{% endif %}>
             </td>
             <td data-label="ساعت معادل" class="num">{{ row.plan.overtime_hours|fadec }}</td>
             <td data-label="مانده" class="num" style="font-weight:800; white-space:nowrap;">{{ row.plan.remaining|rial }}</td>

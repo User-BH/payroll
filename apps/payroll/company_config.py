@@ -109,6 +109,10 @@ RATES = {"EID": "5", "SEVERANCE": "2.5", "LEAVE_PAY": "16"}
 # برای ساعت می‌کرد، پس واحد تازه‌ای لازم نبود.
 DAY_QUANTITY = ["BASE_SALARY", "MISSION", "MISSION2", "MISSION_SURPLUS"]
 
+# تأخیر ورود به ساعت و دقیقه چاپ می‌شود، نه به روز و نه به ریال: مقدارش
+# ساعتِ تأخیر است و با واحد «ریال» عددِ «۲» کنار مبلغ بی‌معنا می‌نشست.
+HOUR_QUANTITY = ["LATE", "OVERTIME", "OVERTIME_SURPLUS"]
+
 NO_QUANTITY = [
     "HOUSING", "FOOD", "MARRIAGE", "DIFF", "PHONE", "LEAVE_PAY",
     "PREV_CLAIM", "SENIORITY",
@@ -374,6 +378,14 @@ def configure(company, stdout=None):
     if changed:
         day_unit.update(display_unit="DAY")
         say("تعدادشان با واحد «روز» چاپ می‌شود: " + "، ".join(changed))
+
+    hour_unit = SalaryComponent.objects.filter(
+        company=company, code__in=HOUR_QUANTITY
+    ).exclude(display_unit="HOUR")
+    changed = list(hour_unit.values_list("name", flat=True))
+    if changed:
+        hour_unit.update(display_unit="HOUR")
+        say("تعدادشان با واحد «ساعت» چاپ می‌شود: " + "، ".join(changed))
 
     # --------------------------- مازاد ثابت: از «مبالغ دستی» به «مزایای مستمر»
     #

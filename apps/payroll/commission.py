@@ -31,7 +31,8 @@ class AllocationPlan:
     """نتیجهٔ یک تخصیص — بدون دست زدن به دیتابیس، تا تست‌پذیر بماند."""
 
     def __init__(self, source, mission_rate, mission_max_days, overtime_rate,
-                 overtime_max_hours, used_mission_days=ZERO, used_overtime_hours=ZERO):
+                 overtime_max_hours, used_mission_days=ZERO, used_overtime_hours=ZERO,
+                 excluded=False):
         self.source = quantize_rial(source or ZERO)
         self.mission_rate = Decimal(mission_rate or ZERO)
         self.mission_max_days = Decimal(mission_max_days or ZERO)
@@ -39,6 +40,12 @@ class AllocationPlan:
         self.overtime_max_hours = Decimal(overtime_max_hours or ZERO)
         self.used_mission_days = Decimal(used_mission_days or ZERO)
         self.used_overtime_hours = Decimal(used_overtime_hours or ZERO)
+
+        # این نفر از تبدیل مستثنا شده است — کلیدش روی خودِ پرسنل است.
+        # ظرفیت را صفر می‌کند، پس همهٔ مسیرها (تخصیص خودکار، تقسیم دستی،
+        # صفحهٔ تخصیص) بدون شرطِ جداگانه همین را می‌بینند و کلِ پورسانت در
+        # «مانده» می‌ماند.
+        self.excluded = bool(excluded)
 
         self.to_mission = ZERO
         self.to_overtime = ZERO
@@ -53,6 +60,8 @@ class AllocationPlan:
     @property
     def mission_capacity(self) -> Decimal:
         """حداکثر مبلغ قابل تخصیص به حق مأموریت = مبنای ماه × روز آزاد."""
+        if self.excluded:
+            return ZERO
         return quantize_rial(self.mission_rate * self.mission_free_days)
 
     @property
@@ -66,6 +75,8 @@ class AllocationPlan:
         سند صریح است: «این جابه‌جایی نباید نامحدود باشد». نبودِ سقف را
         «بی‌نهایت» تفسیر نمی‌کنیم.
         """
+        if self.excluded:
+            return ZERO
         return quantize_rial(self.overtime_rate * self.overtime_free_hours)
 
     # ------------------------------------------------------------ تخصیص
@@ -201,6 +212,15 @@ def commission_totals(period, contexts=None):
     return result
 
 
+def converts_commission(employee) -> bool:
+    """آیا پورسانت این نفر به مأموریت و اضافه‌کاری تبدیل می‌شود؟
+
+    کلید روی **خودِ پرسنل** است نه روی دوره. استثنا با «تخصیص دستیِ صفر» در
+    یک ماه ساخته نمی‌شود، چون ماه بعد دوباره تبدیل می‌شد و کسی نمی‌فهمید.
+    """
+    return bool(getattr(employee, "commission_to_mission", True))
+
+
 def build_plan(period, employee, params, source, timesheet=None, contract=None):
     """ساخت نقشهٔ تخصیص با مبناها و سقف‌های همان ماه.
 
@@ -234,6 +254,7 @@ def build_plan(period, employee, params, source, timesheet=None, contract=None):
         overtime_max_hours=params.overtime_max_hours,
         used_mission_days=used_mission_days,
         used_overtime_hours=used_overtime_hours,
+        excluded=not converts_commission(employee),
     )
 
 

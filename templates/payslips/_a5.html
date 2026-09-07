@@ -73,9 +73,20 @@
             {{ line.component_name }}
             {% if detailed and line.explanation %}<em class="why">{{ line.explanation }}</em>{% endif %}
           </td>
-          {# اقلام روزی مبلغ ریالی ندارند؛ اثرشان در روز کارکرد اعمال شده است #}
+          {% comment %}
+            اقلام روزیِ **بدون مبلغ** (غیبت، مرخصی بدون حقوق) فقط تعداد نشان
+            می‌دهند؛ اثرشان در روز کارکرد اعمال شده است.
+
+            ولی قلمی مثل کسر تأخیر هم مبلغ دارد و هم مدت. تا امروز واحدِ
+            زمانی، مبلغ را **جای خودش می‌نشست** و عدد ریالی از فیش غایب
+            می‌شد. حالا مبلغ می‌ماند و مدت زیرش می‌آید.
+          {% endcomment %}
           <td class="amt">
-            {% if line.display_unit == 'DAY' %}{{ line.quantity|fadec }} روز
+            {% if line.amount %}
+              {{ line.amount|rial }}
+              {% if line.display_unit == 'DAY' %}<em class="qty-note">{{ line.quantity|fadec }} روز</em>
+              {% elif line.display_unit == 'HOUR' %}<em class="qty-note">{{ line.quantity|hm }}</em>{% endif %}
+            {% elif line.display_unit == 'DAY' %}{{ line.quantity|fadec }} روز
             {% elif line.display_unit == 'HOUR' %}{{ line.quantity|hm }}
             {% else %}{{ line.amount|rial }}{% endif %}
           </td>

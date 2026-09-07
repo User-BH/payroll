@@ -89,6 +89,21 @@
            title="خالی = از ساعت و مبنای سال حساب شود">
   </td>
 
+  {% comment %}
+    تأخیر ورود — ساعت و دقیقه جدا، چون فرمول کسر برای هرکدام مخرج جدا دارد
+    (ساعتِ کار ماهانه برای ساعت، دقیقهٔ کار ماهانه برای دقیقه). با یک ورودیِ
+    یکجا آن تفاوت گم می‌شد.
+  {% endcomment %}
+  <td data-label="تأخیر ورود">
+    <div style="display:flex; gap:2px; align-items:center; justify-content:center;">
+      <input class="input-cell" style="width:36px;" name="late_m" value="{{ ts.late_minutes|default:0 }}"
+             {% if not period.is_editable %}readonly{% endif %} inputmode="numeric" title="دقیقه">
+      <span style="color:var(--muted); font-size:10px;">:</span>
+      <input class="input-cell" style="width:40px;" name="late_h" value="{{ ts.late_hours|floatformat:"-2" }}"
+             {% if not period.is_editable %}readonly{% endif %} inputmode="decimal" title="ساعت">
+    </div>
+  </td>
+
   {% comment %} ستون‌های تازه — از جدول اقلام کارکرد می‌آیند، نه از این قالب {% endcomment %}
   {% for cell in ts.extra_cells %}
   <td data-label="{{ cell.item.name }}"><input class="input-cell" name="{{ cell.field }}"

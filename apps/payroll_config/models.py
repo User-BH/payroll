@@ -120,7 +120,20 @@ class LegalParameter(models.Model):
     )
     monthly_work_hours = models.DecimalField(
         "ساعات کار ماهانه", max_digits=6, decimal_places=2, default=Decimal("220"),
-        help_text="مبنای اضافه‌کاری وقتی «مبنای ساعتی» روی حالت ماهانه باشد",
+        help_text="مبنای اضافه‌کاری وقتی «مبنای ساعتی» روی حالت ماهانه باشد، و "
+                  "مخرجِ بخشِ ساعتِ کسر تأخیر",
+    )
+    # مخرجِ **دقیقه** جدا از مخرجِ ساعت است و از آن درنمی‌آید: ۲۲۰ ساعت یعنی
+    # ۱۳۲۰۰ دقیقه، ولی فایل شرکت دقیقه را بر ۱۱۴۴۰ تقسیم می‌کند (۲۶ روز ×
+    # ۴۴۰ دقیقه). این حدس نیست — روی ۷۴ سطرِ کسر تأخیرِ پنج ماهِ اردبیل
+    # آزموده شد: ۱۱۴۴۰ هر ۷۴ سطر را می‌خوانَد و ۱۳۲۰۰ نه.
+    #
+    # پس عدد پارامتر شد نه ثابتِ کد، تا اگر شرکت روزی روش را عوض کرد بدون
+    # تغییر کد قابل تنظیم باشد.
+    monthly_work_minutes = models.DecimalField(
+        "دقایق کار ماهانه", max_digits=8, decimal_places=2, default=Decimal("11440"),
+        help_text="مخرجِ بخشِ دقیقهٔ کسر تأخیر. در فایل شرکت ۱۱۴۴۰ است "
+                  "(۲۶ روز × ۴۴۰ دقیقه)، نه ۱۳۲۰۰",
     )
 
     # --- روشِ محاسبه‌ای که بین شرکت‌ها فرق می‌کند
@@ -202,6 +215,7 @@ class LegalParameter(models.Model):
             "marriage_allowance", "seniority_daily", "ins_employee_rate", "ins_employer_rate", "unemployment_rate",
             "ins_ceiling_factor", "overtime_factor", "night_factor", "friday_factor",
             "holiday_factor", "monthly_days", "daily_work_hours", "monthly_work_hours",
+            "monthly_work_minutes",
             "overtime_base", "mission_base", "rounding_unit",
         ]
         data = {name: str(getattr(self, name)) for name in fields}

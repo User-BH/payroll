@@ -121,7 +121,9 @@ def ensure_commission_allocations(period, params, timesheets, contexts=None):
     تخصیص‌های خودکارِ قدیمی دوباره ساخته می‌شوند چون ممکن است مبنای ماه یا
     مبلغ پورسانت از آخرین اجرا عوض شده باشد.
     """
-    from apps.payroll.commission import build_plan, commission_totals
+    from apps.payroll.commission import (
+        build_plan, commission_totals, converts_commission,
+    )
     from apps.payroll.models import CommissionAllocation
 
     if contexts is None:
@@ -133,16 +135,25 @@ def ensure_commission_allocations(period, params, timesheets, contexts=None):
     }
 
     result = {}
+    excluded = set()
     for employee_id, source in totals.items():
         current = existing.get(employee_id)
-        if current is not None and current.is_manual:
-            result[employee_id] = current
-            continue
         employee = (
             current.employee if current is not None
             else _employee_by_id(period, employee_id)
         )
         if employee is None:
+            continue
+
+        # کلیدِ «تبدیل نشود» روی خودِ پرسنل، از تقسیم دستیِ یک ماه قوی‌تر است:
+        # تصمیمی است که یک بار گرفته شده و باید هر ماه برقرار بماند. پس حتی
+        # رکورد دستی هم پاک می‌شود، وگرنه ماهِ بعد دوباره تبدیل می‌شد.
+        if not converts_commission(employee):
+            excluded.add(employee_id)
+            continue
+
+        if current is not None and current.is_manual:
+            result[employee_id] = current
             continue
         ctx = contexts.get(employee_id)
         plan = build_plan(
@@ -160,6 +171,10 @@ def ensure_commission_allocations(period, params, timesheets, contexts=None):
     if stale:
         CommissionAllocation.objects.filter(
             period=period, employee_id__in=stale, is_manual=False
+        ).delete()
+    if excluded:
+        CommissionAllocation.objects.filter(
+            period=period, employee_id__in=excluded
         ).delete()
     return result
 

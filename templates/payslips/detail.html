@@ -55,7 +55,7 @@
           <td class="num">{{ line.base_amount|rial }}</td>
           <td class="num">{{ line.quantity|fadec }}</td>
           <td class="num">{{ line.rate|fadec }}</td>
-          <td class="num" style="font-weight:800; color:var(--red);">{% if line.display_unit == 'DAY' %}{{ line.quantity|fadec }} روز{% elif line.display_unit == 'HOUR' %}{{ line.quantity|fadec }} ساعت{% else %}{{ line.amount|rial }}{% endif %}</td>
+          <td class="num" style="font-weight:800; color:var(--red);">{% if line.amount %}{{ line.amount|rial }}{% if line.display_unit == 'DAY' %} <small style="font-weight:600; opacity:.75;">({{ line.quantity|fadec }} روز)</small>{% elif line.display_unit == 'HOUR' %} <small style="font-weight:600; opacity:.75;">({{ line.quantity|hm }})</small>{% endif %}{% elif line.display_unit == 'DAY' %}{{ line.quantity|fadec }} روز{% elif line.display_unit == 'HOUR' %}{{ line.quantity|hm }}{% else %}{{ line.amount|rial }}{% endif %}</td>
         </tr>
         {% empty %}
         <tr><td colspan="5" style="color:var(--muted);">کسوری ثبت نشده است.</td></tr>

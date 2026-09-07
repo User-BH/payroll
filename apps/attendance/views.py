@@ -40,6 +40,10 @@ EDITABLE_FIELDS = [
 LEAVE_FIELDS = ["leave_d", "leave_h", "leave_m"]
 OVERTIME_FIELDS = ["ot_d", "ot_h", "ot_m"]
 
+# تأخیر ورود دوتایی است (ساعت و دقیقه) و **جمع نمی‌شود**: فرمول کسر برای
+# ساعت و دقیقه دو مخرجِ متفاوت دارد، پس هرکدام ستون خودش را دارد.
+LATE_FIELDS = ["late_h", "late_m"]
+
 
 def _ensure_timesheets(period):
     """برای هر پرسنل فعالِ دارای قرارداد، یک رکورد کارکرد بساز اگر نیست.
@@ -303,6 +307,12 @@ def timesheet_save(request, pk):
         timesheet.leave_minutes = minutes_from_parts(request.POST, "leave", day_minutes)
     if any(f in request.POST for f in OVERTIME_FIELDS):
         timesheet.overtime_minutes = minutes_from_parts(request.POST, "ot", day_minutes)
+
+    if any(f in request.POST for f in LATE_FIELDS):
+        if "late_h" in request.POST:
+            timesheet.late_hours = max(parse_decimal(request.POST.get("late_h")), 0)
+        if "late_m" in request.POST:
+            timesheet.late_minutes = int(max(parse_decimal(request.POST.get("late_m")), 0))
 
     # مبلغ اعلامیِ اضافه‌کاری. خالی یعنی «خودت از ساعت حساب کن» و صفر یعنی
     # «صفر است» — پس رشتهٔ خالی به None تبدیل می‌شود، نه به صفر.
